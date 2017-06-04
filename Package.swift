@@ -3,5 +3,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "LittleCMS"
+    name: "LittleCMS",
+    targets: [
+        Target(name: "LittleCMS")
+    ],
+    dependencies: [
+        .Package(url: "https://github.com/PureSwift/CLCMS.git", majorVersion: 1)
+    ]
 )
