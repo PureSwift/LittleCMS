@@ -33,11 +33,11 @@ public final class ColorTransform {
     
     // MARK: - Accessors
     
-    public lazy var context: Context? = {
+    public var context: Context? {
         
         guard let internalPointer = cmsGetTransformContextID(self.internalPointer)
             else { return nil }
         
-        return Context(internalPointer)
-    }()
+        return cmsGetSwiftContext(internalPointer)
+    }
 }

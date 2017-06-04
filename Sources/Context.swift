@@ -21,64 +21,62 @@ public final class Context {
     
     // MARK: - Properties
     
-    internal let internalPointer: cmsContext
+    internal private(set) var internalPointer: cmsContext!
     
     // MARK: - Initialization
     
     deinit {
         
-        cmsDeleteContext(internalPointer)
+        if let internalPointer = self.internalPointer {
+            
+            cmsDeleteContext(internalPointer)
+        }
     }
     
-    internal init(_ internalPointer: cmsContext) {
+    /// Dummy initializer to satisfy Swift
+    private init() { }
+    
+    //// Creates a new context with optional associated plug-ins.
+    /// that will be forwarded to plug-ins and logger.
+    public convenience init?(plugin: UnsafeMutableRawPointer? = nil) {
+        
+        self.init()
+        
+        let userData = cmsCreateContextUserData(self)
+        
+        guard let internalPointer = cmsCreateContext(plugin, userData)
+            else { return nil }
         
         self.internalPointer = internalPointer
     }
     
-    /// Creates a new context with optional associated plug-ins. 
-    /// Caller may specify an optional pointer to user-defined data 
+    // MARK: - Accessors
+    
+    /// Duplicates a context with all associated plug-ins.
+    /// Caller may specify an optional pointer to user-defined data
     /// that will be forwarded to plug-ins and logger.
-    public init(plugin: UnsafeMutableRawPointer? = nil, userData: UnsafeMutableRawPointer? = nil) {
+    public var copy: Context? {
         
-        self.internalPointer = cmsCreateContext(plugin, userData)
-    }
-    
-    // MARK: - Methods
-    
-    /// Duplicates a context with all associated plug-ins. 
-    /// Caller may specify an optional pointer to user-defined data 
-    /// that will be forwarded to plug-ins and logger.
-    public func copy(with userData: UnsafeMutableRawPointer? = nil) -> Context? {
+        let new = Context()
+        
+        let userData = cmsCreateContextUserData(new)
         
         guard let internalPointer = cmsDupContext(self.internalPointer, userData)
             else { return nil }
         
-        return Context(internalPointer)
-    }
-    
-    // MARK: - Accessors
-    
-    /// Returns the user data associated to the given `Context`,
-    /// or `nil` if no user data was attached on context creation.
-    private var userData: UnsafeMutableRawPointer? {
+        new.internalPointer = internalPointer
         
-        return cmsGetContextUserData(internalPointer)
+        new.errorLog = errorLog
+        
+        return new
     }
     
+    /// The handler for error logs.
     public var errorLog: ErrorLog? {
         
         didSet {
             
-            let log: cmsLogErrorHandlerFunction?
-            
-            if let newValue = errorLog {
-                
-                log = logErrorHandler
-                
-            } else {
-                
-                log = nil
-            }
+            let log: cmsLogErrorHandlerFunction? = errorLog != nil ? logErrorHandler : nil
             
             // set new error handler
             cmsSetLogErrorHandlerTHR(internalPointer, log)
@@ -88,7 +86,51 @@ public final class Context {
 
 // MARK: - Private Functions
 
-private func logErrorHandler(_ internalPointer: cmsContext?, _ error: cmsUInt32Number, message: UnsafePointer<Int8>?) {
+/// Creates the user data pointer for use with Little CMS functions.
+@_silgen_name("_cmsCreateContextUserDataFromSwiftContext")
+private func cmsCreateContextUserData(_ context: Context) -> UnsafeMutableRawPointer {
     
+    let unmanaged = Unmanaged.passUnretained(context)
     
+    let objectPointer = unmanaged.toOpaque()
+    
+    return objectPointer
+}
+
+/// Gets the Swift `Context` object from the Little CMS opaque type's associated user data.
+/// This function will crash if the context was not originally created in Swift.
+@_silgen_name("_cmsGetSwiftContext")
+internal func cmsGetSwiftContext(_ contextID: cmsContext) -> Context {
+    
+    guard let userData = cmsGetContextUserData(contextID)
+        else { fatalError("LittleCMS context doesn't have any associated user data") }
+    
+    let unmanaged = Unmanaged<Context>.fromOpaque(userData)
+    
+    let context = unmanaged.takeUnretainedValue()
+    
+    return context
+}
+
+/// Function for logging
+@_silgen_name("_cmsSwiftLogErrorHandler")
+private func logErrorHandler(_ internalPointer: cmsContext?, _ error: cmsUInt32Number, _ messageBuffer: UnsafePointer<Int8>?) {
+    
+    // get swift context object
+    let context = cmsGetSwiftContext(internalPointer!)
+    
+    let error = LittleCMSError(rawValue: error)
+    
+    let message: String
+    
+    if let cString = messageBuffer {
+        
+        message = String(cString: cString)
+        
+    } else {
+        
+        message = ""
+    }
+    
+    context.errorLog?(message, error)
 }

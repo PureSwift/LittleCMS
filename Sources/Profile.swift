@@ -31,174 +31,193 @@ public final class Profile {
     
     public init?(file: String, access: FileAccess) {
         
-        guard let profile = cmsOpenProfileFromFile(file, access.rawValue)
+        guard let internalPointer = cmsOpenProfileFromFile(file, access.rawValue)
             else { return nil }
         
-        self.profile = profile
-        self.data = nil
+        self.internalPointer = internalPointer
     }
     
     public init?(data: Data) {
         
-        guard let profile = data.withUnsafeBytes({ cmsOpenProfileFromMem($0, cmsUInt32Number(data.count)) })
+        guard let internalPointer = data.withUnsafeBytes({ cmsOpenProfileFromMem($0, cmsUInt32Number(data.count)) })
             else { return nil }
         
-        self.profile = profile
-        self.data = data
+        self.internalPointer = internalPointer
     }
     
-    public init(gray: (white: (Double, Double, Double), black: (Double, Double, Double)), gamma: Double) {
+    /// Creates a gray profile based on White point and transfer function. 
+    /// It populates following tags:
+    /// - `cmsSigProfileDescriptionTag`
+    /// - `cmsSigMediaWhitePointTag`
+    /// - `cmsSigGrayTRCTag`
+    ///
+    /// - Parameter whitePoint: The white point of the gray device or space.
+    /// - Parameter transferFunction: tone curve describing the device or space gamma.
+    /// - Returns: An ICC profile object on success, `nil` on error.
+    public init?(grey whitePoint: cmsCIExyY, toneCurve: ToneCurve, context: Context? = nil) {
         
-        var whiteCIExyY = cmsCIExyY(CIEXYZ: gray.white)
+        var whiteCIExyY = whitePoint
         
-        let table = cmsBuildGamma(nil, gamma)
+        let table = toneCurve.internalPointer
         
-        defer { cmsFreeToneCurve(table) }
-        
-        guard let profile = cmsCreateGrayProfile(&whiteCIExyY, table)
-            else { fatalError("Could not create calibrated grey color space") }
-        
-        self.profile = profile
-        self.data = nil
+        if let context = context {
+            
+            guard let internalPointer = cmsCreateGrayProfileTHR(context.internalPointer, &whiteCIExyY, table)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            
+        } else {
+            
+            guard let internalPointer = cmsCreateGrayProfile(&whiteCIExyY, table)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+        }
     }
     
     // MARK: - Accessors
     
-    public lazy var context: Context? = {
+    public var context: Context? {
         
         guard let internalPointer = cmsGetProfileContextID(self.internalPointer)
             else { return nil }
         
-        return Context(internalPointer)
-    }()
-    
-    public var numberOfComponents: UInt {
-        
-        return UInt(cmsChannelsOf(cmsGetColorSpace(profile)))
+        return cmsGetSwiftContext(internalPointer)
     }
     
-    public var model: Model {
+    public var signature: ColorSpaceSignature {
         
-        let signature = cmsGetColorSpace(profile)
+        return cmsGetColorSpace(internalPointer)
+    }
+    
+    /// Profile connection space used by the given profile, using the ICC convention.
+    public var connectionSpace: ColorSpaceSignature {
         
-        switch signature {
-            
-        case cmsSigGrayData:
-            return .monochrome
-        case cmsSigRgbData:
-            return .rgb
-        case cmsSigCmykData:
-            return .cmyk
-        case cmsSigLabData:
-            return .lab
-        default:
-            return .unknown
-        }
+        get { return cmsGetPCS(internalPointer) }
+        
+        set { cmsSetPCS(internalPointer, newValue) }
+    }
+    
+    // MARK: Tags
+    
+    /// Returns the number of tags present in a given profile.
+    public var tagCount: Int {
+        
+        return Int(cmsGetTagCount(internalPointer))
+    }
+    
+    // MARK: - Methods
+    
+    // Returns `true` if a tag with signature sig is found on the profile. 
+    /// Useful to check if a profile contains a given tag.
+    public func contains(_ tag: cmsTagSignature) -> Bool {
+        
+        return cmsIsTag(internalPointer, tag) != 0
+    }
+    
+    /// Creates a directory entry on tag sig that points to same location as tag destination.
+    /// Using this function you can collapse several tag entries to the same block in the profile.
+    public func link(tag: cmsTagSignature, to destination: cmsTagSignature) -> Bool {
+        
+        cmsLinkTag(internalPointer, tag, destination)
+    }
+    
+    /// Returns the tag linked to, in the case two tags are sharing same resource,
+    /// or `nil` if the tag is not linked to any other tag.
+    public func tagLinked(to tag: cmsTagSignature) -> cmsTagSignature? {
+        
+        let tag = cmsTagLinkedTo(internalPointer, tag)
+        
+        guard tag.rawValue != 0 else { return nil }
+        
+        return tag
+    }
+    
+    /// Saves the contents of a profile to `Data`.
+    public func save() -> Data? {
+        
+        var length: cmsUInt32Number = 0
+        
+        guard cmsSaveProfileToMem(internalPointer, nil, &length) != 0
+            else { return nil }
+        
+        var data = Data(count: Int(length))
+        
+        guard data.withUnsafeMutableBytes({ cmsSaveProfileToMem(self.internalPointer, $0, nil) }) != 0
+            else { return nil }
+        
+        return data
     }
     
     // MARK: - Subscript
     
-    public subscript (infoType: ProfileInfo) -> String? {
+    public subscript (infoType: Info) -> String? {
         
         return self[infoType, (cmsNoLanguage, cmsNoCountry)]
     }
     
-    public subscript (infoType: ProfileInfo, locale: (languageCode: String, countryCode: String)) -> String? {
+    public subscript (infoType: Info, locale: (languageCode: String, countryCode: String)) -> String? {
         
         let info = cmsInfoType(infoType)
         
         // get buffer size
-        let bufferSize = cmsGetProfileInfo(profile, info, locale.languageCode, locale.countryCode, nil, 0)
+        let bufferSize = cmsGetProfileInfo(internalPointer, info, locale.languageCode, locale.countryCode, nil, 0)
         
         guard bufferSize > 0 else { return nil }
         
         // allocate buffer and get data
         var data = Data(repeating: 0, count: Int(bufferSize))
         
-        guard data.withUnsafeMutableBytes({ cmsGetProfileInfo(profile, info, locale.languageCode, locale.countryCode, UnsafeMutablePointer<wchar_t>($0), bufferSize) }) != 0 else { fatalError("Cannot get data for \(infoType)") }
+        guard data.withUnsafeMutableBytes({ cmsGetProfileInfo(internalPointer, info, locale.languageCode, locale.countryCode, UnsafeMutablePointer<wchar_t>($0), bufferSize) }) != 0 else { fatalError("Cannot get data for \(infoType)") }
         
         assert(wchar_t.self == Int32.self, "wchar_t is \(wchar_t.self)")
         
         return String(littleCMS: data)
     }
     
-    public subscript (tag: cmsTagSignature) -> String? {
+    public subscript (tag: UInt) -> cmsTagSignature? {
+        
+        let tag = cmsGetTagSignature(internalPointer, cmsUInt32Number(tag))
+        
+        guard tag.rawValue != 0 else { return nil }
+        
+        return tag
+    }
+    
+    public subscript (tag: cmsTagSignature) -> Data? {
         
         // get buffer size
-        let bufferSize = cmsReadRawTag(profile, tag, nil, 0)
+        let bufferSize = cmsReadRawTag(internalPointer, tag, nil, 0)
         
         guard bufferSize > 0 else { return nil }
         
         // allocate buffer and get data
         var data = Data(repeating: 0, count: Int(bufferSize))
         
-        guard data.withUnsafeMutableBytes({ cmsReadRawTag(profile, tag, UnsafeMutablePointer<wchar_t>($0), cmsUInt32Number(bufferSize)) }) != 0 else { fatalError("Cannot get data for tag \(tag)") }
+        guard data.withUnsafeMutableBytes({ cmsReadRawTag(internalPointer, tag, $0, cmsUInt32Number(bufferSize)) }) != 0
+            else { fatalError("Cannot get data for tag \(tag.rawValue)") }
         
-        assert(wchar_t.self == Int32.self, "wchar_t is \(wchar_t.self)")
-        
-        return String(littleCMS: data)
+        return data
     }
 }
 
 // MARK: - Equatable
 
-extension ColorSpace: Equatable {
+extension Profile: Equatable {
     
-    public static func == (lhs: ColorSpace, rhs: ColorSpace) -> Bool {
+    public static func == (lhs: Profile, rhs: Profile) -> Bool {
         
         // FIXME
-        return lhs.profile == rhs.profile
+        return lhs.internalPointer == rhs.internalPointer
     }
-}
-
-// MARK: - Singletons
-
-public extension ColorSpace {
-    
-    /// Device-independent RGB color space.
-    static let genericRGB: ColorSpace =  ColorSpace(profile: cmsCreate_sRGBProfile())
-    
-    /// Grayscale color space with gamma 2.2 and a D65 white point.
-    static let genericGray: ColorSpace = ColorSpace(gray: ((0.9504, 1.0000, 1.0888), (0,0,0)), gamma: 2.2)
 }
 
 // MARK: - Supporting Types
 
-public extension ColorSpace {
+public extension Profile {
     
-    // CoreGraphics API
-    
-    /// Models for color spaces.
-    public enum Model {
-        
-        /// An unknown color space model.
-        case unknown
-        
-        /// A monochrome color space model.
-        case monochrome
-        
-        /// An RGB color space model.
-        case rgb
-        
-        /// A CMYK color space model.
-        case cmyk
-        
-        /// A Lab color space model.
-        case lab
-        
-        /// A DeviceN color space model.
-        case deviceN
-        
-        /// An indexed color space model.
-        case indexed
-        
-        /// A pattern color space model.
-        case pattern
-    }
-    
-    // LittleCMS API
-    
-    public enum ProfileInfo {
+    public enum Info {
         
         case description
         case manufacturer
@@ -215,7 +234,7 @@ public extension ColorSpace {
 
 // MARK: - Little CMS Extensions / Helpers
 
-extension String {
+fileprivate extension String {
     
     init?(littleCMS data: Data) {
         
@@ -243,9 +262,9 @@ extension String {
     }
 }
 
-extension cmsInfoType {
+public extension cmsInfoType {
     
-    init(_ info: ColorSpace.ProfileInfo) {
+    init(_ info: Profile.Info) {
         
         switch info {
         case .description:  self = cmsInfoDescription
@@ -253,22 +272,5 @@ extension cmsInfoType {
         case .model:        self = cmsInfoModel
         case .copyright:    self = cmsInfoCopyright
         }
-    }
-}
-
-extension cmsCIExyY {
-    
-    init(CIExyz point: (Double, Double, Double)) {
-        
-        self.init(x: point.0, y: point.1, Y: 1)
-    }
-    
-    init(CIEXYZ point: (Double, Double, Double)) {
-        
-        var XYZ = cmsCIEXYZ(X: point.0, Y: point.1, Z: point.2)
-        
-        self.init()
-        
-        cmsXYZ2xyY(&self, &XYZ)
     }
 }
