@@ -43,9 +43,10 @@ public final class ColorTransform {
     
     public var context: Context? {
         
-        guard let internalPointer = cmsGetTransformContextID(self.internalPointer)
-            else { return nil }
-        
-        return cmsGetSwiftContext(internalPointer)
+        return _context()
     }
+}
+
+extension ColorTransform: ContextualHandle {
+    static var cmsGetContextID: cmsGetContextIDFunction { return cmsGetTransformContextID }
 }
