@@ -26,9 +26,17 @@ public final class ColorTransform {
         self.internalPointer = internalPointer
     }
     
-    public init() {
+    public init(input: (profile: Profile, format: UInt),
+                output: (profile: Profile, format: UInt),
+                intent: cmsUInt32Number,
+                flags: cmsUInt32Number) {
         
-        //self.internalPointer = cmsCreateTransform(<#T##Input: cmsHPROFILE!##cmsHPROFILE!#>, <#T##InputFormat: cmsUInt32Number##cmsUInt32Number#>, <#T##Output: cmsHPROFILE!##cmsHPROFILE!#>, <#T##OutputFormat: cmsUInt32Number##cmsUInt32Number#>, <#T##Intent: cmsUInt32Number##cmsUInt32Number#>, <#T##dwFlags: cmsUInt32Number##cmsUInt32Number#>)
+        self.internalPointer = cmsCreateTransform(input.profile.internalPointer,
+                                                  cmsUInt32Number(input.format),
+                                                  output.profile.internalPointer,
+                                                  cmsUInt32Number(output.format),
+                                                  intent,
+                                                  flags)
     }
     
     // MARK: - Accessors

@@ -21,18 +21,9 @@ public extension Tag {
 
 // MARK: - Parsing
 
-/// Swift objects that can be parse as tag values
-internal protocol TagObjectConvertible: class {
-    
-    associatedtype InternalPointer
-    
-    init(_ internalPointer: InternalPointer)
-    
-    associatedtype InternalPointer
-}
-
 internal extension Profile {
     
+    /// Reads the tag value and attempts to get value from pointer.
     func readCasting<Value>(_ tag: Tag) -> Value? {
         
         guard let buffer = cmsReadTag(internalPointer, tag)
@@ -43,12 +34,14 @@ internal extension Profile {
         return pointer[0]
     }
     
-    func readCopying<Value: TagObjectConvertible>(_ tag: Tag) -> Value? {
+    /// Get the object internal handle and returns a duplicated object.
+    func readObject<Value: CopyableHandle>(_ tag: Tag) -> Value? {
         
-        guard let internalPointer = readCasting(tag) as Value
+        guard let internalPointer = readCasting(tag) as Value.InternalPointer?, // get internal pointer / handle
+            let newInternalPointer = Value.cmsDuplicate(internalPointer) // create copy to not corrupt handle internals
             else { return nil }
         
-        return Value(internalPointer).copy
+        return Value(newInternalPointer)
     }
 }
 
@@ -58,7 +51,7 @@ public extension Profile {
     
     public var aToB0: Pipeline? {
         
-        
+        return readObject(cmsSigAToB0Tag)
     }
     
     /// Tag: `cmsSigBlueColorantTag`

@@ -27,21 +27,35 @@ public final class Pipeline {
         self.internalPointer = internalPointer
     }
     
-    init(channels: (input: UInt, output: UInt), context: Context? = nil) {
+    init?(channels: (input: UInt, output: UInt), context: Context? = nil) {
         
-        guard let internalPointer = cmsPipelineAlloc(context?.internalPointer, cmsUInt32Number(channels.input), cmsUInt32Number(channels.output))
-            else { return }
+        guard let internalPointer = cmsPipelineAlloc(context?.internalPointer,
+                                                     cmsUInt32Number(channels.input),
+                                                     cmsUInt32Number(channels.output))
+            else { return  nil}
         
         self.internalPointer = internalPointer
     }
     
     // MARK: - Accessors
     
+    public var context: Context? {
+        
+        return _context()
+    }
+    
     public var copy: Pipeline? {
         
-        guard let newInternalPointer = cmsPipelineDup(internalPointer)
-            else { return nil }
-        
-        return Pipeline(newInternalPointer)
+        return _copy()
     }
+}
+
+// MARK: - Internal Protocols
+
+extension Pipeline: CopyableHandle {
+    static var cmsDuplicate: cmsDuplicateFunction { return cmsPipelineDup }
+}
+
+extension Pipeline: ContextualHandle {
+    static var cmsGetContextID: cmsGetContextIDFunction { return cmsGetPipelineContextID }
 }

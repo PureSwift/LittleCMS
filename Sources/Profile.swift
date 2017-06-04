@@ -80,10 +80,7 @@ public final class Profile {
     
     public var context: Context? {
         
-        guard let internalPointer = cmsGetProfileContextID(self.internalPointer)
-            else { return nil }
-        
-        return cmsGetSwiftContext(internalPointer)
+        return _context()
     }
     
     public var signature: ColorSpaceSignature {
@@ -136,7 +133,7 @@ public final class Profile {
     /// Using this function you can collapse several tag entries to the same block in the profile.
     public func link(_ tag: cmsTagSignature, to destination: cmsTagSignature) -> Bool {
         
-        cmsLinkTag(internalPointer, tag, destination)
+        return cmsLinkTag(internalPointer, tag, destination) > 0
     }
     
     /// Returns the tag linked to, in the case two tags are sharing same resource,
@@ -259,4 +256,10 @@ public extension cmsInfoType {
         case .copyright:    self = cmsInfoCopyright
         }
     }
+}
+
+// MARK: - Internal Protocols
+
+extension Profile: ContextualHandle {
+    static var cmsGetContextID: cmsGetContextIDFunction { return cmsGetProfileContextID }
 }

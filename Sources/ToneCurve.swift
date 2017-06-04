@@ -39,14 +39,17 @@ public final class ToneCurve {
     
     public var copy: ToneCurve? {
         
-        guard let newInternalPointer = cmsDupToneCurve(internalPointer)
-            else { return nil }
-        
-        return ToneCurve(newInternalPointer)
+        return _copy()
     }
     
     public var isLinear: Bool {
         
         return cmsIsToneCurveLinear(internalPointer) != 0
     }
+}
+
+// MARK: - Internal Protocols
+
+extension ToneCurve: CopyableHandle {
+    static var cmsDuplicate: cmsDuplicateFunction { return cmsDupToneCurve }
 }
