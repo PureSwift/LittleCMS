@@ -99,8 +99,6 @@ public final class Profile {
         set { cmsSetPCS(internalPointer, newValue) }
     }
     
-    // MARK: Tags
-    
     /// Returns the number of tags present in a given profile.
     public var tagCount: Int {
         
@@ -108,31 +106,6 @@ public final class Profile {
     }
     
     // MARK: - Methods
-    
-    // Returns `true` if a tag with signature sig is found on the profile. 
-    /// Useful to check if a profile contains a given tag.
-    public func contains(_ tag: cmsTagSignature) -> Bool {
-        
-        return cmsIsTag(internalPointer, tag) != 0
-    }
-    
-    /// Creates a directory entry on tag sig that points to same location as tag destination.
-    /// Using this function you can collapse several tag entries to the same block in the profile.
-    public func link(tag: cmsTagSignature, to destination: cmsTagSignature) -> Bool {
-        
-        cmsLinkTag(internalPointer, tag, destination)
-    }
-    
-    /// Returns the tag linked to, in the case two tags are sharing same resource,
-    /// or `nil` if the tag is not linked to any other tag.
-    public func tagLinked(to tag: cmsTagSignature) -> cmsTagSignature? {
-        
-        let tag = cmsTagLinkedTo(internalPointer, tag)
-        
-        guard tag.rawValue != 0 else { return nil }
-        
-        return tag
-    }
     
     /// Saves the contents of a profile to `Data`.
     public func save() -> Data? {
@@ -150,6 +123,42 @@ public final class Profile {
         return data
     }
     
+    // MARK: Tag Methods
+    
+    // Returns `true` if a tag with signature sig is found on the profile. 
+    /// Useful to check if a profile contains a given tag.
+    public func contains(_ tag: cmsTagSignature) -> Bool {
+        
+        return cmsIsTag(internalPointer, tag) != 0
+    }
+    
+    /// Creates a directory entry on tag sig that points to same location as tag destination.
+    /// Using this function you can collapse several tag entries to the same block in the profile.
+    public func link(_ tag: cmsTagSignature, to destination: cmsTagSignature) -> Bool {
+        
+        cmsLinkTag(internalPointer, tag, destination)
+    }
+    
+    /// Returns the tag linked to, in the case two tags are sharing same resource,
+    /// or `nil` if the tag is not linked to any other tag.
+    public func tagLinked(to tag: cmsTagSignature) -> cmsTagSignature? {
+        
+        let tag = cmsTagLinkedTo(internalPointer, tag)
+        
+        guard tag.rawValue != 0 else { return nil }
+        
+        return tag
+    }
+    
+    /// Attempt to get the LittleCMS value for the tag
+    private func read <T> (_ tag: cmsTagSignature) -> T? {
+        
+        guard let buffer = cmsReadTag(internalPointer, tag)
+            else { return nil }
+        
+        
+    }
+    
     // MARK: - Subscript
     
     public subscript (infoType: Info) -> String? {
@@ -157,6 +166,7 @@ public final class Profile {
         return self[infoType, (cmsNoLanguage, cmsNoCountry)]
     }
     
+    /// Get the string for the specified profile info.
     public subscript (infoType: Info, locale: (languageCode: String, countryCode: String)) -> String? {
         
         let info = cmsInfoType(infoType)
@@ -176,7 +186,8 @@ public final class Profile {
         return String(littleCMS: data)
     }
     
-    public subscript (tag: UInt) -> cmsTagSignature? {
+    /// Get the tag at the specified index
+    public subscript (index: UInt) -> cmsTagSignature? {
         
         let tag = cmsGetTagSignature(internalPointer, cmsUInt32Number(tag))
         
@@ -185,21 +196,7 @@ public final class Profile {
         return tag
     }
     
-    public subscript (tag: cmsTagSignature) -> Data? {
-        
-        // get buffer size
-        let bufferSize = cmsReadRawTag(internalPointer, tag, nil, 0)
-        
-        guard bufferSize > 0 else { return nil }
-        
-        // allocate buffer and get data
-        var data = Data(repeating: 0, count: Int(bufferSize))
-        
-        guard data.withUnsafeMutableBytes({ cmsReadRawTag(internalPointer, tag, $0, cmsUInt32Number(bufferSize)) }) != 0
-            else { fatalError("Cannot get data for tag \(tag.rawValue)") }
-        
-        return data
-    }
+    
 }
 
 // MARK: - Equatable
