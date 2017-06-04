@@ -60,38 +60,18 @@ public final class Profile {
         
         let table = toneCurve.internalPointer
         
-        if let context = context {
-            
-            guard let internalPointer = cmsCreateGrayProfileTHR(context.internalPointer, &whiteCIExyY, table)
-                else { return nil }
-            
-            self.internalPointer = internalPointer
-            
-        } else {
-            
-            guard let internalPointer = cmsCreateGrayProfile(&whiteCIExyY, table)
-                else { return nil }
-            
-            self.internalPointer = internalPointer
-        }
+        guard let internalPointer = cmsCreateGrayProfileTHR(context?.internalPointer, &whiteCIExyY, table)
+            else { return nil }
+        
+        self.internalPointer = internalPointer
     }
     
     public init?(sRGB context: Context?) {
         
-        if let context = context {
-            
-            guard let internalPointer = cmsCreate_sRGBProfileTHR(context.internalPointer)
-                else { return nil }
-            
-            self.internalPointer = internalPointer
-            
-        } else {
-            
-            guard let internalPointer = cmsCreate_sRGBProfile()
-                else { return nil }
-            
-            self.internalPointer = internalPointer
-        }
+        guard let internalPointer = cmsCreate_sRGBProfileTHR(context?.internalPointer)
+            else { return nil }
+        
+        self.internalPointer = internalPointer
     }
     
     /// Creates a Lab->Lab identity, marking it as v2 ICC profile.
@@ -101,20 +81,10 @@ public final class Profile {
         
         var whitePoint = whitePoint
         
-        if let context = context {
-            
-            guard let internalPointer = cmsCreateLab2ProfileTHR(context.internalPointer, &whitePoint)
-                else { return nil }
-            
-            self.internalPointer = internalPointer
-            
-        } else {
-            
-            guard let internalPointer = cmsCreateLab2Profile(&whitePoint)
-                else { return nil }
-            
-            self.internalPointer = internalPointer
-        }
+        guard let internalPointer = cmsCreateLab2ProfileTHR(context?.internalPointer, &whitePoint)
+            else { return nil }
+        
+        self.internalPointer = internalPointer
     }
     
     /// Creates a Lab->Lab identity, marking it as v4 ICC profile.
@@ -122,39 +92,19 @@ public final class Profile {
         
         var whitePoint = whitePoint
         
-        if let context = context {
-            
-            guard let internalPointer = cmsCreateLab4ProfileTHR(context.internalPointer, &whitePoint)
-                else { return nil }
-            
-            self.internalPointer = internalPointer
-            
-        } else {
-            
-            guard let internalPointer = cmsCreateLab4Profile(&whitePoint)
-                else { return nil }
-            
-            self.internalPointer = internalPointer
-        }
+        guard let internalPointer = cmsCreateLab4ProfileTHR(context?.internalPointer, &whitePoint)
+            else { return nil }
+        
+        self.internalPointer = internalPointer
     }
     
     /// This is a devicelink operating in CMYK for ink-limiting.
     public init?(inkLimitingDeviceLink colorspace: ColorSpaceSignature, limit: Double, context: Context? = nil) {
         
-        if let context = context {
-            
-            guard let internalPointer = cmsCreateInkLimitingDeviceLinkTHR(context.internalPointer, colorspace, limit)
-                else { return nil }
-            
-            self.internalPointer = internalPointer
-            
-        } else {
-            
-            guard let internalPointer = cmsCreateInkLimitingDeviceLink(colorspace, limit)
-                else { return nil }
-            
-            self.internalPointer = internalPointer
-        }
+        guard let internalPointer = cmsCreateInkLimitingDeviceLinkTHR(context?.internalPointer, colorspace, limit)
+            else { return nil }
+        
+        self.internalPointer = internalPointer
     }
     
     // MARK: - Accessors

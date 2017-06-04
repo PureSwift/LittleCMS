@@ -49,6 +49,8 @@ internal extension Profile {
 
 public extension Profile {
     
+    // TODO: implement all tags
+    
     public var aToB0: Pipeline? {
         
         return readObject(cmsSigAToB0Tag)

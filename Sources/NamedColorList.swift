@@ -30,7 +30,13 @@ public final class NamedColorList {
     }
     
     /// Allocates an empty named color dictionary.
-    public init?(count: Int, colorantCount: Int, prefix: String, suffix: String, context: Context? = nil) {
+    public init?(count: Int,
+                 colorantCount: Int,
+                 prefix: String,
+                 suffix: String,
+                 context: Context? = nil) {
+        
+        precondition(colorantCount <= Int(cmsMAXCHANNELS), "Invalid colorant count \(colorantCount) >= \(cmsMAXCHANNELS)")
         
         guard let internalPointer = cmsAllocNamedColorList(context?.internalPointer,
                                                            cmsUInt32Number(count),
@@ -180,20 +186,11 @@ public extension NamedColorList {
 
 // MARK: - Collection
 
-/*
-extension NamedColorList: ExpressibleByArrayLiteral {
-    
-    public init(arrayLiteral elements: Self.Element...) {
-        
-        
-    }
-}*/
-/*
 extension NamedColorList: RandomAccessCollection {
     
-    public subscript(bounds: Range<Self.Index>) -> RandomAccessSlice<Self> {
+    public subscript(bounds: Range<Int>) -> RandomAccessSlice<NamedColorList> {
         
-        return RandomAccessSlice<Self>(base: self, bounds: bounds)
+        return RandomAccessSlice<NamedColorList>(base: self, bounds: bounds)
     }
     
     /// The start `Index`.
@@ -206,6 +203,7 @@ extension NamedColorList: RandomAccessCollection {
     ///
     /// This is the "one-past-the-end" position, and will always be equal to the `count`.
     public var endIndex: Int {
+        
         return count
     }
     
@@ -217,11 +215,11 @@ extension NamedColorList: RandomAccessCollection {
         return i + 1
     }
     
-    public func makeIterator() -> IndexingIterator<Self> {
+    public func makeIterator() -> IndexingIterator<NamedColorList> {
         
         return IndexingIterator(_elements: self)
     }
-}*/
+}
 
 // MARK: - Internal Protocols
 
