@@ -54,11 +54,6 @@ public extension Profile {
         return readObject(cmsSigAToB0Tag)
     }
     
-    /// Tag: `cmsSigBlueColorantTag`
-    ///
-    /// Identifier: `0x6258595A` `'bXYZ'`
-    ///
-    /// Value: `cmsCIEXYZ`
     public var blueColorant: cmsCIEXYZ? {
         
         return readCasting(cmsSigBlueColorantTag)
