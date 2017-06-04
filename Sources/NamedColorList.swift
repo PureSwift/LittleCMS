@@ -188,22 +188,8 @@ extension NamedColorList: ExpressibleByArrayLiteral {
         
     }
 }*/
-
 /*
-extension NamedColorList: RandomAccessCollection, MutableCollection {
-
-    public var count: Int {
-        
-        return Int(cmsNamedColorCount(internalPointer))
-    }
-    
-    public subscript (index: Int) -> Image {
-        
-        guard let image = createImage(at: index)
-            else { fatalError("No image at index \(index)") }
-        
-        return image
-    }
+extension NamedColorList: RandomAccessCollection {
     
     public subscript(bounds: Range<Self.Index>) -> RandomAccessSlice<Self> {
         
@@ -235,8 +221,7 @@ extension NamedColorList: RandomAccessCollection, MutableCollection {
         
         return IndexingIterator(_elements: self)
     }
-}
- */
+}*/
 
 // MARK: - Internal Protocols
 

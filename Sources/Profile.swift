@@ -76,6 +76,87 @@ public final class Profile {
         }
     }
     
+    public init?(sRGB context: Context?) {
+        
+        if let context = context {
+            
+            guard let internalPointer = cmsCreate_sRGBProfileTHR(context.internalPointer)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            
+        } else {
+            
+            guard let internalPointer = cmsCreate_sRGBProfile()
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+        }
+    }
+    
+    /// Creates a Lab->Lab identity, marking it as v2 ICC profile.
+    ///
+    /// - Note: Adjustments for accomodating PCS endoing shall be done by Little CMS when using this profile.
+    public init?(lab2 whitePoint: cmsCIExyY, context: Context? = nil) {
+        
+        var whitePoint = whitePoint
+        
+        if let context = context {
+            
+            guard let internalPointer = cmsCreateLab2ProfileTHR(context.internalPointer, &whitePoint)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            
+        } else {
+            
+            guard let internalPointer = cmsCreateLab2Profile(&whitePoint)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+        }
+    }
+    
+    /// Creates a Lab->Lab identity, marking it as v4 ICC profile.
+    public init?(lab4 whitePoint: cmsCIExyY, context: Context? = nil) {
+        
+        var whitePoint = whitePoint
+        
+        if let context = context {
+            
+            guard let internalPointer = cmsCreateLab4ProfileTHR(context.internalPointer, &whitePoint)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            
+        } else {
+            
+            guard let internalPointer = cmsCreateLab4Profile(&whitePoint)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+        }
+    }
+    
+    /// This is a devicelink operating in CMYK for ink-limiting.
+    public init?(inkLimitingDeviceLink colorspace: ColorSpaceSignature, limit: Double, context: Context? = nil) {
+        
+        if let context = context {
+            
+            guard let internalPointer = cmsCreateInkLimitingDeviceLinkTHR(context.internalPointer, colorspace, limit)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            
+        } else {
+            
+            guard let internalPointer = cmsCreateInkLimitingDeviceLink(colorspace, limit)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+        }
+    }
+    
     // MARK: - Accessors
     
     public var context: Context? {

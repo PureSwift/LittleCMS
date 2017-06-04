@@ -8,7 +8,7 @@
 
 import Foundation
 
-/// MLU funtions are the low-level interface to access the localization features of V4 ICC profiles. 
+/// MLU is the interface to access the localization features of V4 ICC profiles.
 public final class MLU {
     
     
