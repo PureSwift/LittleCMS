@@ -9,7 +9,7 @@
 import struct Foundation.Data
 import CLCMS
 
-/// Specialized dictionaries for dealing with named color profiles.
+/// Specialized collection for dealing with named color profiles.
 public final class NamedColorList {
     
     // MARK: - Properties

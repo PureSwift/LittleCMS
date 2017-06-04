@@ -140,7 +140,7 @@ public final class Profile {
         
         var length: cmsUInt32Number = 0
         
-        guard cmsSaveProfileToMem(internalPointer, nil, &length) != 0
+        guard cmsSaveProfileToMem(internalPointer, nil, &length) > 0
             else { return nil }
         
         var data = Data(count: Int(length))
@@ -157,7 +157,7 @@ public final class Profile {
     /// Useful to check if a profile contains a given tag.
     public func contains(_ tag: cmsTagSignature) -> Bool {
         
-        return cmsIsTag(internalPointer, tag) != 0
+        return cmsIsTag(internalPointer, tag) > 0
     }
     
     /// Creates a directory entry on tag sig that points to same location as tag destination.
@@ -173,7 +173,7 @@ public final class Profile {
         
         let tag = cmsTagLinkedTo(internalPointer, tag)
         
-        guard tag.rawValue != 0 else { return nil }
+        guard tag.isValid else { return nil }
         
         return tag
     }
