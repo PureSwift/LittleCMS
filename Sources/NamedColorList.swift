@@ -14,13 +14,13 @@ public struct NamedColorList {
     
     // MARK: - Properties
     
-    internal private(set) var internalReference: Reference
+    internal private(set) var internalReference: CopyOnWrite<Reference>
     
     // MARK: - Initialization
     
     internal init(_ internalReference: Reference) {
         
-        self.internalReference = internalReference
+        self.internalReference = CopyOnWrite(internalReference)
     }
     
     /// Allocates an empty named color dictionary.
@@ -37,7 +37,7 @@ public struct NamedColorList {
                                                 context: context)
             else { return nil }
         
-        self.internalReference = internalReference
+        self.internalReference = CopyOnWrite(internalReference)
     }
     
     /// Retrieve a named color list from a given color transform.
@@ -46,14 +46,14 @@ public struct NamedColorList {
         guard let internalReference = Reference(transform: transform)
             else { return nil }
         
-        self.internalReference = internalReference
+        self.internalReference = CopyOnWrite(internalReference)
     }
     
     // MARK: - Accessors
     
     public var count: Int {
         
-        return internalReference.count
+        return internalReference.reference.count
     }
     
     // MARK: - Methods
@@ -65,51 +65,30 @@ public struct NamedColorList {
     @discardableResult
     public mutating func append(name: String, profileColorSpace pcs: ProfileColorSpace, colorant: Colorant) -> Bool {
         
-        guard internalReference.append(name: name, profileColorSpace: pcs, colorant: colorant)
-            else { return false }
-        
-        // make unique
-        
-        
-        return true
+        return internalReference.mutatingReference.append(name: name, profileColorSpace: pcs, colorant:colorant)
     }
     
-    @inline(__always)
     public mutating func append(_ element: Element) {
         
-        guard append(name: element.name, profileColorSpace: element.profileColorSpace, colorant: element.colorant)
-            else { fatalError("Could not append element \(element)") }
+        return internalReference.mutatingReference.append(element)
     }
     
     /// Performs a look-up in the dictionary and returns an index on the given color name.
     public func index(of name: String) -> Int? {
         
-        return internalReference.index(of: name)
+        return internalReference.reference.index(of: name)
     }
     
     // MARK: - Subscript
     
     public subscript (name: String) -> Element? {
         
-        return internalReference[name]
+        return internalReference.reference[name]
     }
     
     public subscript (index: Int) -> Element {
         
-        return internalReference[index]
-    }
-    
-    // MARK: - Private Methods
-    
-    private mutating func ensureUnique() {
-        
-        if !isKnownUniquelyReferenced(&internalReference) {
-            
-            guard let copy = internalReference._copy()
-                else { fatalError("Coult not duplicate internal reference type") }
-            
-            internalReference = copy
-        }
+        return internalReference.reference[index]
     }
 }
 
@@ -182,7 +161,8 @@ internal extension NamedColorList {
         
         var count: Int {
             
-            return Int(cmsNamedColorCount(internalPointer))
+            @inline(__always)
+            get { return Int(cmsNamedColorCount(internalPointer)) }
         }
         
         // MARK: - Methods
@@ -227,42 +207,50 @@ internal extension NamedColorList {
         
         subscript (name: String) -> Element? {
             
-            guard let index = self.index(of: name)
-                else { return nil }
-            
-            return self[index]
+            @inline(__always)
+            get {
+                
+                guard let index = self.index(of: name)
+                    else { return nil }
+                
+                return self[index]
+            }
         }
         
         subscript (index: Int) -> Element {
             
-            var colorantValue = Colorant().rawValue
-            
-            var pcsBuffer = [cmsUInt16Number](repeating: 0, count: 3)
-            
-            var nameBytes = [CChar](repeating: 0, count: 256)
-            
-            let status = cmsNamedColorInfo(internalPointer,
-                                           cmsUInt32Number(index),
-                                           &nameBytes,
-                                           nil, nil,
-                                           &pcsBuffer,
-                                           &colorantValue)
-            
-            assert(status > 0, "Invalid index")
-            
-            // get swift values
-            
-            let colorant = Colorant(rawValue: colorantValue)!
-            
-            let pcs = (pcsBuffer[0], pcsBuffer[1], pcsBuffer[2])
-            
-            let nameData = Data(bytes: unsafeBitCast(nameBytes, to: Array<UInt8>.self))
-            
-            let name = String(data: nameData, encoding: String.Encoding.utf8) ?? ""
-            
-            let element: Element = (name, pcs, colorant)
-            
-            return element
+            @inline(__always)
+            get {
+                
+                var colorantValue = Colorant().rawValue
+                
+                var pcsBuffer = [cmsUInt16Number](repeating: 0, count: 3)
+                
+                var nameBytes = [CChar](repeating: 0, count: 256)
+                
+                let status = cmsNamedColorInfo(internalPointer,
+                                               cmsUInt32Number(index),
+                                               &nameBytes,
+                                               nil, nil,
+                                               &pcsBuffer,
+                                               &colorantValue)
+                
+                assert(status > 0, "Invalid index")
+                
+                // get swift values
+                
+                let colorant = Colorant(rawValue: colorantValue)!
+                
+                let pcs = (pcsBuffer[0], pcsBuffer[1], pcsBuffer[2])
+                
+                let nameData = Data(bytes: unsafeBitCast(nameBytes, to: Array<UInt8>.self))
+                
+                let name = String(data: nameData, encoding: String.Encoding.utf8) ?? ""
+                
+                let element: Element = (name, pcs, colorant)
+                
+                return element
+            }
         }
     }
 }
@@ -288,6 +276,7 @@ public extension NamedColorList {
             self.rawValue = rawValue
         }
         
+        @inline(__always)
         public init() {
             
             self.rawValue = [cmsUInt16Number](repeating: 0, count: Int(cmsMAXCHANNELS))

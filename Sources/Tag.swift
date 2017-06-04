@@ -50,7 +50,7 @@ internal extension Profile {
         guard let internalReference = readObject(tag) as Value.Reference? // get internal reference type
             else { return nil }
         
-        return Value(internalReference: internalReference)
+        return Value(internalReference)
     }
 }
 
