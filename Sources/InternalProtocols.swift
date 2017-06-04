@@ -60,3 +60,34 @@ extension ContextualHandle {
         return cmsGetSwiftContext(internalPointer)
     }
 }
+
+// Swift struct wrapper for `HandleObject`
+internal protocol ReferenceConvertible {
+    
+    associatedtype Reference: HandleObject
+    
+    var internalReference: Reference { get }
+    
+    init(_ internalReference: Reference)
+}
+
+private protocol ReferenceConvertiblePrivate: ReferenceConvertible {
+    
+    associatedtype Reference: CopyableHandle
+    
+    var internalReference: Reference { get set }
+}
+
+private extension ReferenceConvertiblePrivate {
+    
+    private mutating func ensureUnique() {
+        
+        if !isKnownUniquelyReferenced(&internalReference) {
+            
+            guard let copy = internalReference._copy()
+                else { fatalError("Coult not duplicate internal reference type") }
+            
+            internalReference = copy
+        }
+    }
+}

@@ -34,7 +34,7 @@ internal extension Profile {
         return pointer[0]
     }
     
-    /// Get the object internal handle and returns a duplicated object.
+    /// Get the object internal handle and return a duplicated object.
     func readObject<Value: CopyableHandle>(_ tag: Tag) -> Value? {
         
         guard let internalPointer = readCasting(tag) as Value.InternalPointer?, // get internal pointer / handle
@@ -42,6 +42,15 @@ internal extension Profile {
             else { return nil }
         
         return Value(newInternalPointer)
+    }
+    
+    /// Get the object internal handle and return a reference-backed value type.
+    func readStruct<Value: ReferenceConvertible>(_ tag: Tag) -> Value? {
+        
+        guard let internalReference = readObject(tag) as Value.Reference? // get internal reference type
+            else { return nil }
+        
+        return Value(internalReference: internalReference)
     }
 }
 

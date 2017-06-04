@@ -10,84 +10,72 @@ import struct Foundation.Data
 import CLCMS
 
 /// Specialized collection for dealing with named color profiles.
-public final class NamedColorList {
+public struct NamedColorList {
     
     // MARK: - Properties
     
-    internal let internalPointer: OpaquePointer
+    internal private(set) var internalReference: Reference
     
     // MARK: - Initialization
     
-    deinit {
+    internal init(_ internalReference: Reference) {
         
-        // deallocate profile
-        cmsFreeNamedColorList(internalPointer)
-    }
-    
-    internal init(_ internalPointer: OpaquePointer) {
-        
-        self.internalPointer = internalPointer
+        self.internalReference = internalReference
     }
     
     /// Allocates an empty named color dictionary.
     public init?(count: Int,
-                 colorantCount: Int,
-                 prefix: String,
-                 suffix: String,
-                 context: Context? = nil) {
+          colorantCount: Int,
+          prefix: String,
+          suffix: String,
+          context: Context? = nil) {
         
-        precondition(colorantCount <= Int(cmsMAXCHANNELS), "Invalid colorant count \(colorantCount) >= \(cmsMAXCHANNELS)")
-        
-        guard let internalPointer = cmsAllocNamedColorList(context?.internalPointer,
-                                                           cmsUInt32Number(count),
-                                                           cmsUInt32Number(colorantCount),
-                                                           prefix, suffix)
+        guard let internalReference = Reference(count: count,
+                                                colorantCount: colorantCount,
+                                                prefix: prefix,
+                                                suffix: suffix,
+                                                context: context)
             else { return nil }
         
-        self.internalPointer = internalPointer
+        self.internalReference = internalReference
     }
     
     /// Retrieve a named color list from a given color transform.
-    public init?(transform: ColorTransform) {
+    init?(transform: ColorTransform) {
         
-        guard let internalPointer = cmsGetNamedColorList(transform.internalPointer)
+        guard let internalReference = Reference(transform: transform)
             else { return nil }
         
-        self.internalPointer = internalPointer
+        self.internalReference = internalReference
     }
     
     // MARK: - Accessors
     
-    public var copy: NamedColorList? {
-        
-        return _copy()
-    }
-    
     public var count: Int {
         
-        return Int(cmsNamedColorCount(internalPointer))
+        return internalReference.count
     }
     
     // MARK: - Methods
     
-    /// Adds a new spot color to the list. 
+    /// Adds a new spot color to the list.
     ///
     /// If the number of elements in the list exceeds the initial storage,
     /// the list is realloc’ed to accommodate things.
     @discardableResult
-    public func append(name: String, profileColorSpace pcs: ProfileColorSpace, colorant: Colorant) -> Bool {
+    public mutating func append(name: String, profileColorSpace pcs: ProfileColorSpace, colorant: Colorant) -> Bool {
         
-        var colorant = colorant.rawValue
+        guard internalReference.append(name: name, profileColorSpace: pcs, colorant: colorant)
+            else { return false }
         
-        var pcs = [pcs.0, pcs.1, pcs.2]
+        // make unique
         
-        precondition(Colorant.validate(colorant), "Invalid Colorant array")
         
-        return cmsAppendNamedColor(internalPointer, name, &pcs, &colorant) > 0
+        return true
     }
     
     @inline(__always)
-    public func append(_ element: Element) {
+    public mutating func append(_ element: Element) {
         
         guard append(name: element.name, profileColorSpace: element.profileColorSpace, colorant: element.colorant)
             else { fatalError("Could not append element \(element)") }
@@ -96,54 +84,186 @@ public final class NamedColorList {
     /// Performs a look-up in the dictionary and returns an index on the given color name.
     public func index(of name: String) -> Int? {
         
-        // Index on name, or -1 if the spot color is not found.
-        let index = Int(cmsNamedColorIndex(internalPointer, name))
-        
-        guard index != -1 else { return nil }
-        
-        return index
+        return internalReference.index(of: name)
     }
     
     // MARK: - Subscript
     
     public subscript (name: String) -> Element? {
         
-        guard let index = self.index(of: name)
-            else { return nil }
-        
-        return self[index]
+        return internalReference[name]
     }
     
     public subscript (index: Int) -> Element {
         
-        var colorantValue = Colorant().rawValue
+        return internalReference[index]
+    }
+    
+    // MARK: - Private Methods
+    
+    private mutating func ensureUnique() {
         
-        var pcsBuffer = [cmsUInt16Number](repeating: 0, count: 3)
+        if !isKnownUniquelyReferenced(&internalReference) {
+            
+            guard let copy = internalReference._copy()
+                else { fatalError("Coult not duplicate internal reference type") }
+            
+            internalReference = copy
+        }
+    }
+}
+
+// MARK: - CustomStringConvertible
+
+extension NamedColorList: CustomStringConvertible {
+    
+    public var description: String {
         
-        var nameBytes = [CChar](repeating: 0, count: 256)
+        /// Print just like an array would
+        return "\(Array(self))"
+    }
+}
+
+/// Reference Type Implementation
+
+internal extension NamedColorList {
+    
+    /// Specialized collection for dealing with named color profiles.
+    internal final class Reference {
         
-        let status = cmsNamedColorInfo(internalPointer,
-                                       cmsUInt32Number(index),
-                                       &nameBytes,
-                                       nil, nil,
-                                       &pcsBuffer,
-                                       &colorantValue)
+        // MARK: - Properties
         
-        assert(status > 0, "Invalid index")
+        internal let internalPointer: OpaquePointer
         
-        // get swift values
+        // MARK: - Initialization
         
-        let colorant = Colorant(rawValue: colorantValue)!
+        deinit {
+            
+            // deallocate profile
+            cmsFreeNamedColorList(internalPointer)
+        }
         
-        let pcs = (pcsBuffer[0], pcsBuffer[1], pcsBuffer[2])
+        @inline(__always)
+        internal init(_ internalPointer: OpaquePointer) {
+            
+            self.internalPointer = internalPointer
+        }
         
-        let nameData = Data(bytes: unsafeBitCast(nameBytes, to: Array<UInt8>.self))
+        /// Allocates an empty named color dictionary.
+        @inline(__always)
+        init?(count: Int,
+                     colorantCount: Int,
+                     prefix: String,
+                     suffix: String,
+                     context: Context? = nil) {
+            
+            precondition(colorantCount <= Int(cmsMAXCHANNELS), "Invalid colorant count \(colorantCount) >= \(cmsMAXCHANNELS)")
+            
+            guard let internalPointer = cmsAllocNamedColorList(context?.internalPointer,
+                                                               cmsUInt32Number(count),
+                                                               cmsUInt32Number(colorantCount),
+                                                               prefix, suffix)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+        }
         
-        let name = String(data: nameData, encoding: String.Encoding.utf8) ?? ""
+        /// Retrieve a named color list from a given color transform.
+        @inline(__always)
+        init?(transform: ColorTransform) {
+            
+            guard let internalPointer = cmsGetNamedColorList(transform.internalPointer)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+        }
         
-        let element: Element = (name, pcs, colorant)
+        // MARK: - Accessors
         
-        return element
+        var count: Int {
+            
+            return Int(cmsNamedColorCount(internalPointer))
+        }
+        
+        // MARK: - Methods
+        
+        /// Adds a new spot color to the list.
+        ///
+        /// If the number of elements in the list exceeds the initial storage,
+        /// the list is realloc’ed to accommodate things.
+        @discardableResult
+        @inline(__always)
+        func append(name: String, profileColorSpace pcs: ProfileColorSpace, colorant: Colorant) -> Bool {
+            
+            var colorant = colorant.rawValue
+            
+            var pcs = [pcs.0, pcs.1, pcs.2]
+            
+            precondition(Colorant.validate(colorant), "Invalid Colorant array")
+            
+            return cmsAppendNamedColor(internalPointer, name, &pcs, &colorant) > 0
+        }
+        
+        @inline(__always)
+        func append(_ element: Element) {
+            
+            guard append(name: element.name, profileColorSpace: element.profileColorSpace, colorant: element.colorant)
+                else { fatalError("Could not append element \(element)") }
+        }
+        
+        /// Performs a look-up in the dictionary and returns an index on the given color name.
+        @inline(__always)
+        func index(of name: String) -> Int? {
+            
+            // Index on name, or -1 if the spot color is not found.
+            let index = Int(cmsNamedColorIndex(internalPointer, name))
+            
+            guard index != -1 else { return nil }
+            
+            return index
+        }
+        
+        // MARK: - Subscript
+        
+        subscript (name: String) -> Element? {
+            
+            guard let index = self.index(of: name)
+                else { return nil }
+            
+            return self[index]
+        }
+        
+        subscript (index: Int) -> Element {
+            
+            var colorantValue = Colorant().rawValue
+            
+            var pcsBuffer = [cmsUInt16Number](repeating: 0, count: 3)
+            
+            var nameBytes = [CChar](repeating: 0, count: 256)
+            
+            let status = cmsNamedColorInfo(internalPointer,
+                                           cmsUInt32Number(index),
+                                           &nameBytes,
+                                           nil, nil,
+                                           &pcsBuffer,
+                                           &colorantValue)
+            
+            assert(status > 0, "Invalid index")
+            
+            // get swift values
+            
+            let colorant = Colorant(rawValue: colorantValue)!
+            
+            let pcs = (pcsBuffer[0], pcsBuffer[1], pcsBuffer[2])
+            
+            let nameData = Data(bytes: unsafeBitCast(nameBytes, to: Array<UInt8>.self))
+            
+            let name = String(data: nameData, encoding: String.Encoding.utf8) ?? ""
+            
+            let element: Element = (name, pcs, colorant)
+            
+            return element
+        }
     }
 }
 
@@ -223,6 +343,8 @@ extension NamedColorList: RandomAccessCollection {
 
 // MARK: - Internal Protocols
 
-extension NamedColorList: CopyableHandle {
+extension NamedColorList: ReferenceConvertible { }
+
+extension NamedColorList.Reference: CopyableHandle {
     static var cmsDuplicate: cmsDuplicateFunction { return cmsDupNamedColorList }
 }
