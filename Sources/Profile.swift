@@ -150,15 +150,6 @@ public final class Profile {
         return tag
     }
     
-    /// Attempt to get the LittleCMS value for the tag
-    private func read <T> (_ tag: cmsTagSignature) -> T? {
-        
-        guard let buffer = cmsReadTag(internalPointer, tag)
-            else { return nil }
-        
-        
-    }
-    
     // MARK: - Subscript
     
     public subscript (infoType: Info) -> String? {
@@ -187,16 +178,14 @@ public final class Profile {
     }
     
     /// Get the tag at the specified index
-    public subscript (index: UInt) -> cmsTagSignature? {
+    public subscript (index: UInt) -> Tag? {
         
-        let tag = cmsGetTagSignature(internalPointer, cmsUInt32Number(tag))
+        let tag = cmsGetTagSignature(internalPointer, cmsUInt32Number(index))
         
-        guard tag.rawValue != 0 else { return nil }
+        guard tag.isValid else { return nil }
         
         return tag
     }
-    
-    
 }
 
 // MARK: - Equatable
