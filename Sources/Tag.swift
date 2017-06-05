@@ -99,6 +99,40 @@ public extension Profile {
             
             return internalReference.reference.tag(at: index)
         }
+        
+        @inline(__always)
+        fileprivate func pointer(for tag: Tag) -> UnsafeMutableRawPointer? {
+            
+            return cmsReadTag(internalReference.reference.internalPointer, tag)
+        }
+        
+        /// Reads the tag value and attempts to get value from pointer.
+        fileprivate func readCasting(_ tag: Tag, to valueType: TagValueConvertible.Type) -> TagValueConvertible? {
+            
+            guard let pointer = pointer(for: tag)
+                else { return nil }
+            
+            return valueType.init(tagValue: pointer)
+        }
+        
+        /// Reads the tag value and attempts to get value from pointer.
+        fileprivate func readCasting<Value: TagValueConvertible>(_ tag: Tag) -> Value? {
+            
+            guard let pointer = pointer(for: tag)
+                else { return nil }
+            
+            return Value(tagValue: pointer)
+        }
+        
+        /// Reads the tag value and attempts to get value from pointer.
+        public func read(_ tag: Tag) -> TagValue? {
+            
+            // invalid tag
+            guard let valueType = tag.valueType as? TagValueConvertible.Type
+                else { return nil }
+            
+            return readCasting(tag, to: valueType) as TagValue?
+        }
     }
 }
 
@@ -106,18 +140,17 @@ public extension Profile {
 
 extension Profile.TagView: RandomAccessCollection {
     
-    public subscript(index: Int) -> Value {
+    public subscript(index: Int) -> TagValue {
         
         get {
             
             guard let tag = tag(at: index)
                 else { fatalError("No tag at index \(index)") }
             
-            guard let buffer = cmsReadTag(internalReference.reference.internalPointer, tag)
+            guard let value = read(tag)
                 else { fatalError("No value for tag \(tag) at index \(index)") }
             
-            // TODO
-            fatalError()
+            return value
         }
     }
     
@@ -156,54 +189,66 @@ extension Profile.TagView: RandomAccessCollection {
 
 // MARK: - Supporting Type
 
-public extension Profile.TagView {
+/// Any value that can be retrieved for a tag.
+public protocol TagValue { }
+
+fileprivate protocol TagValueConvertible: TagValue {
     
-    public enum Value {
+    init(tagValue pointer: UnsafeMutableRawPointer)
+}
+
+extension TagValueConvertible {
+    
+    /// Initializes value by casting pointer.
+    init(tagValue pointer: UnsafeMutableRawPointer) {
         
-        case pointCIEXYZ(cmsCIEXYZ)
-        case pipeline(Pipeline)
+        let pointer = pointer.assumingMemoryBound(to: Self.self)
+        
+        self = pointer[0]
     }
 }
 
-// MARK: - Parsing
-
-internal extension Profile.TagView {
+extension TagValueConvertible where Self: ReferenceConvertible, Self.Reference: DuplicableHandle {
     
-    /// Reads the tag value and attempts to get value from pointer.
-    func readCasting<Value>(_ tag: Tag) -> Value? {
+    /// Initializes value by casting pointer to handle type, creating object wrapper, and then Swift struct.
+    init(tagValue pointer: UnsafeMutableRawPointer) {
         
-        let internalPointer = self.internalReference.reference.internalPointer
+        let pointer = pointer.assumingMemoryBound(to: Self.Reference.InternalPointer.self)
         
-        guard let buffer = cmsReadTag(internalPointer, tag)
-            else { return nil }
+        let internalPointer = pointer[0]
         
-        let pointer = buffer.assumingMemoryBound(to: Value.self)
+        // create copy to not corrupt profile handle internals
+        guard let newInternalPointer = Self.Reference.cmsDuplicate(internalPointer)
+            else { fatalError("Could not create duplicate \(Self.self)") }
         
-        return pointer[0]
-    }
-    
-    /// Get the object internal handle and return a duplicated object.
-    func readObject<Value: DuplicableHandle>(_ tag: Tag) -> Value? {
+        let reference = Self.Reference.init(newInternalPointer)
         
-        guard let internalPointer = readCasting(tag) as Value.InternalPointer?, // get internal pointer / handle
-            let newInternalPointer = Value.cmsDuplicate(internalPointer) // create copy to not corrupt handle internals
-            else { return nil }
-        
-        return Value(newInternalPointer)
-    }
-    
-    /// Get the object internal handle and return a reference-backed value type.
-    func readStruct<Value>(_ tag: Tag) -> Value?
-        where Value: ReferenceConvertible, Value.Reference: DuplicableHandle {
-        
-        guard let internalReference = readObject(tag) as Value.Reference? // get internal reference type
-            else { return nil }
-        
-        return Value(internalReference)
+        self.init(reference)
     }
 }
 
-// MARK: - Tag List
+public extension Tag {
+    
+    /// The valye type for the specified tag.
+    var valueType: TagValue.Type? {
+        
+        switch self {
+            
+        case cmsSigAToB0Tag: return Pipeline.self
+        case cmsSigAToB1Tag: return Pipeline.self
+        case cmsSigAToB2Tag: return Pipeline.self
+        case cmsSigBlueColorantTag: return cmsCIEXYZ.self
+        case cmsSigBlueMatrixColumnTag: return cmsCIEXYZ.self
+            
+        default: return nil
+        }
+    }
+}
+
+extension Pipeline: TagValueConvertible { }
+extension cmsCIEXYZ: TagValueConvertible { }
+
+// MARK: - Tag Properties
 
 public extension Profile.TagView {
     
@@ -211,7 +256,7 @@ public extension Profile.TagView {
     
     public var aToB0: Pipeline? {
         
-        return readObject(cmsSigAToB0Tag)
+        return readCasting(cmsSigAToB0Tag)
     }
     
     public var blueColorant: cmsCIEXYZ? {
