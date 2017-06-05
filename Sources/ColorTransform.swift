@@ -15,6 +15,11 @@ public final class ColorTransform {
     
     internal let internalPointer: cmsHTRANSFORM
     
+    public let context: Context?
+    
+    /// Other CMS object wrappers / reference-backed value types to retain (besides the context)
+    private let retain: [Any]
+    
     // MARK: - Initialization
     
     deinit {
@@ -22,40 +27,49 @@ public final class ColorTransform {
         cmsDeleteTransform(internalPointer)
     }
     
-    internal init(_ internalPointer: cmsHTRANSFORM) {
-        
-        self.internalPointer = internalPointer
-    }
-    
-    /*
     /// Creates a color transform for translating bitmaps.
-    public init?(input: (profile: Profile, format: UInt),
-                output: (profile: Profile, format: UInt),
-                intent: cmsUInt32Number,
-                flags: cmsUInt32Number,
+    public init?(input: (profile: Profile, format: cmsUInt32Number),
+                output: (profile: Profile, format: cmsUInt32Number),
+                intent: Intent,
+                flags: cmsUInt32Number = 0,
                 context: Context? = nil) {
         
-        // TODO: cmsCreateExtendedTransform
-        
         guard let internalPointer = cmsCreateTransformTHR(context?.internalPointer,
-                                                     input.profile.internalPointer,
-                                                     cmsUInt32Number(input.format),
-                                                     output.profile.internalPointer,
-                                                     cmsUInt32Number(output.format),
-                                                     intent,
+                                                     input.profile.internalReference.reference.internalPointer,
+                                                     input.format,
+                                                     output.profile.internalReference.reference.internalPointer,
+                                                     output.format,
+                                                     intent.rawValue,
                                                      flags)
             else { return nil }
         
         self.internalPointer = internalPointer
-    }*/
+        self.context = context
+        self.retain = [input.profile, output.profile]
+    }
     
     // MARK: - Methods
     
     /// Translates bitmaps according of parameters setup when creating the color transform.
     public func transform(_ bitmap: Data) -> Data {
         
-        // FIXME
-        return Data()
+        let internalPointer = self.internalPointer
+        
+        var output = Data(count: bitmap.count)
+        
+        bitmap.withUnsafeBytes { (inputBytes: UnsafePointer<UInt8>) in
+            
+            let inputBytes = UnsafeRawPointer(inputBytes)
+            
+            output.withUnsafeMutableBytes { (outputBytes: UnsafeMutablePointer<UInt8>) in
+                
+                let outputBytes = UnsafeMutableRawPointer(outputBytes)
+                
+                cmsDoTransform(internalPointer, inputBytes, outputBytes, cmsUInt32Number(bitmap.count))
+            }
+        }
+        
+        return output
     }
 }
 

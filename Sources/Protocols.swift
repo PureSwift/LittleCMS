@@ -24,8 +24,6 @@ internal protocol HandleObject {
     
     associatedtype InternalPointer
     
-    init(_ internalPointer: InternalPointer)
-    
     var internalPointer: InternalPointer { get }
 }
 
@@ -39,6 +37,8 @@ internal protocol DuplicableHandle: CopyableHandle {
 
     /// The Little CMS Function that creates a duplicate of the handler.
     static var cmsDuplicate: cmsDuplicateFunction { get }
+    
+    init(_ internalPointer: InternalPointer)
 }
 
 extension DuplicableHandle {

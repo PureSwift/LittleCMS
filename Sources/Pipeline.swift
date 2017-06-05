@@ -26,7 +26,8 @@ public struct Pipeline {
         self.internalReference = CopyOnWrite(internalReference)
     }
     
-    /// Allocates an empty pipeline. 
+    /// Creates an empty pipeline. 
+    ///
     /// Final Input and output channels must be specified at creation time.
     public init?(channels: (input: UInt, output: UInt), context: Context? = nil) {
         

@@ -160,13 +160,6 @@ internal extension Profile {
             cmsCloseProfile(internalPointer)
         }
         
-        @inline(__always)
-        internal init(_ internalPointer: cmsHPROFILE) {
-            
-            self.internalPointer = internalPointer
-            self.context = Reference.context(for: internalPointer)
-        }
-        
         /// Creates a fake NULL profile. 
         ///
         /// This profile return 1 channel as always 0. 
