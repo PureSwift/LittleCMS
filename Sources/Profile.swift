@@ -14,7 +14,7 @@ public struct Profile {
     
     // MARK: - Properties
     
-    internal private(set) var internalReference: CopyOnWrite<Reference>
+    internal var internalReference: CopyOnWrite<Reference>
     
     // MARK: - Initialization
     

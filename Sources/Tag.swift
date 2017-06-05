@@ -9,6 +9,8 @@
 import struct Foundation.Data
 import CLCMS
 
+// MARK: - Tag Signature
+
 public typealias Tag = cmsTagSignature
 
 public extension Tag {
@@ -19,9 +21,58 @@ public extension Tag {
     }
 }
 
+// MARK: - Tag View
+
+public extension Profile {
+    
+    /// A collection of the profile's tags.
+    public var tags: TagView {
+        
+        get { return TagView(profile: self) }
+        
+        set {
+            
+            // set new tags
+            
+        }
+    }
+    
+    /// A representation of the profile's contents as a collection of tags.
+    public struct TagView {
+        
+        // MARK: - Properties
+        
+        internal private(set) var internalReference: CopyOnWrite<Profile.Reference>
+        
+        // MARK: - Initialization
+        
+        internal init(_ internalReference: Profile.Reference) {
+            
+            self.internalReference = CopyOnWrite(internalReference)
+        }
+        
+        /// Create from the specified profile.
+        public init(profile: Profile) {
+            
+            self.init(profile.internalReference.reference)
+        }
+        
+        // MARK: - Accessors
+        
+        public var count: Int {
+            
+            return internalReference.reference.tagCount
+        }
+    }
+}
+
+// MARK: - Collection
+
+// MARK: - Supporting Type
+
 // MARK: - Parsing
 
-internal extension Profile {
+internal extension Profile.TagView {
     
     /// Reads the tag value and attempts to get value from pointer.
     func readCasting<Value>(_ tag: Tag) -> Value? {
@@ -59,7 +110,7 @@ internal extension Profile {
 
 // MARK: - Tag List
 
-public extension Profile {
+public extension Profile.TagView {
     
     // TODO: implement all tags
     
