@@ -14,6 +14,8 @@ public final class Pipeline {
     
     internal let internalPointer: OpaquePointer
     
+    public let context: Context?
+    
     // MARK: - Initialization
     
     deinit {
@@ -25,6 +27,7 @@ public final class Pipeline {
     internal init(_ internalPointer: OpaquePointer) {
         
         self.internalPointer = internalPointer
+        self.context = Pipeline.context(for: internalPointer) // get swift object from internal pointer
     }
     
     init?(channels: (input: UInt, output: UInt), context: Context? = nil) {
@@ -35,24 +38,13 @@ public final class Pipeline {
             else { return  nil}
         
         self.internalPointer = internalPointer
-    }
-    
-    // MARK: - Accessors
-    
-    public var context: Context? {
-        
-        return _context()
-    }
-    
-    public var copy: Pipeline? {
-        
-        return _copy()
+        self.context = context
     }
 }
 
 // MARK: - Internal Protocols
 
-extension Pipeline: CopyableHandle {
+extension Pipeline: DuplicableHandle {
     static var cmsDuplicate: cmsDuplicateFunction { return cmsPipelineDup }
 }
 

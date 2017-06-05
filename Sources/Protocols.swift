@@ -1,12 +1,23 @@
 //
-//  InternalProtocols.swift
+//  Protocols.swift
 //  LittleCMS
 //
 //  Created by Alsey Coleman Miller on 6/4/17.
 //
 //
 
-import CLCMS
+import struct CLCMS.cmsContext
+
+// MARK: - Public Protocols
+
+/// Any Swift object that can be copied.
+public protocol Copyable: class {
+    
+    /// Creates a new instance or `nil` if copy failed.
+    var copy: Self? { get }
+}
+
+// MARK: - Internal Protocols
 
 /// The Swift class is a wrapper for a LittleCMS opaque type.
 internal protocol HandleObject {
@@ -18,8 +29,11 @@ internal protocol HandleObject {
     var internalPointer: InternalPointer { get }
 }
 
+/// Any Swift LittleCMS wrapper object that can be copied
+internal protocol CopyableHandle: HandleObject, Copyable { }
+
 /// The cms handle can be duplicated with a function.
-internal protocol CopyableHandle: HandleObject {
+internal protocol DuplicableHandle: CopyableHandle {
     
     typealias cmsDuplicateFunction = (InternalPointer!) -> InternalPointer!
 
@@ -27,16 +41,20 @@ internal protocol CopyableHandle: HandleObject {
     static var cmsDuplicate: cmsDuplicateFunction { get }
 }
 
-extension CopyableHandle {
+extension DuplicableHandle {
     
     // Protocol Oriented Programming implementation
-    @inline(__always)
-    func _copy() -> Self? {
+    
+    public var copy: Self? {
         
-        guard let newInternalPointer = Self.cmsDuplicate(self.internalPointer)
-            else { return nil }
-        
-        return Self(newInternalPointer)
+        @inline(__always)
+        get {
+            
+            guard let newInternalPointer = Self.cmsDuplicate(self.internalPointer)
+                else { return nil }
+            
+            return Self(newInternalPointer)
+        }
     }
 }
 
@@ -51,17 +69,18 @@ internal protocol ContextualHandle: HandleObject {
 
 extension ContextualHandle {
     
+    /// Get context using cms function
     @inline(__always)
-    func _context() -> Context? {
+    static func context(for internalPointer: InternalPointer) -> Context? {
         
-        guard let internalPointer = Self.cmsGetContextID(self.internalPointer)
+        guard let internalPointer = Self.cmsGetContextID(internalPointer)
             else { return nil }
         
         return cmsGetSwiftContext(internalPointer)
     }
 }
 
-// Swift struct wrapper for `HandleObject`
+// Swift struct wrapper for `HandleObject`.
 internal protocol ReferenceConvertible {
     
     associatedtype Reference: CopyableHandle
@@ -119,7 +138,7 @@ internal struct CopyOnWrite<Reference: CopyableHandle> {
             // copy the reference only if necessary
             if !isUniquelyReferenced {
                 
-                guard let copy = _reference.unbox._copy()
+                guard let copy = _reference.unbox.copy
                     else { fatalError("Coult not duplicate internal reference type") }
                 
                 _reference = Box(copy)

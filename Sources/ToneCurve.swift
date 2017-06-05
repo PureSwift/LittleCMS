@@ -37,11 +37,6 @@ public final class ToneCurve {
     
     // MARK: - Accessors
     
-    public var copy: ToneCurve? {
-        
-        return _copy()
-    }
-    
     public var isLinear: Bool {
         
         return cmsIsToneCurveLinear(internalPointer) != 0
@@ -50,6 +45,6 @@ public final class ToneCurve {
 
 // MARK: - Internal Protocols
 
-extension ToneCurve: CopyableHandle {
+extension ToneCurve: DuplicableHandle {
     static var cmsDuplicate: cmsDuplicateFunction { return cmsDupToneCurve }
 }

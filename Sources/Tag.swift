@@ -26,6 +26,8 @@ internal extension Profile {
     /// Reads the tag value and attempts to get value from pointer.
     func readCasting<Value>(_ tag: Tag) -> Value? {
         
+        let internalPointer = self.internalReference.reference.internalPointer
+        
         guard let buffer = cmsReadTag(internalPointer, tag)
             else { return nil }
         
@@ -35,7 +37,7 @@ internal extension Profile {
     }
     
     /// Get the object internal handle and return a duplicated object.
-    func readObject<Value: CopyableHandle>(_ tag: Tag) -> Value? {
+    func readObject<Value: DuplicableHandle>(_ tag: Tag) -> Value? {
         
         guard let internalPointer = readCasting(tag) as Value.InternalPointer?, // get internal pointer / handle
             let newInternalPointer = Value.cmsDuplicate(internalPointer) // create copy to not corrupt handle internals
@@ -45,7 +47,8 @@ internal extension Profile {
     }
     
     /// Get the object internal handle and return a reference-backed value type.
-    func readStruct<Value: ReferenceConvertible>(_ tag: Tag) -> Value? {
+    func readStruct<Value>(_ tag: Tag) -> Value?
+        where Value: ReferenceConvertible, Value.Reference: DuplicableHandle {
         
         guard let internalReference = readObject(tag) as Value.Reference? // get internal reference type
             else { return nil }

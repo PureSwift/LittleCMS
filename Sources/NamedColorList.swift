@@ -334,6 +334,6 @@ extension NamedColorList: RandomAccessCollection {
 
 extension NamedColorList: ReferenceConvertible { }
 
-extension NamedColorList.Reference: CopyableHandle {
+extension NamedColorList.Reference: DuplicableHandle {
     static var cmsDuplicate: cmsDuplicateFunction { return cmsDupNamedColorList }
 }

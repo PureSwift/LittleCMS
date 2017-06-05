@@ -27,12 +27,15 @@ public final class ColorTransform {
         self.internalPointer = internalPointer
     }
     
+    /*
     /// Creates a color transform for translating bitmaps.
     public init?(input: (profile: Profile, format: UInt),
                 output: (profile: Profile, format: UInt),
                 intent: cmsUInt32Number,
                 flags: cmsUInt32Number,
                 context: Context? = nil) {
+        
+        // TODO: cmsCreateExtendedTransform
         
         guard let internalPointer = cmsCreateTransformTHR(context?.internalPointer,
                                                      input.profile.internalPointer,
@@ -44,21 +47,15 @@ public final class ColorTransform {
             else { return nil }
         
         self.internalPointer = internalPointer
-    }
-    
-    // MARK: - Accessors
-    
-    public var context: Context? {
-        
-        return _context()
-    }
+    }*/
     
     // MARK: - Methods
     
     /// Translates bitmaps according of parameters setup when creating the color transform.
     public func transform(_ bitmap: Data) -> Data {
         
-        
+        // FIXME
+        return Data()
     }
 }
 

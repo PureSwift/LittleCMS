@@ -10,209 +10,256 @@ import struct Foundation.Data
 import CLCMS
 
 /// A profile that specifies how to interpret a color value for display.
-public final class Profile {
+public struct Profile {
     
     // MARK: - Properties
     
-    internal let internalPointer: cmsHPROFILE
+    internal private(set) var internalReference: CopyOnWrite<Reference>
     
     // MARK: - Initialization
     
-    deinit {
+    internal init(_ internalReference: Reference) {
         
-        // deallocate profile
-        cmsCloseProfile(internalPointer)
+        self.internalReference = CopyOnWrite(internalReference)
     }
+}
+
+/// Reference Type Implementation
+
+internal extension Profile {
     
-    internal init(_ internalPointer: cmsHPROFILE) {
+    internal final class Reference {
         
-        self.internalPointer = internalPointer
-    }
-    
-    public init?(file: String, access: FileAccess) {
+        // MARK: - Properties
         
-        guard let internalPointer = cmsOpenProfileFromFile(file, access.rawValue)
-            else { return nil }
+        internal let internalPointer: cmsHPROFILE
         
-        self.internalPointer = internalPointer
-    }
-    
-    public init?(data: Data) {
+        public let context: Context?
         
-        guard let internalPointer = data.withUnsafeBytes({ cmsOpenProfileFromMem($0, cmsUInt32Number(data.count)) })
-            else { return nil }
+        // MARK: - Initialization
         
-        self.internalPointer = internalPointer
-    }
-    
-    /// Creates a gray profile based on White point and transfer function. 
-    /// It populates following tags:
-    /// - `cmsSigProfileDescriptionTag`
-    /// - `cmsSigMediaWhitePointTag`
-    /// - `cmsSigGrayTRCTag`
-    ///
-    /// - Parameter whitePoint: The white point of the gray device or space.
-    /// - Parameter transferFunction: tone curve describing the device or space gamma.
-    /// - Returns: An ICC profile object on success, `nil` on error.
-    public init?(grey whitePoint: cmsCIExyY, toneCurve: ToneCurve, context: Context? = nil) {
+        deinit {
+            
+            // deallocate profile
+            cmsCloseProfile(internalPointer)
+        }
         
-        var whiteCIExyY = whitePoint
+        @inline(__always)
+        internal init(_ internalPointer: cmsHPROFILE) {
+            
+            self.internalPointer = internalPointer
+            self.context = Reference.context(for: internalPointer)
+        }
         
-        let table = toneCurve.internalPointer
+        @inline(__always)
+        private init?(file: String, access: FileAccess, context: Context? = nil) {
+            
+            guard let internalPointer = cmsOpenProfileFromFileTHR(context?.internalPointer, file, access.rawValue)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            self.context = context
+        }
         
-        guard let internalPointer = cmsCreateGrayProfileTHR(context?.internalPointer, &whiteCIExyY, table)
-            else { return nil }
+        convenience init?(file: String, context: Context? = nil) {
+            
+            // only allow reading files
+            self.init(file: file, access: .read, context: context)
+        }
         
-        self.internalPointer = internalPointer
-    }
-    
-    public init?(sRGB context: Context?) {
+        @inline(__always)
+        init?(data: Data, context: Context? = nil) {
+            
+            guard let internalPointer = data.withUnsafeBytes({ cmsOpenProfileFromMemTHR(context?.internalPointer, $0, cmsUInt32Number(data.count)) })
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            self.context = context
+        }
         
-        guard let internalPointer = cmsCreate_sRGBProfileTHR(context?.internalPointer)
-            else { return nil }
+        /// Creates a gray profile based on White point and transfer function.
+        /// It populates following tags:
+        /// - `cmsSigProfileDescriptionTag`
+        /// - `cmsSigMediaWhitePointTag`
+        /// - `cmsSigGrayTRCTag`
+        ///
+        /// - Parameter whitePoint: The white point of the gray device or space.
+        /// - Parameter transferFunction: tone curve describing the device or space gamma.
+        /// - Returns: An ICC profile object on success, `nil` on error.
+        init?(grey whitePoint: cmsCIExyY, toneCurve: ToneCurve, context: Context? = nil) {
+            
+            var whiteCIExyY = whitePoint
+            
+            let table = toneCurve.internalPointer
+            
+            guard let internalPointer = cmsCreateGrayProfileTHR(context?.internalPointer, &whiteCIExyY, table)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            self.context = context
+        }
         
-        self.internalPointer = internalPointer
-    }
-    
-    /// Creates a Lab->Lab identity, marking it as v2 ICC profile.
-    ///
-    /// - Note: Adjustments for accomodating PCS endoing shall be done by Little CMS when using this profile.
-    public init?(lab2 whitePoint: cmsCIExyY, context: Context? = nil) {
+        init?(sRGB context: Context?) {
+            
+            guard let internalPointer = cmsCreate_sRGBProfileTHR(context?.internalPointer)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            self.context = context
+        }
         
-        var whitePoint = whitePoint
+        /// Creates a Lab->Lab identity, marking it as v2 ICC profile.
+        ///
+        /// - Note: Adjustments for accomodating PCS endoing shall be done by Little CMS when using this profile.
+        @inline(__always)
+        init?(lab2 whitePoint: cmsCIExyY, context: Context? = nil) {
+            
+            var whitePoint = whitePoint
+            
+            guard let internalPointer = cmsCreateLab2ProfileTHR(context?.internalPointer, &whitePoint)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            self.context = context
+        }
         
-        guard let internalPointer = cmsCreateLab2ProfileTHR(context?.internalPointer, &whitePoint)
-            else { return nil }
+        /// Creates a Lab->Lab identity, marking it as v4 ICC profile.
+        init?(lab4 whitePoint: cmsCIExyY, context: Context? = nil) {
+            
+            var whitePoint = whitePoint
+            
+            guard let internalPointer = cmsCreateLab4ProfileTHR(context?.internalPointer, &whitePoint)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            self.context = context
+        }
         
-        self.internalPointer = internalPointer
-    }
-    
-    /// Creates a Lab->Lab identity, marking it as v4 ICC profile.
-    public init?(lab4 whitePoint: cmsCIExyY, context: Context? = nil) {
+        /// This is a devicelink operating in CMYK for ink-limiting.
+        init?(inkLimitingDeviceLink colorspace: ColorSpaceSignature, limit: Double, context: Context? = nil) {
+            
+            guard let internalPointer = cmsCreateInkLimitingDeviceLinkTHR(context?.internalPointer, colorspace, limit)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            self.context = context
+        }
         
-        var whitePoint = whitePoint
+        // MARK: - Accessors
         
-        guard let internalPointer = cmsCreateLab4ProfileTHR(context?.internalPointer, &whitePoint)
-            else { return nil }
+        var copy: Profile.Reference? {
+            
+            // get copy by creating data, expensive, but no other way
+            guard let data = self.save(),
+                let new = Profile.Reference(data: data, context: self.context)
+                else { return nil }
+            
+            return new
+        }
         
-        self.internalPointer = internalPointer
-    }
-    
-    /// This is a devicelink operating in CMYK for ink-limiting.
-    public init?(inkLimitingDeviceLink colorspace: ColorSpaceSignature, limit: Double, context: Context? = nil) {
+        var signature: ColorSpaceSignature {
+            
+            @inline(__always)
+            get { return cmsGetColorSpace(internalPointer) }
+        }
         
-        guard let internalPointer = cmsCreateInkLimitingDeviceLinkTHR(context?.internalPointer, colorspace, limit)
-            else { return nil }
+        /// Profile connection space used by the given profile, using the ICC convention.
+        var connectionSpace: ColorSpaceSignature {
+            
+            @inline(__always)
+            get { return cmsGetPCS(internalPointer) }
+            
+            @inline(__always)
+            set { cmsSetPCS(internalPointer, newValue) }
+        }
         
-        self.internalPointer = internalPointer
-    }
-    
-    // MARK: - Accessors
-    
-    public var context: Context? {
+        /// Returns the number of tags present in a given profile.
+        var tagCount: Int {
+            
+            return Int(cmsGetTagCount(internalPointer))
+        }
         
-        return _context()
-    }
-    
-    public var signature: ColorSpaceSignature {
+        // MARK: - Methods
         
-        return cmsGetColorSpace(internalPointer)
-    }
-    
-    /// Profile connection space used by the given profile, using the ICC convention.
-    public var connectionSpace: ColorSpaceSignature {
+        /// Saves the contents of a profile to `Data`.
+        func save() -> Data? {
+            
+            var length: cmsUInt32Number = 0
+            
+            guard cmsSaveProfileToMem(internalPointer, nil, &length) > 0
+                else { return nil }
+            
+            var data = Data(count: Int(length))
+            
+            guard data.withUnsafeMutableBytes({ cmsSaveProfileToMem(self.internalPointer, $0, nil) }) != 0
+                else { return nil }
+            
+            return data
+        }
         
-        get { return cmsGetPCS(internalPointer) }
+        // MARK: Tag Methods
         
-        set { cmsSetPCS(internalPointer, newValue) }
-    }
-    
-    /// Returns the number of tags present in a given profile.
-    public var tagCount: Int {
+        // Returns `true` if a tag with signature sig is found on the profile.
+        /// Useful to check if a profile contains a given tag.
+        func contains(_ tag: cmsTagSignature) -> Bool {
+            
+            return cmsIsTag(internalPointer, tag) > 0
+        }
         
-        return Int(cmsGetTagCount(internalPointer))
-    }
-    
-    // MARK: - Methods
-    
-    /// Saves the contents of a profile to `Data`.
-    public func save() -> Data? {
+        /// Creates a directory entry on tag sig that points to same location as tag destination.
+        /// Using this function you can collapse several tag entries to the same block in the profile.
+        func link(_ tag: cmsTagSignature, to destination: cmsTagSignature) -> Bool {
+            
+            return cmsLinkTag(internalPointer, tag, destination) > 0
+        }
         
-        var length: cmsUInt32Number = 0
+        /// Returns the tag linked to, in the case two tags are sharing same resource,
+        /// or `nil` if the tag is not linked to any other tag.
+        func tagLinked(to tag: cmsTagSignature) -> cmsTagSignature? {
+            
+            let tag = cmsTagLinkedTo(internalPointer, tag)
+            
+            guard tag.isValid else { return nil }
+            
+            return tag
+        }
         
-        guard cmsSaveProfileToMem(internalPointer, nil, &length) > 0
-            else { return nil }
+        // MARK: - Subscript
         
-        var data = Data(count: Int(length))
+        subscript (infoType: Info) -> String? {
+            
+            return self[infoType, (cmsNoLanguage, cmsNoCountry)]
+        }
         
-        guard data.withUnsafeMutableBytes({ cmsSaveProfileToMem(self.internalPointer, $0, nil) }) != 0
-            else { return nil }
+        /// Get the string for the specified profile info.
+        subscript (infoType: Info, locale: (languageCode: String, countryCode: String)) -> String? {
+            
+            let info = cmsInfoType(infoType)
+            
+            // get buffer size
+            let bufferSize = cmsGetProfileInfo(internalPointer, info, locale.languageCode, locale.countryCode, nil, 0)
+            
+            guard bufferSize > 0 else { return nil }
+            
+            // allocate buffer and get data
+            var data = Data(repeating: 0, count: Int(bufferSize))
+            
+            guard data.withUnsafeMutableBytes({ cmsGetProfileInfo(internalPointer, info, locale.languageCode, locale.countryCode, UnsafeMutablePointer<wchar_t>($0), bufferSize) }) != 0 else { fatalError("Cannot get data for \(infoType)") }
+            
+            assert(wchar_t.self == Int32.self, "wchar_t is \(wchar_t.self)")
+            
+            return String(littleCMS: data)
+        }
         
-        return data
-    }
-    
-    // MARK: Tag Methods
-    
-    // Returns `true` if a tag with signature sig is found on the profile. 
-    /// Useful to check if a profile contains a given tag.
-    public func contains(_ tag: cmsTagSignature) -> Bool {
-        
-        return cmsIsTag(internalPointer, tag) > 0
-    }
-    
-    /// Creates a directory entry on tag sig that points to same location as tag destination.
-    /// Using this function you can collapse several tag entries to the same block in the profile.
-    public func link(_ tag: cmsTagSignature, to destination: cmsTagSignature) -> Bool {
-        
-        return cmsLinkTag(internalPointer, tag, destination) > 0
-    }
-    
-    /// Returns the tag linked to, in the case two tags are sharing same resource,
-    /// or `nil` if the tag is not linked to any other tag.
-    public func tagLinked(to tag: cmsTagSignature) -> cmsTagSignature? {
-        
-        let tag = cmsTagLinkedTo(internalPointer, tag)
-        
-        guard tag.isValid else { return nil }
-        
-        return tag
-    }
-    
-    // MARK: - Subscript
-    
-    public subscript (infoType: Info) -> String? {
-        
-        return self[infoType, (cmsNoLanguage, cmsNoCountry)]
-    }
-    
-    /// Get the string for the specified profile info.
-    public subscript (infoType: Info, locale: (languageCode: String, countryCode: String)) -> String? {
-        
-        let info = cmsInfoType(infoType)
-        
-        // get buffer size
-        let bufferSize = cmsGetProfileInfo(internalPointer, info, locale.languageCode, locale.countryCode, nil, 0)
-        
-        guard bufferSize > 0 else { return nil }
-        
-        // allocate buffer and get data
-        var data = Data(repeating: 0, count: Int(bufferSize))
-        
-        guard data.withUnsafeMutableBytes({ cmsGetProfileInfo(internalPointer, info, locale.languageCode, locale.countryCode, UnsafeMutablePointer<wchar_t>($0), bufferSize) }) != 0 else { fatalError("Cannot get data for \(infoType)") }
-        
-        assert(wchar_t.self == Int32.self, "wchar_t is \(wchar_t.self)")
-        
-        return String(littleCMS: data)
-    }
-    
-    /// Get the tag at the specified index
-    public subscript (index: UInt) -> Tag? {
-        
-        let tag = cmsGetTagSignature(internalPointer, cmsUInt32Number(index))
-        
-        guard tag.isValid else { return nil }
-        
-        return tag
+        /// Get the tag at the specified index
+        subscript (index: UInt) -> Tag? {
+            
+            let tag = cmsGetTagSignature(internalPointer, cmsUInt32Number(index))
+            
+            guard tag.isValid else { return nil }
+            
+            return tag
+        }
     }
 }
 
@@ -223,7 +270,7 @@ extension Profile: Equatable {
     public static func == (lhs: Profile, rhs: Profile) -> Bool {
         
         // FIXME
-        return lhs.internalPointer == rhs.internalPointer
+        return lhs.internalReference.reference.internalPointer == rhs.internalReference.reference.internalPointer
     }
 }
 
@@ -239,7 +286,7 @@ public extension Profile {
         case copyright
     }
     
-    public enum FileAccess: String {
+    fileprivate enum FileAccess: String {
         
         case read = "r"
         case write = "w"
@@ -291,6 +338,8 @@ public extension cmsInfoType {
 
 // MARK: - Internal Protocols
 
-extension Profile: ContextualHandle {
+extension Profile.Reference: CopyableHandle { }
+
+extension Profile.Reference: ContextualHandle {
     static var cmsGetContextID: cmsGetContextIDFunction { return cmsGetProfileContextID }
 }

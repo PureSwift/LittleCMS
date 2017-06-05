@@ -84,6 +84,10 @@ public final class Context {
     }
 }
 
+// MARK: - Protocol Conformance
+
+extension Context: Copyable { }
+
 // MARK: - Private Functions
 
 /// Creates the user data pointer for use with Little CMS functions.
@@ -100,10 +104,10 @@ private func cmsCreateContextUserData(_ context: Context) -> UnsafeMutableRawPoi
 /// Gets the Swift `Context` object from the Little CMS opaque type's associated user data.
 /// This function will crash if the context was not originally created in Swift.
 @_silgen_name("_cmsGetSwiftContext")
-internal func cmsGetSwiftContext(_ contextID: cmsContext) -> Context {
+internal func cmsGetSwiftContext(_ contextID: cmsContext) -> Context? {
     
     guard let userData = cmsGetContextUserData(contextID)
-        else { fatalError("LittleCMS context doesn't have any associated user data") }
+        else { return nil }
     
     let unmanaged = Unmanaged<Context>.fromOpaque(userData)
     
@@ -117,7 +121,7 @@ internal func cmsGetSwiftContext(_ contextID: cmsContext) -> Context {
 private func logErrorHandler(_ internalPointer: cmsContext?, _ error: cmsUInt32Number, _ messageBuffer: UnsafePointer<Int8>?) {
     
     // get swift context object
-    let context = cmsGetSwiftContext(internalPointer!)
+    let context = cmsGetSwiftContext(internalPointer!)!
     
     let error = LittleCMSError(rawValue: error)
     
