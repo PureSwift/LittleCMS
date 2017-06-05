@@ -25,12 +25,19 @@ public extension Tag {
 
 public extension Profile {
     
+    /// Creates a new profile, replacing all tags with the specified new ones.
+    public init(profile: Profile, tags: TagView) {
+        
+        self.internalReference = profile.internalReference
+        self.tags = tags
+    }
+    
     /// A collection of the profile's tags.
     public var tags: TagView {
         
         get { return TagView(profile: self) }
         
-        set {
+        mutating set {
             
             // set new tags
             
@@ -62,6 +69,29 @@ public extension Profile {
         public var count: Int {
             
             return internalReference.reference.tagCount
+        }
+        
+        // MARK: - Methods
+        
+        // Returns `true` if a tag with signature sig is found on the profile.
+        /// Useful to check if a profile contains a given tag.
+        public func contains(_ tag: Tag) -> Bool {
+            
+            return internalReference.reference.contains(tag)
+        }
+        
+        /// Creates a directory entry on tag sig that points to same location as tag destination.
+        /// Using this function you can collapse several tag entries to the same block in the profile.
+        public mutating func link(_ tag: Tag, to destination: Tag) -> Bool {
+            
+            return internalReference.mutatingReference.link(tag, to: destination)
+        }
+        
+        /// Returns the tag linked to, in the case two tags are sharing same resource,
+        /// or `nil` if the tag is not linked to any other tag.
+        public func tagLinked(to tag: Tag) -> Tag? {
+            
+            return internalReference.reference.tagLinked(to: tag)
         }
     }
 }

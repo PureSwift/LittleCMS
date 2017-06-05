@@ -7,6 +7,7 @@
 //
 
 import struct Foundation.Data
+import struct Foundation.Date
 import CLCMS
 
 /// A profile that specifies how to interpret a color value for display.
@@ -145,6 +146,21 @@ internal extension Profile {
             self.context = Reference.context(for: internalPointer)
         }
         
+        /// Creates a fake NULL profile. 
+        ///
+        /// This profile return 1 channel as always 0. 
+        ///
+        /// Is useful only for gamut checking tricks.
+        @inline(__always)
+        internal init?(null context: Context? = nil) {
+            
+            guard let internalPointer = cmsCreateNULLProfileTHR(context?.internalPointer)
+                else { return nil }
+            
+            self.internalPointer = internalPointer
+            self.context = context
+        }
+        
         @inline(__always)
         private init?(file: String, access: FileAccess, context: Context? = nil) {
             
@@ -246,6 +262,16 @@ internal extension Profile {
             return new
         }
         
+        var creation: Date? {
+            
+            var time = tm()
+            
+            guard cmsGetHeaderCreationDateTime(internalPointer, &time) > 0
+                else { return nil }
+            
+            
+        }
+        
         var signature: ColorSpaceSignature {
             
             @inline(__always)
@@ -286,8 +312,6 @@ internal extension Profile {
             
             return data
         }
-        
-        // MARK: Tag Methods
         
         // Returns `true` if a tag with signature sig is found on the profile.
         /// Useful to check if a profile contains a given tag.
