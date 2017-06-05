@@ -22,6 +22,100 @@ public struct Profile {
         
         self.internalReference = CopyOnWrite(internalReference)
     }
+    
+    public init?(file: String, context: Context? = nil) {
+        
+        guard let internalReference = Reference(file: file, context: context)
+            else { return nil }
+        
+        self.internalReference = CopyOnWrite(internalReference)
+    }
+    
+    public init?(data: Data, context: Context? = nil) {
+        
+        guard let internalReference = Reference(data: data, context: context)
+            else { return nil }
+        
+        self.internalReference = CopyOnWrite(internalReference)
+    }
+    
+    /// Creates a gray profile based on White point and transfer function.
+    /// It populates following tags:
+    /// - `cmsSigProfileDescriptionTag`
+    /// - `cmsSigMediaWhitePointTag`
+    /// - `cmsSigGrayTRCTag`
+    ///
+    /// - Parameter whitePoint: White point of the gray device or space.
+    /// - Parameter toneCurve: Tone curve describing the device or space gamma.
+    /// - Parameter context: Optional `Context` object that keeps track of all plug-ins, static data and logging.
+    /// - Returns: An ICC profile object on success, `nil` on error.
+    public init?(grey whitePoint: cmsCIExyY, toneCurve: ToneCurve, context: Context? = nil) {
+        
+        guard let internalReference = Reference(grey: whitePoint, toneCurve: toneCurve, context: context)
+            else { return nil }
+        
+        self.internalReference = CopyOnWrite(internalReference)
+    }
+    
+    public init?(sRGB context: Context?) {
+        
+        guard let internalReference = Reference(sRGB: context)
+            else { return nil }
+        
+        self.internalReference = CopyOnWrite(internalReference)
+    }
+    
+    /// Creates a Lab->Lab identity, marking it as v2 ICC profile.
+    ///
+    /// - Note: Adjustments for accomodating PCS endoing shall be done by Little CMS when using this profile.
+    public init?(lab2 whitePoint: cmsCIExyY, context: Context? = nil) {
+        
+        guard let internalReference = Reference(lab2: whitePoint, context: context)
+            else { return nil }
+        
+        self.internalReference = CopyOnWrite(internalReference)
+    }
+    
+    /// Creates a Lab->Lab identity, marking it as v4 ICC profile.
+    public init?(lab4 whitePoint: cmsCIExyY, context: Context? = nil) {
+        
+        guard let internalReference = Reference(lab4: whitePoint, context: context)
+            else { return nil }
+        
+        self.internalReference = CopyOnWrite(internalReference)
+    }
+    
+    /// This is a devicelink operating in CMYK for ink-limiting.
+    public init?(inkLimitingDeviceLink colorspace: ColorSpaceSignature, limit: Double, context: Context? = nil) {
+        
+        guard let internalReference = Reference(inkLimitingDeviceLink: colorspace, limit: limit, context: context)
+            else { return nil }
+        
+        self.internalReference = CopyOnWrite(internalReference)
+    }
+    
+    // MARK: - Accessors
+    
+    public var signature: ColorSpaceSignature {
+        
+        return internalReference.reference.signature
+    }
+    
+    /// Profile connection space used by the given profile, using the ICC convention.
+    public var connectionSpace: ColorSpaceSignature {
+        
+        get { return internalReference.reference.connectionSpace }
+        
+        mutating set { internalReference.mutatingReference.connectionSpace = newValue }
+    }
+    
+    // MARK: - Methods
+    
+    /// Saves the contents of a profile to `Data`.
+    public func save() -> Data? {
+        
+        return internalReference.reference.save()
+    }
 }
 
 /// Reference Type Implementation
@@ -77,15 +171,7 @@ internal extension Profile {
             self.context = context
         }
         
-        /// Creates a gray profile based on White point and transfer function.
-        /// It populates following tags:
-        /// - `cmsSigProfileDescriptionTag`
-        /// - `cmsSigMediaWhitePointTag`
-        /// - `cmsSigGrayTRCTag`
-        ///
-        /// - Parameter whitePoint: The white point of the gray device or space.
-        /// - Parameter transferFunction: tone curve describing the device or space gamma.
-        /// - Returns: An ICC profile object on success, `nil` on error.
+        @inline(__always)
         init?(grey whitePoint: cmsCIExyY, toneCurve: ToneCurve, context: Context? = nil) {
             
             var whiteCIExyY = whitePoint
@@ -99,6 +185,7 @@ internal extension Profile {
             self.context = context
         }
         
+        @inline(__always)
         init?(sRGB context: Context?) {
             
             guard let internalPointer = cmsCreate_sRGBProfileTHR(context?.internalPointer)
@@ -124,6 +211,7 @@ internal extension Profile {
         }
         
         /// Creates a Lab->Lab identity, marking it as v4 ICC profile.
+        @inline(__always)
         init?(lab4 whitePoint: cmsCIExyY, context: Context? = nil) {
             
             var whitePoint = whitePoint
@@ -136,6 +224,7 @@ internal extension Profile {
         }
         
         /// This is a devicelink operating in CMYK for ink-limiting.
+        @inline(__always)
         init?(inkLimitingDeviceLink colorspace: ColorSpaceSignature, limit: Double, context: Context? = nil) {
             
             guard let internalPointer = cmsCreateInkLimitingDeviceLinkTHR(context?.internalPointer, colorspace, limit)
@@ -176,7 +265,8 @@ internal extension Profile {
         /// Returns the number of tags present in a given profile.
         var tagCount: Int {
             
-            return Int(cmsGetTagCount(internalPointer))
+            @inline(__always)
+            get { return Int(cmsGetTagCount(internalPointer)) }
         }
         
         // MARK: - Methods
@@ -201,13 +291,15 @@ internal extension Profile {
         
         // Returns `true` if a tag with signature sig is found on the profile.
         /// Useful to check if a profile contains a given tag.
-        func contains(_ tag: cmsTagSignature) -> Bool {
+        @inline(__always)
+        func contains(_ tag: Tag) -> Bool {
             
             return cmsIsTag(internalPointer, tag) > 0
         }
         
         /// Creates a directory entry on tag sig that points to same location as tag destination.
         /// Using this function you can collapse several tag entries to the same block in the profile.
+        @inline(__always)
         func link(_ tag: cmsTagSignature, to destination: cmsTagSignature) -> Bool {
             
             return cmsLinkTag(internalPointer, tag, destination) > 0
@@ -215,6 +307,7 @@ internal extension Profile {
         
         /// Returns the tag linked to, in the case two tags are sharing same resource,
         /// or `nil` if the tag is not linked to any other tag.
+        @inline(__always)
         func tagLinked(to tag: cmsTagSignature) -> cmsTagSignature? {
             
             let tag = cmsTagLinkedTo(internalPointer, tag)
@@ -228,7 +321,8 @@ internal extension Profile {
         
         subscript (infoType: Info) -> String? {
             
-            return self[infoType, (cmsNoLanguage, cmsNoCountry)]
+            @inline(__always)
+            get { return self[infoType, (cmsNoLanguage, cmsNoCountry)] }
         }
         
         /// Get the string for the specified profile info.
@@ -254,11 +348,15 @@ internal extension Profile {
         /// Get the tag at the specified index
         subscript (index: UInt) -> Tag? {
             
-            let tag = cmsGetTagSignature(internalPointer, cmsUInt32Number(index))
-            
-            guard tag.isValid else { return nil }
-            
-            return tag
+            @inline(__always)
+            get {
+                
+                let tag = cmsGetTagSignature(internalPointer, cmsUInt32Number(index))
+                
+                guard tag.isValid else { return nil }
+                
+                return tag
+            }
         }
     }
 }
@@ -269,8 +367,11 @@ extension Profile: Equatable {
     
     public static func == (lhs: Profile, rhs: Profile) -> Bool {
         
-        // FIXME
-        return lhs.internalReference.reference.internalPointer == rhs.internalReference.reference.internalPointer
+        guard let lhsData = lhs.save(),
+            let rhsData = rhs.save()
+            else { return false }
+        
+        return lhsData == rhsData
     }
 }
 

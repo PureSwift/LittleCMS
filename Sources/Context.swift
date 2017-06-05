@@ -8,7 +8,7 @@
 
 import CLCMS
 
-/// Keeps track of all plug-ins and static data needed by the THR corresponding function.
+/// Keeps track of all plug-ins and static data.
 ///
 /// There are situations where several instances of Little CMS engine have to coexist but on different conditions. 
 /// For example, when the library is used as a DLL or a shared object, diverse applications may want to use
