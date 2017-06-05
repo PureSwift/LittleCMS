@@ -21,7 +21,7 @@ public extension timeval {
         var timeStamp = timeval()
         
         guard gettimeofday(&timeStamp, nil) == 0
-            else { fatalError("Could not get time of day") }
+            else { fatalError("Could not get time of day (\(errno))") }
         
         return timeStamp
     }

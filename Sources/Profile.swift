@@ -110,12 +110,33 @@ public struct Profile {
         mutating set { internalReference.mutatingReference.connectionSpace = newValue }
     }
     
+    /// Returns the date and time when profile was created. 
+    /// This is a field stored in profile header.
+    var creation: Date? {
+        
+        return internalReference.reference.creation
+    }
+    
     // MARK: - Methods
     
     /// Saves the contents of a profile to `Data`.
     public func save() -> Data? {
         
         return internalReference.reference.save()
+    }
+    
+    // MARK: - Subscript
+    
+    /// Get the string for the specified profile info with the default locale.
+    public subscript (infoType: Info) -> String? {
+        
+        return internalReference.reference[infoType]
+    }
+    
+    /// Get the string for the specified profile info and locale.
+    public subscript (infoType: Info, locale: (languageCode: String, countryCode: String)) -> String? {
+        
+        return internalReference.reference[infoType, locale]
     }
 }
 
@@ -269,7 +290,9 @@ internal extension Profile {
             guard cmsGetHeaderCreationDateTime(internalPointer, &time) > 0
                 else { return nil }
             
+            let dateComponents = DateComponents(brokenDown: time)
             
+            return dateComponents.date
         }
         
         var signature: ColorSpaceSignature {
@@ -341,6 +364,17 @@ internal extension Profile {
             return tag
         }
         
+        /// Returns the signature of a tag located at the specified index. 
+        @inline(__always)
+        public func tag(at index: Int) -> Tag? {
+            
+            let tag = cmsGetTagSignature(internalPointer, cmsUInt32Number(index))
+            
+            guard tag.isValid else { return nil }
+            
+            return tag
+        }
+        
         // MARK: - Subscript
         
         subscript (infoType: Info) -> String? {
@@ -367,20 +401,6 @@ internal extension Profile {
             assert(wchar_t.self == Int32.self, "wchar_t is \(wchar_t.self)")
             
             return String(littleCMS: data)
-        }
-        
-        /// Get the tag at the specified index
-        subscript (index: UInt) -> Tag? {
-            
-            @inline(__always)
-            get {
-                
-                let tag = cmsGetTagSignature(internalPointer, cmsUInt32Number(index))
-                
-                guard tag.isValid else { return nil }
-                
-                return tag
-            }
         }
     }
 }

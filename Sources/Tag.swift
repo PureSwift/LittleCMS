@@ -93,12 +93,77 @@ public extension Profile {
             
             return internalReference.reference.tagLinked(to: tag)
         }
+        
+        /// Returns the signature of a tag located at the specified index.
+        public func tag(at index: Int) -> Tag? {
+            
+            return internalReference.reference.tag(at: index)
+        }
     }
 }
 
 // MARK: - Collection
 
+extension Profile.TagView: RandomAccessCollection {
+    
+    public subscript(index: Int) -> Value {
+        
+        get {
+            
+            guard let tag = tag(at: index)
+                else { fatalError("No tag at index \(index)") }
+            
+            guard let buffer = cmsReadTag(internalReference.reference.internalPointer, tag)
+                else { fatalError("No value for tag \(tag) at index \(index)") }
+            
+            // TODO
+            fatalError()
+        }
+    }
+    
+    public subscript(bounds: Range<Int>) -> RandomAccessSlice<Profile.TagView> {
+        
+        return RandomAccessSlice<Profile.TagView>(base: self, bounds: bounds)
+    }
+    
+    /// The start `Index`.
+    public var startIndex: Int {
+        
+        return 0
+    }
+    
+    /// The end `Index`.
+    ///
+    /// This is the "one-past-the-end" position, and will always be equal to the `count`.
+    public var endIndex: Int {
+        
+        return count
+    }
+    
+    public func index(before i: Int) -> Int {
+        return i - 1
+    }
+    
+    public func index(after i: Int) -> Int {
+        return i + 1
+    }
+    
+    public func makeIterator() -> IndexingIterator<Profile.TagView> {
+        
+        return IndexingIterator(_elements: self)
+    }
+}
+
 // MARK: - Supporting Type
+
+public extension Profile.TagView {
+    
+    public enum Value {
+        
+        case pointCIEXYZ(cmsCIEXYZ)
+        case pipeline(Pipeline)
+    }
+}
 
 // MARK: - Parsing
 
