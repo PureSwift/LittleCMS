@@ -8,46 +8,122 @@
 
 import CLCMS
 
-public final class Pipeline {
+/// Pipelines are a convenient way to model complex operations on image data.
+/// Each pipeline may contain an arbitrary number of stages. 
+/// Each stage performs a single operation. 
+/// Pipelines may be optimized to be executed on a certain format (8 bits, for example)
+/// and can be saved as LUTs in ICC profiles.
+public struct Pipeline {
     
     // MARK: - Properties
     
-    internal let internalPointer: OpaquePointer
-    
-    public let context: Context?
+    internal private(set) var internalReference: CopyOnWrite<Reference>
     
     // MARK: - Initialization
     
-    deinit {
+    internal init(_ internalReference: Reference) {
         
-        // deallocate profile
-        cmsPipelineFree(internalPointer)
+        self.internalReference = CopyOnWrite(internalReference)
     }
     
-    internal init(_ internalPointer: OpaquePointer) {
+    /// Allocates an empty pipeline. 
+    /// Final Input and output channels must be specified at creation time.
+    public init?(channels: (input: UInt, output: UInt), context: Context? = nil) {
         
-        self.internalPointer = internalPointer
-        self.context = Pipeline.context(for: internalPointer) // get swift object from internal pointer
-    }
-    
-    init?(channels: (input: UInt, output: UInt), context: Context? = nil) {
-        
-        guard let internalPointer = cmsPipelineAlloc(context?.internalPointer,
-                                                     cmsUInt32Number(channels.input),
-                                                     cmsUInt32Number(channels.output))
+        guard let internalReference = Reference(channels: channels, context: context)
             else { return  nil}
         
-        self.internalPointer = internalPointer
-        self.context = context
+        self.internalReference = CopyOnWrite(internalReference)
+    }
+    
+    // MARK: - Methods
+    
+    /// Evaluates a pipeline using floating point numbers.
+    public func evaluate(_ input: [Float]) -> [Float] {
+        
+        return internalReference.reference.evaluate(input)
+    }
+    
+    /// Evaluates a pipeline usin 16-bit numbers, optionally using the optimized path.
+    public func evaluate(_ input: [UInt16]) -> [UInt16] {
+        
+        return internalReference.reference.evaluate(input)
+    }
+}
+
+// MARK: - Reference Type
+
+internal extension Pipeline {
+    
+    internal final class Reference {
+        
+        // MARK: - Properties
+        
+        internal let internalPointer: OpaquePointer
+        
+        let context: Context?
+        
+        // MARK: - Initialization
+        
+        deinit {
+            
+            // deallocate profile
+            cmsPipelineFree(internalPointer)
+        }
+        
+        @inline(__always)
+        init(_ internalPointer: OpaquePointer) {
+            
+            self.internalPointer = internalPointer
+            self.context = Reference.context(for: internalPointer) // get swift object from internal pointer
+        }
+        
+        @inline(__always)
+        init?(channels: (input: UInt, output: UInt), context: Context? = nil) {
+            
+            guard let internalPointer = cmsPipelineAlloc(context?.internalPointer,
+                                                         cmsUInt32Number(channels.input),
+                                                         cmsUInt32Number(channels.output))
+                else { return  nil}
+            
+            self.internalPointer = internalPointer
+            self.context = context
+        }
+        
+        // MARK: - Methods
+        
+        @inline(__always)
+        internal func evaluate<T: ExpressibleByIntegerLiteral>(_ input: [T], _ function: (UnsafePointer<T>?, UnsafeMutablePointer<T>?, InternalPointer?) -> ()) -> [T] {
+            
+            var input = input
+            
+            var output = [T].init(repeating: 0, count: input.count)
+            
+            function(&input, &output, internalPointer)
+            
+            return output
+        }
+        
+        @inline(__always)
+        func evaluate(_ input: [Float]) -> [Float] {
+            
+            return evaluate(input, cmsPipelineEvalFloat)
+        }
+        
+        @inline(__always)
+        func evaluate(_ input: [UInt16]) -> [UInt16] {
+            
+            return evaluate(input, cmsPipelineEval16)
+        }
     }
 }
 
 // MARK: - Internal Protocols
 
-extension Pipeline: DuplicableHandle {
+extension Pipeline.Reference: DuplicableHandle {
     static var cmsDuplicate: cmsDuplicateFunction { return cmsPipelineDup }
 }
 
-extension Pipeline: ContextualHandle {
+extension Pipeline.Reference: ContextualHandle {
     static var cmsGetContextID: cmsGetContextIDFunction { return cmsGetPipelineContextID }
 }

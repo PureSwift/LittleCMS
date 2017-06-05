@@ -140,7 +140,7 @@ public struct Profile {
     }
 }
 
-/// Reference Type Implementation
+// MARK: - Reference Type
 
 internal extension Profile {
     
