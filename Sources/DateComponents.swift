@@ -8,11 +8,12 @@
 
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
     import Darwin.C
-    import struct Foundation.Date
-    import typealias Foundation.TimeInterval
 #elseif os(Linux)
     import Glibc
 #endif
+
+import struct Foundation.Date
+import typealias Foundation.TimeInterval
 
 // Use internally to avoid collisions
 internal struct DateComponents {

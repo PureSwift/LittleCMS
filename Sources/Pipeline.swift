@@ -105,13 +105,11 @@ internal extension Pipeline {
             return output
         }
         
-        @inline(__always)
         func evaluate(_ input: [Float]) -> [Float] {
             
             return evaluate(input, cmsPipelineEvalFloat)
         }
         
-        @inline(__always)
         func evaluate(_ input: [UInt16]) -> [UInt16] {
             
             return evaluate(input, cmsPipelineEval16)
