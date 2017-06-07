@@ -76,7 +76,16 @@ public final class Context {
         
         didSet {
             
-            let log: cmsLogErrorHandlerFunction? = errorLog != nil ? logErrorHandler : nil
+            let log: cmsLogErrorHandlerFunction?
+            
+            if errorLog != nil {
+                
+                log = logErrorHandler
+                
+            } else {
+                
+                log = nil
+            }
             
             // set new error handler
             cmsSetLogErrorHandlerTHR(internalPointer, log)
