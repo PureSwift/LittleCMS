@@ -138,6 +138,7 @@ public extension Profile {
 
 // MARK: - Collection
 
+/* Sequence seems broken in Swift 4
 extension Profile.TagView: RandomAccessCollection {
     
     public subscript(index: Int) -> TagValue {
@@ -185,7 +186,7 @@ extension Profile.TagView: RandomAccessCollection {
         
         return IndexingIterator(_elements: self)
     }
-}
+}*/
 
 // MARK: - Supporting Type
 
