@@ -5,9 +5,9 @@
         "package": "CLCMS",
         "repositoryURL": "https://github.com/PureSwift/CLCMS.git",
         "state": {
-          "branch": "master",
-          "revision": "4808ad3fa6d244eb5a328a1b3fe0439f5954a831",
-          "version": null
+          "branch": null,
+          "revision": "20d18d62ebc642e52758512cab59af06f2d3655e",
+          "version": "1.0.0"
         }
       }
     ]
