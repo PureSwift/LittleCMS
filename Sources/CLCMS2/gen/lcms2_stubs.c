@@ -961,11 +961,6 @@ cmsProfileClassSignature cmsGetDeviceClass(cmsHPROFILE hProfile)
     swift_unimplemented_fatal("cmsGetDeviceClass");
 }
 
-int cmsGetEncodedCMMversion(void)
-{
-    swift_unimplemented_fatal("cmsGetEncodedCMMversion");
-}
-
 cmsUInt32Number cmsGetEncodedICCversion(cmsHPROFILE hProfile)
 {
     swift_unimplemented_fatal("cmsGetEncodedICCversion");

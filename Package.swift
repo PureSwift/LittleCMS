@@ -25,6 +25,12 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [
         .library(name: "LittleCMS", targets: ["LittleCMS"]),
+
+        // For iterating on the C surface locally; the artifact that gets
+        // installed comes from the CMake build, because the install name,
+        // soname and export list that make substitution work are not
+        // expressible here.
+        .library(name: "lcms2", type: .dynamic, targets: ["LCMS2ABI"]),
     ],
     targets: [
         // The published C API, the completed control structures, and the
@@ -35,6 +41,15 @@ let package = Package(
             name: "CLCMS2",
             path: "Sources/CLCMS2",
             publicHeadersPath: "include"
+        ),
+
+        // One `@c @implementation` function per published entry point,
+        // bound to the declaration in the vendored header so the exported
+        // ABI cannot drift from what clients were compiled against.
+        .target(
+            name: "LCMS2ABI",
+            dependencies: ["CLCMS2", "LittleCMS"],
+            path: "Sources/LCMS2ABI"
         ),
 
         // The engine, and the Swift API: profiles, tags, curves, pipelines,
