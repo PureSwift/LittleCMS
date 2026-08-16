@@ -1313,25 +1313,9 @@ cmsBool cmsLinkTag(cmsHPROFILE hProfile, cmsTagSignature sig, cmsTagSignature de
     swift_unimplemented_fatal("cmsLinkTag");
 }
 
-void cmsMD5add(cmsHANDLE Handle, const cmsUInt8Number* buf, cmsUInt32Number len)
-{
-    swift_unimplemented_fatal("cmsMD5add");
-}
-
-cmsHANDLE cmsMD5alloc(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsMD5alloc is not implemented");
-    return (cmsHANDLE){0};
-}
-
 cmsBool cmsMD5computeID(cmsHPROFILE hProfile)
 {
     swift_unimplemented_fatal("cmsMD5computeID");
-}
-
-void cmsMD5finish(cmsProfileID* ProfileID, cmsHANDLE Handle)
-{
-    swift_unimplemented_fatal("cmsMD5finish");
 }
 
 cmsMLU* cmsMLUalloc(cmsContext ContextID, cmsUInt32Number nItems)

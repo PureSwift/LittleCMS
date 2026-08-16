@@ -43,3 +43,8 @@ _cmsMAT3per
 _cmsMAT3inverse
 _cmsMAT3solve
 _cmsMAT3eval
+
+# Sources/LCMS2ABI/MD5API.swift
+cmsMD5alloc
+cmsMD5add
+cmsMD5finish

@@ -63,9 +63,13 @@ endif()
 add_executable(matprobe_ours matprobe.c)
 target_link_libraries(matprobe_ours PRIVATE lcms2)
 
+add_executable(md5probe_ours md5probe.c)
+target_link_libraries(md5probe_ours PRIVATE lcms2)
+
 add_test(NAME version_probe COMMAND version_probe_ours)
 add_test(NAME primitives_probe COMMAND primprobe_ours)
 add_test(NAME matrix_probe COMMAND matprobe_ours)
+add_test(NAME md5_probe COMMAND md5probe_ours)
 
 # The stubs' contract: the gap is reported through the error path and the
 # call fails cleanly rather than answering.
@@ -110,6 +114,15 @@ if(SLCMS_REFERENCE_FOUND)
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
                 $<TARGET_FILE:matprobe_ours>
                 $<TARGET_FILE:matprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+
+    add_executable(md5probe_reference md5probe.c)
+    target_link_libraries(md5probe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME md5_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:md5probe_ours>
+                $<TARGET_FILE:md5probe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
     # The synthetic profile corpus the differential suites will read.
