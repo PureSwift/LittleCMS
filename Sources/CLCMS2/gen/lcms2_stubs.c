@@ -9,31 +9,6 @@
 
 #include "swift_internal.h"
 
-cmsFloat64Number _cms15Fixed16toDouble(cmsS15Fixed16Number fix32)
-{
-    swift_unimplemented_fatal("_cms15Fixed16toDouble");
-}
-
-cmsFloat64Number _cms8Fixed8toDouble(cmsUInt16Number fixed8)
-{
-    swift_unimplemented_fatal("_cms8Fixed8toDouble");
-}
-
-cmsUInt16Number _cmsAdjustEndianess16(cmsUInt16Number Word)
-{
-    swift_unimplemented_fatal("_cmsAdjustEndianess16");
-}
-
-cmsUInt32Number _cmsAdjustEndianess32(cmsUInt32Number Value)
-{
-    swift_unimplemented_fatal("_cmsAdjustEndianess32");
-}
-
-void _cmsAdjustEndianess64(cmsUInt64Number* Result, cmsUInt64Number* QWord)
-{
-    swift_unimplemented_fatal("_cmsAdjustEndianess64");
-}
-
 void* _cmsCalloc(cmsContext ContextID, cmsUInt32Number num, cmsUInt32Number size)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsCalloc is not implemented");
@@ -67,16 +42,6 @@ void _cmsDestroyMutex(cmsContext ContextID, void* mtx)
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsDestroyMutex is not implemented");
 }
 
-cmsS15Fixed16Number _cmsDoubleTo15Fixed16(cmsFloat64Number v)
-{
-    swift_unimplemented_fatal("_cmsDoubleTo15Fixed16");
-}
-
-cmsUInt16Number _cmsDoubleTo8Fixed8(cmsFloat64Number val)
-{
-    swift_unimplemented_fatal("_cmsDoubleTo8Fixed8");
-}
-
 void* _cmsDupMem(cmsContext ContextID, const void* Org, cmsUInt32Number size)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsDupMem is not implemented");
@@ -86,11 +51,6 @@ void* _cmsDupMem(cmsContext ContextID, const void* Org, cmsUInt32Number size)
 void _cmsEncodeDateTimeNumber(cmsDateTimeNumber *Dest, const struct tm *Source)
 {
     swift_unimplemented_fatal("_cmsEncodeDateTimeNumber");
-}
-
-cmsUInt16Number _cmsFloat2Half(cmsFloat32Number flt)
-{
-    swift_unimplemented_fatal("_cmsFloat2Half");
 }
 
 void _cmsFree(cmsContext ContextID, void* Ptr)
@@ -142,11 +102,6 @@ _cmsTransform2Fn _cmsGetTransformWorker(struct _cmstransform_struct* CMMcargo)
 cmsUInt32Number _cmsGetTransformWorkerFlags(struct _cmstransform_struct* CMMcargo)
 {
     swift_unimplemented_fatal("_cmsGetTransformWorkerFlags");
-}
-
-cmsFloat32Number _cmsHalf2Float(cmsUInt16Number h)
-{
-    swift_unimplemented_fatal("_cmsHalf2Float");
 }
 
 cmsColorSpaceSignature _cmsICCcolorSpace(int OurNotation)
@@ -216,11 +171,6 @@ cmsBool _cmsOptimizePipeline(cmsContext ContextID, cmsPipeline** Lut, cmsUInt32N
 void _cmsPipelineSetOptimizationParameters(cmsPipeline* Lut, _cmsPipelineEval16Fn Eval16, void* PrivateData, _cmsFreeUserDataFn FreePrivateDataFn, _cmsDupUserDataFn DupPrivateDataFn)
 {
     swift_unimplemented_fatal("_cmsPipelineSetOptimizationParameters");
-}
-
-cmsUInt16Number _cmsQuantizeVal(cmsFloat64Number i, cmsUInt32Number MaxSamples)
-{
-    swift_unimplemented_fatal("_cmsQuantizeVal");
 }
 
 cmsBool _cmsRead15Fixed16Number(cmsIOHANDLER* io, cmsFloat64Number* n)

@@ -50,7 +50,14 @@ target_link_libraries(version_probe_ours PRIVATE lcms2)
 add_executable(stub_probe_ours stub_probe.c)
 target_link_libraries(stub_probe_ours PRIVATE lcms2)
 
+add_executable(primprobe_ours primprobe.c)
+target_link_libraries(primprobe_ours PRIVATE lcms2)
+if(NOT APPLE)
+    target_link_libraries(primprobe_ours PRIVATE m)
+endif()
+
 add_test(NAME version_probe COMMAND version_probe_ours)
+add_test(NAME primitives_probe COMMAND primprobe_ours)
 
 # The stubs' contract: the gap is reported through the error path and the
 # call fails cleanly rather than answering.
@@ -71,6 +78,21 @@ if(SLCMS_REFERENCE_FOUND)
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
                 $<TARGET_FILE:version_probe_ours>
                 $<TARGET_FILE:version_probe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+
+    # The gate the whole engine rests on: every arithmetic primitive,
+    # fingerprinted over exhaustive and adversarial inputs, must agree with
+    # the reference exactly.
+    add_executable(primprobe_reference primprobe.c)
+    target_link_libraries(primprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+    if(NOT APPLE)
+        target_link_libraries(primprobe_reference PRIVATE m)
+    endif()
+
+    add_test(NAME primitives_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:primprobe_ours>
+                $<TARGET_FILE:primprobe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
     # The synthetic profile corpus the differential suites will read.

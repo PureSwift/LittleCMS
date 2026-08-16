@@ -17,3 +17,15 @@ cmsPipelineCheckAndRetreiveStages
 
 # Sources/LCMS2ABI/Version.swift
 cmsGetEncodedCMMversion
+
+# Sources/LCMS2ABI/PrimitivesAPI.swift
+_cms15Fixed16toDouble
+_cmsDoubleTo15Fixed16
+_cms8Fixed8toDouble
+_cmsDoubleTo8Fixed8
+_cmsQuantizeVal
+_cmsAdjustEndianess16
+_cmsAdjustEndianess32
+_cmsAdjustEndianess64
+_cmsHalf2Float
+_cmsFloat2Half
