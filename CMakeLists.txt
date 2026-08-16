@@ -201,4 +201,8 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lcms2.pc
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
 # -- conformance -------------------------------------------------------------
-# (arrives with the Conformance directory)
+
+if(SLCMS_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(Conformance)
+endif()

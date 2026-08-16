@@ -1,0 +1,8 @@
+# Accepted differences between our output and the reference's.
+#
+# One marker per line: a word that identifies a differing line, followed by
+# ` -- ` and the reason it is accepted.  A difference on a line carrying a
+# marker is reported but not failed on.  A marker that matches no difference
+# in the run FAILS the build, so this file cannot go stale.
+#
+# (empty)
