@@ -1,0 +1,4 @@
+module CLCMS2 {
+    header "swift_internal.h"
+    export *
+}
