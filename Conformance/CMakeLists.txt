@@ -68,3 +68,38 @@ else()
         "the conformance suite is not being built, and a suite that never "
         "compares against the reference is not measuring the claim.")
 endif()
+
+# -- the upstream testbed ----------------------------------------------------
+#
+# The reference's own test program, compiled unmodified and linked against
+# our library.  It includes lcms2_internal.h, so the compile uses the
+# upstream tree's headers — the public ones are byte-identical to our
+# vendored copies — while the link is against us: whatever the testbed
+# binds must come out of our 382 exports, which is the point.
+
+if(SLCMS_UPSTREAM_DIR)
+    add_executable(testcms2
+        ${SLCMS_UPSTREAM_DIR}/testbed/testcms2.c
+        ${SLCMS_UPSTREAM_DIR}/testbed/testplugin.c
+        ${SLCMS_UPSTREAM_DIR}/testbed/zoo_icc.c)
+
+    target_include_directories(testcms2 PRIVATE
+        ${SLCMS_UPSTREAM_DIR}/include
+        ${SLCMS_UPSTREAM_DIR}/src)
+
+    target_link_libraries(testcms2 PRIVATE lcms2)
+    if(NOT APPLE)
+        target_link_libraries(testcms2 PRIVATE m)
+    endif()
+
+    # Until the engine is complete the run must die at the first
+    # unimplemented call — loudly and attributably, never with a plausible
+    # wrong answer.  The driver script owns that inverted contract (an
+    # abnormal exit outranks PASS_REGULAR_EXPRESSION, so ctest cannot
+    # express it directly) and flips to requiring success when the suite
+    # starts passing for real.
+    add_test(NAME testbed_fails_loudly
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_testbed.sh
+                $<TARGET_FILE:testcms2>
+                ${SLCMS_UPSTREAM_DIR}/testbed)
+endif()

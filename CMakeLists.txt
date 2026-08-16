@@ -21,6 +21,8 @@ include(GNUInstallDirs)
 option(SLCMS_STATIC_STDLIB
     "Link the Swift runtime statically, so the library needs no toolchain at run time" OFF)
 option(SLCMS_BUILD_TESTS "Build the conformance programs" ON)
+set(SLCMS_UPSTREAM_DIR "" CACHE PATH
+    "A Little-CMS source checkout at tag lcms2.19, enabling the upstream testbed suite")
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
