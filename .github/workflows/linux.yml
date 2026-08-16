@@ -1,0 +1,79 @@
+# linux.yml - the ELF artifact
+#
+# Why this platform: the soname, the version script, and the whole-archive
+# link only prove themselves under GNU ld — and liblcms2.so.2 is what the
+# open-source consumers of lcms2 actually load.
+#
+# The reference is built from source at the pinned tag because the
+# distribution's is whatever Debian froze, where this library implements the
+# ABI of the version its own vendored headers come from.  It is installed
+# where the loader finds it on its own: a reference somewhere else would
+# need LD_LIBRARY_PATH, and LD_LIBRARY_PATH outranks the RUNPATH our own
+# harnesses carry — setting it makes every "ours" binary load the reference
+# and quietly compare the reference against itself.  Never set it globally
+# in this file.
+
+name: linux
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    # Release-pinned: the toolchain the artifact is built with is part of
+    # what the artifact is.
+    container: swift:6.3.3-bookworm
+    env:
+      LCMS_TAG: lcms2.19
+      LCMS_VERSION: "2.19"
+    steps:
+      - uses: actions/checkout@v4
+
+      # The distribution's cmake is too old to drive Swift, so a current one
+      # comes from pip.  No liblcms2-dev: the reference is the one built in
+      # the next step, and there must be only one reference to find.
+      - name: Install dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq ninja-build pkg-config python3-pip curl
+          pip3 install -q --break-system-packages cmake
+
+      - name: Build the reference lcms2
+        run: |
+          git clone --quiet --depth 1 --branch "$LCMS_TAG" \
+              https://github.com/mm2/Little-CMS.git upstream
+          cd upstream
+          ./configure --prefix=/usr/local > /dev/null
+          make -j"$(nproc)" > /dev/null
+          make install > /dev/null
+          ldconfig
+          test "$(pkg-config --modversion lcms2)" = "$LCMS_VERSION"
+
+      # The export authority was recorded from the macOS reference build;
+      # asserting the ELF reference exports the identical set closes the
+      # loop that the 382 names are platform-invariant.
+      - name: Check the reference's own exports
+        run: ./scripts/check_exports.sh /usr/local/lib/liblcms2.so.2 scripts/symbols.txt
+
+      - name: Build (SwiftPM)
+        run: swift build -c release
+
+      - name: Test (SwiftPM)
+        run: swift test
+
+      - name: Configure (CMake)
+        run: >
+          cmake -G Ninja -B build/ci -DCMAKE_BUILD_TYPE=Release
+          -DSLCMS_UPSTREAM_DIR="$GITHUB_WORKSPACE/upstream"
+
+      - name: Build (CMake)
+        run: cmake --build build/ci
+
+      - name: Test (CTest)
+        run: ctest --test-dir build/ci --output-on-failure

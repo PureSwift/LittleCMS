@@ -1,0 +1,41 @@
+# embedded.yml - the engine must stay Embedded-clean
+#
+# Why this platform: the engine claims to build with no operating system,
+# no Foundation, and no C library underneath it, and that claim is easy to
+# break by accident from a desktop build — one convenience import, one
+# existential in an error path.  Compile-only on purpose: what is being
+# checked is the constraint, and a firmware that runs it arrives with the
+# engine worth running.
+
+name: embedded
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bare-metal:
+    runs-on: ubuntu-latest
+    # Release-pinned: an embedded stdlib is only importable by the compiler
+    # version that built it.
+    container: swift:6.3.3-bookworm
+    strategy:
+      fail-fast: false
+      matrix:
+        # One 32-bit Cortex-M triple and one 64-bit ELF triple, both with
+        # stdlibs the pinned toolchain ships; between an ILP32 target and an
+        # LP64 one, most of what a desktop build lets through gets caught.
+        # (Embedded WASM joins later through a Swift SDK bundle job, the way
+        # swift-png runs it.)
+        triple:
+          - armv7em-none-none-eabi
+          - aarch64-none-none-elf
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the engine for ${{ matrix.triple }}
+        run: ./scripts/build_embedded.sh ${{ matrix.triple }}

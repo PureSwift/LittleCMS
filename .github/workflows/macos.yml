@@ -1,0 +1,66 @@
+# macos.yml - the Mach-O artifact
+#
+# Why this platform: the install name, the compatibility version dyld
+# enforces, and the exported-symbols list only prove themselves on Darwin —
+# and a Homebrew little-cms2 is the library this one most plausibly
+# substitutes for on a developer machine.
+#
+# The reference is built from source at the pinned tag rather than taken
+# from Homebrew: the vendored headers are 2.19's, and Homebrew will move
+# past 2.19 on its own schedule.  Building it pins that variable instead of
+# recording its consequences.  Autotools gives the reference dylib an
+# absolute install name under the workspace prefix, so nothing here needs
+# DYLD_LIBRARY_PATH.
+
+name: macos
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-26
+    env:
+      LCMS_TAG: lcms2.19
+      LCMS_VERSION: "2.19"
+    steps:
+      - uses: actions/checkout@v4
+
+      # ninja drives the CMake build; pkgconf is how the conformance half
+      # finds the reference, the same way any client finds lcms2.
+      - name: Install dependencies
+        run: brew install ninja pkgconf
+
+      - name: Build the reference lcms2
+        run: |
+          git clone --quiet --depth 1 --branch "$LCMS_TAG" \
+              https://github.com/mm2/Little-CMS.git upstream
+          cd upstream
+          ./configure --prefix="$GITHUB_WORKSPACE/reference" > /dev/null
+          make -j"$(sysctl -n hw.ncpu)" > /dev/null
+          make install > /dev/null
+          PKG_CONFIG_PATH="$GITHUB_WORKSPACE/reference/lib/pkgconfig" \
+              test "$(pkg-config --modversion lcms2)" = "$LCMS_VERSION"
+
+      - name: Build (SwiftPM)
+        run: swift build -c release
+
+      - name: Test (SwiftPM)
+        run: swift test
+
+      - name: Configure (CMake)
+        run: >
+          PKG_CONFIG_PATH="$GITHUB_WORKSPACE/reference/lib/pkgconfig"
+          cmake -G Ninja -B build/ci -DCMAKE_BUILD_TYPE=Release
+          -DSLCMS_UPSTREAM_DIR="$GITHUB_WORKSPACE/upstream"
+
+      - name: Build (CMake)
+        run: cmake --build build/ci
+
+      - name: Test (CTest)
+        run: ctest --test-dir build/ci --output-on-failure
