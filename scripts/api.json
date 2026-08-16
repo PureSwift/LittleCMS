@@ -1,0 +1,2676 @@
+[
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cms15Fixed16toDouble",
+    "parameters": "cmsS15Fixed16Number fix32",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cms8Fixed8toDouble",
+    "parameters": "cmsUInt16Number fixed8",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsAdjustEndianess16",
+    "parameters": "cmsUInt16Number Word",
+    "return": "cmsUInt16Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsAdjustEndianess32",
+    "parameters": "cmsUInt32Number Value",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsAdjustEndianess64",
+    "parameters": "cmsUInt64Number* Result, cmsUInt64Number* QWord",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsCalloc",
+    "parameters": "cmsContext ContextID, cmsUInt32Number num, cmsUInt32Number size",
+    "return": "void*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsComputeInterpParams",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nSamples, cmsUInt32Number InputChan, cmsUInt32Number OutputChan, const void* Table, cmsUInt32Number dwFlags",
+    "return": "cmsInterpParams*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsCreateMutex",
+    "parameters": "cmsContext ContextID",
+    "return": "void*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsDecodeDateTimeNumber",
+    "parameters": "const cmsDateTimeNumber *Source, struct tm *Dest",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsDefaultICCintents",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nProfiles, cmsUInt32Number Intents[], cmsHPROFILE hProfiles[], cmsBool BPC[], cmsFloat64Number AdaptationStates[], cmsUInt32Number dwFlags",
+    "return": "cmsPipeline*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsDestroyMutex",
+    "parameters": "cmsContext ContextID, void* mtx",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsDoubleTo15Fixed16",
+    "parameters": "cmsFloat64Number v",
+    "return": "cmsS15Fixed16Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsDoubleTo8Fixed8",
+    "parameters": "cmsFloat64Number val",
+    "return": "cmsUInt16Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsDupMem",
+    "parameters": "cmsContext ContextID, const void* Org, cmsUInt32Number size",
+    "return": "void*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsEncodeDateTimeNumber",
+    "parameters": "cmsDateTimeNumber *Dest, const struct tm *Source",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsFloat2Half",
+    "parameters": "cmsFloat32Number flt",
+    "return": "cmsUInt16Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsFree",
+    "parameters": "cmsContext ContextID, void* Ptr",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsFreeInterpParams",
+    "parameters": "cmsInterpParams* p",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsGetFormatter",
+    "parameters": "cmsContext ContextID, cmsUInt32Number Type, cmsFormatterDirection Dir, cmsUInt32Number dwFlags",
+    "return": "cmsFormatter",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsGetTransformFlags",
+    "parameters": "struct _cmstransform_struct* CMMcargo",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsGetTransformFormatters16",
+    "parameters": "struct _cmstransform_struct *CMMcargo, cmsFormatter16* FromInput, cmsFormatter16* ToOutput",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsGetTransformFormattersFloat",
+    "parameters": "struct _cmstransform_struct *CMMcargo, cmsFormatterFloat* FromInput, cmsFormatterFloat* ToOutput",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsGetTransformMaxWorkers",
+    "parameters": "struct _cmstransform_struct* CMMcargo",
+    "return": "cmsInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsGetTransformUserData",
+    "parameters": "struct _cmstransform_struct *CMMcargo",
+    "return": "void *",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsGetTransformWorker",
+    "parameters": "struct _cmstransform_struct* CMMcargo",
+    "return": "_cmsTransform2Fn",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsGetTransformWorkerFlags",
+    "parameters": "struct _cmstransform_struct* CMMcargo",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsHalf2Float",
+    "parameters": "cmsUInt16Number h",
+    "return": "cmsFloat32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "_cmsICCcolorSpace",
+    "parameters": "int OurNotation",
+    "return": "cmsColorSpaceSignature",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsIOPrintf",
+    "parameters": "cmsIOHANDLER* io, const char* frm, ...",
+    "return": "cmsBool",
+    "variadic": true
+  },
+  {
+    "header": "lcms2.h",
+    "name": "_cmsLCMScolorSpace",
+    "parameters": "cmsColorSpaceSignature ProfileSpace",
+    "return": "int",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsLockMutex",
+    "parameters": "cmsContext ContextID, void* mtx",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsMAT3eval",
+    "parameters": "cmsVEC3* r, const cmsMAT3* a, const cmsVEC3* v",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsMAT3identity",
+    "parameters": "cmsMAT3* a",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsMAT3inverse",
+    "parameters": "const cmsMAT3* a, cmsMAT3* b",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsMAT3isIdentity",
+    "parameters": "const cmsMAT3* a",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsMAT3per",
+    "parameters": "cmsMAT3* r, const cmsMAT3* a, const cmsMAT3* b",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsMAT3solve",
+    "parameters": "cmsVEC3* x, cmsMAT3* a, cmsVEC3* b",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsMalloc",
+    "parameters": "cmsContext ContextID, cmsUInt32Number size",
+    "return": "void*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsMallocZero",
+    "parameters": "cmsContext ContextID, cmsUInt32Number size",
+    "return": "void*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsOptimizePipeline",
+    "parameters": "cmsContext ContextID, cmsPipeline** Lut, cmsUInt32Number Intent, cmsUInt32Number* InputFormat, cmsUInt32Number* OutputFormat, cmsUInt32Number* dwFlags",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsPipelineSetOptimizationParameters",
+    "parameters": "cmsPipeline* Lut, _cmsPipelineEval16Fn Eval16, void* PrivateData, _cmsFreeUserDataFn FreePrivateDataFn, _cmsDupUserDataFn DupPrivateDataFn",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsQuantizeVal",
+    "parameters": "cmsFloat64Number i, cmsUInt32Number MaxSamples",
+    "return": "cmsUInt16Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsRead15Fixed16Number",
+    "parameters": "cmsIOHANDLER* io, cmsFloat64Number* n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsReadAlignment",
+    "parameters": "cmsIOHANDLER* io",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsReadDevicelinkLUT",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number Intent",
+    "return": "cmsPipeline*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsReadFloat32Number",
+    "parameters": "cmsIOHANDLER* io, cmsFloat32Number* n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsReadInputLUT",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number Intent",
+    "return": "cmsPipeline*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsReadOutputLUT",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number Intent",
+    "return": "cmsPipeline*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsReadTypeBase",
+    "parameters": "cmsIOHANDLER* io",
+    "return": "cmsTagTypeSignature",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsReadUInt16Array",
+    "parameters": "cmsIOHANDLER* io, cmsUInt32Number n, cmsUInt16Number* Array",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsReadUInt16Number",
+    "parameters": "cmsIOHANDLER* io, cmsUInt16Number* n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsReadUInt32Number",
+    "parameters": "cmsIOHANDLER* io, cmsUInt32Number* n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsReadUInt64Number",
+    "parameters": "cmsIOHANDLER* io, cmsUInt64Number* n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsReadUInt8Number",
+    "parameters": "cmsIOHANDLER* io, cmsUInt8Number* n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsReadXYZNumber",
+    "parameters": "cmsIOHANDLER* io, cmsCIEXYZ* XYZ",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsRealloc",
+    "parameters": "cmsContext ContextID, void* Ptr, cmsUInt32Number NewSize",
+    "return": "void*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsReasonableGridpointsByColorspace",
+    "parameters": "cmsColorSpaceSignature Colorspace, cmsUInt32Number dwFlags",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsSetTransformUserData",
+    "parameters": "struct _cmstransform_struct *CMMcargo, void* ptr, _cmsFreeUserDataFn FreePrivateDataFn",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsStageAllocIdentityCLut",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nChan",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsStageAllocIdentityCurves",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nChannels",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsStageAllocLab2XYZ",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsStageAllocLabV2ToV4",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsStageAllocLabV4ToV2",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsStageAllocNamedColor",
+    "parameters": "cmsNAMEDCOLORLIST* NamedColorList, cmsBool UsePCS",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsStageAllocPlaceholder",
+    "parameters": "cmsContext ContextID, cmsStageSignature Type, cmsUInt32Number InputChannels, cmsUInt32Number OutputChannels, _cmsStageEvalFn EvalPtr, _cmsStageDupElemFn DupElemPtr, _cmsStageFreeElemFn FreePtr, void* Data",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_unshipped.h",
+    "name": "_cmsStageAllocXYZ2Lab",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsUnlockMutex",
+    "parameters": "cmsContext ContextID, void* mtx",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsVEC3cross",
+    "parameters": "cmsVEC3* r, const cmsVEC3* u, const cmsVEC3* v",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsVEC3distance",
+    "parameters": "const cmsVEC3* a, const cmsVEC3* b",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsVEC3dot",
+    "parameters": "const cmsVEC3* u, const cmsVEC3* v",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsVEC3init",
+    "parameters": "cmsVEC3* r, cmsFloat64Number x, cmsFloat64Number y, cmsFloat64Number z",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsVEC3length",
+    "parameters": "const cmsVEC3* a",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsVEC3minus",
+    "parameters": "cmsVEC3* r, const cmsVEC3* a, const cmsVEC3* b",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsWrite15Fixed16Number",
+    "parameters": "cmsIOHANDLER* io, cmsFloat64Number n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsWriteAlignment",
+    "parameters": "cmsIOHANDLER* io",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsWriteFloat32Number",
+    "parameters": "cmsIOHANDLER* io, cmsFloat32Number n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsWriteTypeBase",
+    "parameters": "cmsIOHANDLER* io, cmsTagTypeSignature sig",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsWriteUInt16Array",
+    "parameters": "cmsIOHANDLER* io, cmsUInt32Number n, const cmsUInt16Number* Array",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsWriteUInt16Number",
+    "parameters": "cmsIOHANDLER* io, cmsUInt16Number n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsWriteUInt32Number",
+    "parameters": "cmsIOHANDLER* io, cmsUInt32Number n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsWriteUInt64Number",
+    "parameters": "cmsIOHANDLER* io, cmsUInt64Number* n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsWriteUInt8Number",
+    "parameters": "cmsIOHANDLER* io, cmsUInt8Number n",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "_cmsWriteXYZNumber",
+    "parameters": "cmsIOHANDLER* io, const cmsCIEXYZ* XYZ",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsAdaptToIlluminant",
+    "parameters": "cmsCIEXYZ* Result, const cmsCIEXYZ* SourceWhitePt, const cmsCIEXYZ* Illuminant, const cmsCIEXYZ* Value",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsAllocNamedColorList",
+    "parameters": "cmsContext ContextID, cmsUInt32Number n, cmsUInt32Number ColorantCount, const char* Prefix, const char* Suffix",
+    "return": "cmsNAMEDCOLORLIST*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsAllocProfileSequenceDescription",
+    "parameters": "cmsContext ContextID, cmsUInt32Number n",
+    "return": "cmsSEQ*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsAppendNamedColor",
+    "parameters": "cmsNAMEDCOLORLIST* v, const char* Name, cmsUInt16Number PCS[3], cmsUInt16Number Colorant[16]",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsBFDdeltaE",
+    "parameters": "const cmsCIELab* Lab1, const cmsCIELab* Lab2",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsBuildGamma",
+    "parameters": "cmsContext ContextID, cmsFloat64Number Gamma",
+    "return": "cmsToneCurve*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsBuildParametricToneCurve",
+    "parameters": "cmsContext ContextID, cmsInt32Number Type, const cmsFloat64Number Params[]",
+    "return": "cmsToneCurve*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsBuildSegmentedToneCurve",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nSegments, const cmsCurveSegment Segments[]",
+    "return": "cmsToneCurve*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsBuildTabulatedToneCurve16",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nEntries, const cmsUInt16Number values[]",
+    "return": "cmsToneCurve*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsBuildTabulatedToneCurveFloat",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nEntries, const cmsFloat32Number values[]",
+    "return": "cmsToneCurve*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCIE2000DeltaE",
+    "parameters": "const cmsCIELab* Lab1, const cmsCIELab* Lab2, cmsFloat64Number Kl, cmsFloat64Number Kc, cmsFloat64Number Kh",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCIE94DeltaE",
+    "parameters": "const cmsCIELab* Lab1, const cmsCIELab* Lab2",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCIECAM02Done",
+    "parameters": "cmsHANDLE hModel",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCIECAM02Forward",
+    "parameters": "cmsHANDLE hModel, const cmsCIEXYZ* pIn, cmsJCh* pOut",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCIECAM02Init",
+    "parameters": "cmsContext ContextID, const cmsViewingConditions* pVC",
+    "return": "cmsHANDLE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCIECAM02Reverse",
+    "parameters": "cmsHANDLE hModel, const cmsJCh* pIn, cmsCIEXYZ* pOut",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCMCdeltaE",
+    "parameters": "const cmsCIELab* Lab1, const cmsCIELab* Lab2, cmsFloat64Number l, cmsFloat64Number c",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsChangeBuffersFormat",
+    "parameters": "cmsHTRANSFORM hTransform, cmsUInt32Number InputFormat, cmsUInt32Number OutputFormat",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsChannelsOf",
+    "parameters": "cmsColorSpaceSignature ColorSpace",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsChannelsOfColorSpace",
+    "parameters": "cmsColorSpaceSignature ColorSpace",
+    "return": "cmsInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCloseIOhandler",
+    "parameters": "cmsIOHANDLER* io",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCloseProfile",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateBCHSWabstractProfile",
+    "parameters": "cmsUInt32Number nLUTPoints, cmsFloat64Number Bright, cmsFloat64Number Contrast, cmsFloat64Number Hue, cmsFloat64Number Saturation, cmsUInt32Number TempSrc, cmsUInt32Number TempDest",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateBCHSWabstractProfileTHR",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nLUTPoints, cmsFloat64Number Bright, cmsFloat64Number Contrast, cmsFloat64Number Hue, cmsFloat64Number Saturation, cmsUInt32Number TempSrc, cmsUInt32Number TempDest",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateContext",
+    "parameters": "void* Plugin, void* UserData",
+    "return": "cmsContext",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateDeviceLinkFromCubeFile",
+    "parameters": "const char* cFileName",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateDeviceLinkFromCubeFileTHR",
+    "parameters": "cmsContext ContextID, const char* cFileName",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateExtendedTransform",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nProfiles, cmsHPROFILE hProfiles[], cmsBool BPC[], cmsUInt32Number Intents[], cmsFloat64Number AdaptationStates[], cmsHPROFILE hGamutProfile, cmsUInt32Number nGamutPCSposition, cmsUInt32Number InputFormat, cmsUInt32Number OutputFormat, cmsUInt32Number dwFlags",
+    "return": "cmsHTRANSFORM",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateGrayProfile",
+    "parameters": "const cmsCIExyY* WhitePoint, const cmsToneCurve* TransferFunction",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateGrayProfileTHR",
+    "parameters": "cmsContext ContextID, const cmsCIExyY* WhitePoint, const cmsToneCurve* TransferFunction",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateInkLimitingDeviceLink",
+    "parameters": "cmsColorSpaceSignature ColorSpace, cmsFloat64Number Limit",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateInkLimitingDeviceLinkTHR",
+    "parameters": "cmsContext ContextID, cmsColorSpaceSignature ColorSpace, cmsFloat64Number Limit",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateLab2Profile",
+    "parameters": "const cmsCIExyY* WhitePoint",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateLab2ProfileTHR",
+    "parameters": "cmsContext ContextID, const cmsCIExyY* WhitePoint",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateLab4Profile",
+    "parameters": "const cmsCIExyY* WhitePoint",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateLab4ProfileTHR",
+    "parameters": "cmsContext ContextID, const cmsCIExyY* WhitePoint",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateLinearizationDeviceLink",
+    "parameters": "cmsColorSpaceSignature ColorSpace, cmsToneCurve* const TransferFunctions[]",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateLinearizationDeviceLinkTHR",
+    "parameters": "cmsContext ContextID, cmsColorSpaceSignature ColorSpace, cmsToneCurve* const TransferFunctions[]",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateMultiprofileTransform",
+    "parameters": "cmsHPROFILE hProfiles[], cmsUInt32Number nProfiles, cmsUInt32Number InputFormat, cmsUInt32Number OutputFormat, cmsUInt32Number Intent, cmsUInt32Number dwFlags",
+    "return": "cmsHTRANSFORM",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateMultiprofileTransformTHR",
+    "parameters": "cmsContext ContextID, cmsHPROFILE hProfiles[], cmsUInt32Number nProfiles, cmsUInt32Number InputFormat, cmsUInt32Number OutputFormat, cmsUInt32Number Intent, cmsUInt32Number dwFlags",
+    "return": "cmsHTRANSFORM",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateNULLProfile",
+    "parameters": "void",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateNULLProfileTHR",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateProfilePlaceholder",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateProofingTransform",
+    "parameters": "cmsHPROFILE Input, cmsUInt32Number InputFormat, cmsHPROFILE Output, cmsUInt32Number OutputFormat, cmsHPROFILE Proofing, cmsUInt32Number Intent, cmsUInt32Number ProofingIntent, cmsUInt32Number dwFlags",
+    "return": "cmsHTRANSFORM",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateProofingTransformTHR",
+    "parameters": "cmsContext ContextID, cmsHPROFILE Input, cmsUInt32Number InputFormat, cmsHPROFILE Output, cmsUInt32Number OutputFormat, cmsHPROFILE Proofing, cmsUInt32Number Intent, cmsUInt32Number ProofingIntent, cmsUInt32Number dwFlags",
+    "return": "cmsHTRANSFORM",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateRGBProfile",
+    "parameters": "const cmsCIExyY* WhitePoint, const cmsCIExyYTRIPLE* Primaries, cmsToneCurve* const TransferFunction[3]",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateRGBProfileTHR",
+    "parameters": "cmsContext ContextID, const cmsCIExyY* WhitePoint, const cmsCIExyYTRIPLE* Primaries, cmsToneCurve* const TransferFunction[3]",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateTransform",
+    "parameters": "cmsHPROFILE Input, cmsUInt32Number InputFormat, cmsHPROFILE Output, cmsUInt32Number OutputFormat, cmsUInt32Number Intent, cmsUInt32Number dwFlags",
+    "return": "cmsHTRANSFORM",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateTransformTHR",
+    "parameters": "cmsContext ContextID, cmsHPROFILE Input, cmsUInt32Number InputFormat, cmsHPROFILE Output, cmsUInt32Number OutputFormat, cmsUInt32Number Intent, cmsUInt32Number dwFlags",
+    "return": "cmsHTRANSFORM",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateXYZProfile",
+    "parameters": "void",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreateXYZProfileTHR",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreate_OkLabProfile",
+    "parameters": "cmsContext ctx",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreate_sRGBProfile",
+    "parameters": "void",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsCreate_sRGBProfileTHR",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsD50_XYZ",
+    "parameters": "void",
+    "return": "const cmsCIEXYZ*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsD50_xyY",
+    "parameters": "void",
+    "return": "const cmsCIExyY*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDeleteContext",
+    "parameters": "cmsContext ContextID",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDeleteTransform",
+    "parameters": "cmsHTRANSFORM hTransform",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDeltaE",
+    "parameters": "const cmsCIELab* Lab1, const cmsCIELab* Lab2",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDesaturateLab",
+    "parameters": "cmsCIELab* Lab, double amax, double amin, double bmax, double bmin",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDetectBlackPoint",
+    "parameters": "cmsCIEXYZ* BlackPoint, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDetectDestinationBlackPoint",
+    "parameters": "cmsCIEXYZ* BlackPoint, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDetectRGBProfileGamma",
+    "parameters": "cmsHPROFILE hProfile, cmsFloat64Number threshold",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDetectTAC",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDictAddEntry",
+    "parameters": "cmsHANDLE hDict, const wchar_t* Name, const wchar_t* Value, const cmsMLU *DisplayName, const cmsMLU *DisplayValue",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDictAlloc",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsHANDLE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDictDup",
+    "parameters": "cmsHANDLE hDict",
+    "return": "cmsHANDLE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDictFree",
+    "parameters": "cmsHANDLE hDict",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDictGetEntryList",
+    "parameters": "cmsHANDLE hDict",
+    "return": "const cmsDICTentry*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDictNextEntry",
+    "parameters": "const cmsDICTentry* e",
+    "return": "const cmsDICTentry*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDoTransform",
+    "parameters": "cmsHTRANSFORM Transform, const void * InputBuffer, void * OutputBuffer, cmsUInt32Number Size",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDoTransformLineStride",
+    "parameters": "cmsHTRANSFORM Transform, const void* InputBuffer, void* OutputBuffer, cmsUInt32Number PixelsPerLine, cmsUInt32Number LineCount, cmsUInt32Number BytesPerLineIn, cmsUInt32Number BytesPerLineOut, cmsUInt32Number BytesPerPlaneIn, cmsUInt32Number BytesPerPlaneOut",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDoTransformStride",
+    "parameters": "cmsHTRANSFORM Transform, const void * InputBuffer, void * OutputBuffer, cmsUInt32Number Size, cmsUInt32Number Stride",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDupContext",
+    "parameters": "cmsContext ContextID, void* NewUserData",
+    "return": "cmsContext",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDupNamedColorList",
+    "parameters": "const cmsNAMEDCOLORLIST* v",
+    "return": "cmsNAMEDCOLORLIST*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDupProfileSequenceDescription",
+    "parameters": "const cmsSEQ* pseq",
+    "return": "cmsSEQ*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsDupToneCurve",
+    "parameters": "const cmsToneCurve* Src",
+    "return": "cmsToneCurve*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsEstimateGamma",
+    "parameters": "const cmsToneCurve* t, cmsFloat64Number Precision",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsEvalToneCurve16",
+    "parameters": "const cmsToneCurve* Curve, cmsUInt16Number v",
+    "return": "cmsUInt16Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsEvalToneCurveFloat",
+    "parameters": "const cmsToneCurve* Curve, cmsFloat32Number v",
+    "return": "cmsFloat32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsFloat2LabEncoded",
+    "parameters": "cmsUInt16Number wLab[3], const cmsCIELab* Lab",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsFloat2LabEncodedV2",
+    "parameters": "cmsUInt16Number wLab[3], const cmsCIELab* Lab",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsFloat2XYZEncoded",
+    "parameters": "cmsUInt16Number XYZ[3], const cmsCIEXYZ* fXYZ",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsFormatterForColorspaceOfProfile",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number nBytes, cmsBool lIsFloat",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsFormatterForPCSOfProfile",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number nBytes, cmsBool lIsFloat",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsFreeNamedColorList",
+    "parameters": "cmsNAMEDCOLORLIST* v",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsFreeProfileSequenceDescription",
+    "parameters": "cmsSEQ* pseq",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsFreeToneCurve",
+    "parameters": "cmsToneCurve* Curve",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsFreeToneCurveTriple",
+    "parameters": "cmsToneCurve* Curve[3]",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGBDAlloc",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsHANDLE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGBDFree",
+    "parameters": "cmsHANDLE hGBD",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGDBAddPoint",
+    "parameters": "cmsHANDLE hGBD, const cmsCIELab* Lab",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGDBCheckPoint",
+    "parameters": "cmsHANDLE hGBD, const cmsCIELab* Lab",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGDBCompute",
+    "parameters": "cmsHANDLE hGDB, cmsUInt32Number dwFlags",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetAlarmCodes",
+    "parameters": "cmsUInt16Number NewAlarm[16]",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetAlarmCodesTHR",
+    "parameters": "cmsContext ContextID, cmsUInt16Number AlarmCodes[16]",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetColorSpace",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsColorSpaceSignature",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetContextUserData",
+    "parameters": "cmsContext ContextID",
+    "return": "void*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetDeviceClass",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsProfileClassSignature",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetEncodedCMMversion",
+    "parameters": "void",
+    "return": "int",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetEncodedICCversion",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetHeaderAttributes",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt64Number* Flags",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetHeaderCMM",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetHeaderCreationDateTime",
+    "parameters": "cmsHPROFILE hProfile, struct tm *Dest",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetHeaderCreator",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetHeaderFlags",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetHeaderManufacturer",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetHeaderModel",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetHeaderProfileID",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt8Number* ProfileID",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetHeaderRenderingIntent",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetNamedColorList",
+    "parameters": "cmsHTRANSFORM xform",
+    "return": "cmsNAMEDCOLORLIST*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetPCS",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsColorSpaceSignature",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetPipelineContextID",
+    "parameters": "const cmsPipeline* lut",
+    "return": "cmsContext",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetPostScriptCRD",
+    "parameters": "cmsContext ContextID, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags, void* Buffer, cmsUInt32Number dwBufferLen",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetPostScriptCSA",
+    "parameters": "cmsContext ContextID, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags, void* Buffer, cmsUInt32Number dwBufferLen",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetPostScriptColorResource",
+    "parameters": "cmsContext ContextID, cmsPSResourceType Type, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags, cmsIOHANDLER* io",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetProfileContextID",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsContext",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetProfileIOhandler",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsIOHANDLER*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetProfileInfo",
+    "parameters": "cmsHPROFILE hProfile, cmsInfoType Info, const char LanguageCode[3], const char CountryCode[3], wchar_t* Buffer, cmsUInt32Number BufferSize",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetProfileInfoASCII",
+    "parameters": "cmsHPROFILE hProfile, cmsInfoType Info, const char LanguageCode[3], const char CountryCode[3], char* Buffer, cmsUInt32Number BufferSize",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetProfileInfoUTF8",
+    "parameters": "cmsHPROFILE hProfile, cmsInfoType Info, const char LanguageCode[3], const char CountryCode[3], char* Buffer, cmsUInt32Number BufferSize",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetProfileVersion",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetStageContextID",
+    "parameters": "const cmsStage* mpe",
+    "return": "cmsContext",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetSupportedIntents",
+    "parameters": "cmsUInt32Number nMax, cmsUInt32Number* Codes, char** Descriptions",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetSupportedIntentsTHR",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nMax, cmsUInt32Number* Codes, char** Descriptions",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetTagCount",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetTagOffsetAndSize",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number n, cmsUInt32Number* offset, cmsUInt32Number* size",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetTagSignature",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number n",
+    "return": "cmsTagSignature",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetToneCurveEstimatedTable",
+    "parameters": "const cmsToneCurve* t",
+    "return": "const cmsUInt16Number*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetToneCurveEstimatedTableEntries",
+    "parameters": "const cmsToneCurve* t",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetToneCurveParametricType",
+    "parameters": "const cmsToneCurve* t",
+    "return": "cmsInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetToneCurveSegment",
+    "parameters": "cmsInt32Number n, const cmsToneCurve* t",
+    "return": "const cmsCurveSegment*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetTransformContextID",
+    "parameters": "cmsHTRANSFORM hTransform",
+    "return": "cmsContext",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetTransformGamutCheckPipeline",
+    "parameters": "cmsHTRANSFORM hTransform",
+    "return": "cmsPipeline*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetTransformInputColorants",
+    "parameters": "cmsHTRANSFORM hTransform",
+    "return": "cmsNAMEDCOLORLIST*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetTransformInputFormat",
+    "parameters": "cmsHTRANSFORM hTransform",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetTransformOutputColorants",
+    "parameters": "cmsHTRANSFORM hTransform",
+    "return": "cmsNAMEDCOLORLIST*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetTransformOutputFormat",
+    "parameters": "cmsHTRANSFORM hTransform",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsGetTransformPipeline",
+    "parameters": "cmsHTRANSFORM hTransform",
+    "return": "cmsPipeline*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8Alloc",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsHANDLE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8DefineDblFormat",
+    "parameters": "cmsHANDLE hIT8, const char* Formatter",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8EnumDataFormat",
+    "parameters": "cmsHANDLE hIT8, char ***SampleNames",
+    "return": "int",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8EnumProperties",
+    "parameters": "cmsHANDLE hIT8, char ***PropertyNames",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8EnumPropertyMulti",
+    "parameters": "cmsHANDLE hIT8, const char* cProp, const char ***SubpropertyNames",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8FindDataFormat",
+    "parameters": "cmsHANDLE hIT8, const char* cSample",
+    "return": "int",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8Free",
+    "parameters": "cmsHANDLE hIT8",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8GetData",
+    "parameters": "cmsHANDLE hIT8, const char* cPatch, const char* cSample",
+    "return": "const char*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8GetDataDbl",
+    "parameters": "cmsHANDLE hIT8, const char* cPatch, const char* cSample",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8GetDataRowCol",
+    "parameters": "cmsHANDLE hIT8, int row, int col",
+    "return": "const char*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8GetDataRowColDbl",
+    "parameters": "cmsHANDLE hIT8, int row, int col",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8GetPatchByName",
+    "parameters": "cmsHANDLE hIT8, const char *cPatch",
+    "return": "int",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8GetPatchName",
+    "parameters": "cmsHANDLE hIT8, int nPatch, char* buffer",
+    "return": "const char*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8GetProperty",
+    "parameters": "cmsHANDLE hIT8, const char* cProp",
+    "return": "const char*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8GetPropertyDbl",
+    "parameters": "cmsHANDLE hIT8, const char* cProp",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8GetPropertyMulti",
+    "parameters": "cmsHANDLE hIT8, const char* Key, const char *SubKey",
+    "return": "const char*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8GetSheetType",
+    "parameters": "cmsHANDLE hIT8",
+    "return": "const char*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8LoadFromFile",
+    "parameters": "cmsContext ContextID, const char* cFileName",
+    "return": "cmsHANDLE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8LoadFromMem",
+    "parameters": "cmsContext ContextID, const void *Ptr, cmsUInt32Number len",
+    "return": "cmsHANDLE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SaveToFile",
+    "parameters": "cmsHANDLE hIT8, const char* cFileName",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SaveToMem",
+    "parameters": "cmsHANDLE hIT8, void *MemPtr, cmsUInt32Number* BytesNeeded",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetComment",
+    "parameters": "cmsHANDLE hIT8, const char* cComment",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetData",
+    "parameters": "cmsHANDLE hIT8, const char* cPatch, const char* cSample, const char *Val",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetDataDbl",
+    "parameters": "cmsHANDLE hIT8, const char* cPatch, const char* cSample, cmsFloat64Number Val",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetDataFormat",
+    "parameters": "cmsHANDLE hIT8, int n, const char *Sample",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetDataRowCol",
+    "parameters": "cmsHANDLE hIT8, int row, int col, const char* Val",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetDataRowColDbl",
+    "parameters": "cmsHANDLE hIT8, int row, int col, cmsFloat64Number Val",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetIndexColumn",
+    "parameters": "cmsHANDLE hIT8, const char* cSample",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetPropertyDbl",
+    "parameters": "cmsHANDLE hIT8, const char* cProp, cmsFloat64Number Val",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetPropertyHex",
+    "parameters": "cmsHANDLE hIT8, const char* cProp, cmsUInt32Number Val",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetPropertyMulti",
+    "parameters": "cmsHANDLE hIT8, const char* Key, const char* SubKey, const char *Buffer",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetPropertyStr",
+    "parameters": "cmsHANDLE hIT8, const char* cProp, const char *Str",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetPropertyUncooked",
+    "parameters": "cmsHANDLE hIT8, const char* Key, const char* Buffer",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetSheetType",
+    "parameters": "cmsHANDLE hIT8, const char* Type",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetTable",
+    "parameters": "cmsHANDLE hIT8, cmsUInt32Number nTable",
+    "return": "cmsInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8SetTableByLabel",
+    "parameters": "cmsHANDLE hIT8, const char* cSet, const char* cField, const char* ExpectedType",
+    "return": "int",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIT8TableCount",
+    "parameters": "cmsHANDLE hIT8",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIsCLUT",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number UsedDirection",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIsIntentSupported",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number UsedDirection",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIsMatrixShaper",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIsTag",
+    "parameters": "cmsHPROFILE hProfile, cmsTagSignature sig",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIsToneCurveDescending",
+    "parameters": "const cmsToneCurve* t",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIsToneCurveLinear",
+    "parameters": "const cmsToneCurve* Curve",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIsToneCurveMonotonic",
+    "parameters": "const cmsToneCurve* t",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsIsToneCurveMultisegment",
+    "parameters": "const cmsToneCurve* InGamma",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsJoinToneCurve",
+    "parameters": "cmsContext ContextID, const cmsToneCurve* X, const cmsToneCurve* Y, cmsUInt32Number nPoints",
+    "return": "cmsToneCurve*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsLCh2Lab",
+    "parameters": "cmsCIELab* Lab, const cmsCIELCh* LCh",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsLab2LCh",
+    "parameters": "cmsCIELCh*LCh, const cmsCIELab* Lab",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsLab2XYZ",
+    "parameters": "const cmsCIEXYZ* WhitePoint, cmsCIEXYZ* xyz, const cmsCIELab* Lab",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsLabEncoded2Float",
+    "parameters": "cmsCIELab* Lab, const cmsUInt16Number wLab[3]",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsLabEncoded2FloatV2",
+    "parameters": "cmsCIELab* Lab, const cmsUInt16Number wLab[3]",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsLinkTag",
+    "parameters": "cmsHPROFILE hProfile, cmsTagSignature sig, cmsTagSignature dest",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "cmsMD5add",
+    "parameters": "cmsHANDLE Handle, const cmsUInt8Number* buf, cmsUInt32Number len",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "cmsMD5alloc",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsHANDLE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMD5computeID",
+    "parameters": "cmsHPROFILE hProfile",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "cmsMD5finish",
+    "parameters": "cmsProfileID* ProfileID, cmsHANDLE Handle",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUalloc",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nItems",
+    "return": "cmsMLU*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUdup",
+    "parameters": "const cmsMLU* mlu",
+    "return": "cmsMLU*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUfree",
+    "parameters": "cmsMLU* mlu",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUgetASCII",
+    "parameters": "const cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], char* Buffer, cmsUInt32Number BufferSize",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUgetTranslation",
+    "parameters": "const cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], char ObtainedLanguage[3], char ObtainedCountry[3]",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUgetUTF8",
+    "parameters": "const cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], char* Buffer, cmsUInt32Number BufferSize",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUgetWide",
+    "parameters": "const cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], wchar_t* Buffer, cmsUInt32Number BufferSize",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUsetASCII",
+    "parameters": "cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], const char* ASCIIString",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUsetUTF8",
+    "parameters": "cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], const char* UTF8String",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUsetWide",
+    "parameters": "cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], const wchar_t* WideString",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUtranslationsCodes",
+    "parameters": "const cmsMLU* mlu, cmsUInt32Number idx, char LanguageCode[3], char CountryCode[3]",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsMLUtranslationsCount",
+    "parameters": "const cmsMLU* mlu",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsNamedColorCount",
+    "parameters": "const cmsNAMEDCOLORLIST* v",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsNamedColorIndex",
+    "parameters": "const cmsNAMEDCOLORLIST* v, const char* Name",
+    "return": "cmsInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsNamedColorInfo",
+    "parameters": "const cmsNAMEDCOLORLIST* NamedColorList, cmsUInt32Number nColor, char* Name, char* Prefix, char* Suffix, cmsUInt16Number* PCS, cmsUInt16Number* Colorant",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenIOhandlerFromFile",
+    "parameters": "cmsContext ContextID, const char* FileName, const char* AccessMode",
+    "return": "cmsIOHANDLER*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenIOhandlerFromMem",
+    "parameters": "cmsContext ContextID, void *Buffer, cmsUInt32Number size, const char* AccessMode",
+    "return": "cmsIOHANDLER*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenIOhandlerFromNULL",
+    "parameters": "cmsContext ContextID",
+    "return": "cmsIOHANDLER*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenIOhandlerFromStream",
+    "parameters": "cmsContext ContextID, FILE* Stream",
+    "return": "cmsIOHANDLER*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenProfileFromFile",
+    "parameters": "const char *ICCProfile, const char *sAccess",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenProfileFromFileTHR",
+    "parameters": "cmsContext ContextID, const char *ICCProfile, const char *sAccess",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenProfileFromIOhandler2THR",
+    "parameters": "cmsContext ContextID, cmsIOHANDLER* io, cmsBool write",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenProfileFromIOhandlerTHR",
+    "parameters": "cmsContext ContextID, cmsIOHANDLER* io",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenProfileFromMem",
+    "parameters": "const void * MemPtr, cmsUInt32Number dwSize",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenProfileFromMemTHR",
+    "parameters": "cmsContext ContextID, const void * MemPtr, cmsUInt32Number dwSize",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenProfileFromStream",
+    "parameters": "FILE* ICCProfile, const char* sAccess",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsOpenProfileFromStreamTHR",
+    "parameters": "cmsContext ContextID, FILE* ICCProfile, const char* sAccess",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineAlloc",
+    "parameters": "cmsContext ContextID, cmsUInt32Number InputChannels, cmsUInt32Number OutputChannels",
+    "return": "cmsPipeline*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineCat",
+    "parameters": "cmsPipeline* l1, const cmsPipeline* l2",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineCheckAndRetreiveStages",
+    "parameters": "const cmsPipeline* Lut, cmsUInt32Number n, ...",
+    "return": "cmsBool",
+    "variadic": true
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineDup",
+    "parameters": "const cmsPipeline* Orig",
+    "return": "cmsPipeline*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineEval16",
+    "parameters": "const cmsUInt16Number In[], cmsUInt16Number Out[], const cmsPipeline* lut",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineEvalFloat",
+    "parameters": "const cmsFloat32Number In[], cmsFloat32Number Out[], const cmsPipeline* lut",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineEvalReverseFloat",
+    "parameters": "cmsFloat32Number Target[], cmsFloat32Number Result[], cmsFloat32Number Hint[], const cmsPipeline* lut",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineFree",
+    "parameters": "cmsPipeline* lut",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineGetPtrToFirstStage",
+    "parameters": "const cmsPipeline* lut",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineGetPtrToLastStage",
+    "parameters": "const cmsPipeline* lut",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineInputChannels",
+    "parameters": "const cmsPipeline* lut",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineInsertStage",
+    "parameters": "cmsPipeline* lut, cmsStageLoc loc, cmsStage* mpe",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineOutputChannels",
+    "parameters": "const cmsPipeline* lut",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineSetSaveAs8bitsFlag",
+    "parameters": "cmsPipeline* lut, cmsBool On",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineStageCount",
+    "parameters": "const cmsPipeline* lut",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPipelineUnlinkStage",
+    "parameters": "cmsPipeline* lut, cmsStageLoc loc, cmsStage** mpe",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPlugin",
+    "parameters": "void* Plugin",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsPluginTHR",
+    "parameters": "cmsContext ContextID, void* Plugin",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsReadRawTag",
+    "parameters": "cmsHPROFILE hProfile, cmsTagSignature sig, void* Buffer, cmsUInt32Number BufferSize",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsReadTag",
+    "parameters": "cmsHPROFILE hProfile, cmsTagSignature sig",
+    "return": "void*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsReverseToneCurve",
+    "parameters": "const cmsToneCurve* InGamma",
+    "return": "cmsToneCurve*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsReverseToneCurveEx",
+    "parameters": "cmsUInt32Number nResultSamples, const cmsToneCurve* InGamma",
+    "return": "cmsToneCurve*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSaveProfileToFile",
+    "parameters": "cmsHPROFILE hProfile, const char* FileName",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSaveProfileToIOhandler",
+    "parameters": "cmsHPROFILE hProfile, cmsIOHANDLER* io",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSaveProfileToMem",
+    "parameters": "cmsHPROFILE hProfile, void *MemPtr, cmsUInt32Number* BytesNeeded",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSaveProfileToStream",
+    "parameters": "cmsHPROFILE hProfile, FILE* Stream",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetAdaptationState",
+    "parameters": "cmsFloat64Number d",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetAdaptationStateTHR",
+    "parameters": "cmsContext ContextID, cmsFloat64Number d",
+    "return": "cmsFloat64Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetAlarmCodes",
+    "parameters": "const cmsUInt16Number NewAlarm[16]",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetAlarmCodesTHR",
+    "parameters": "cmsContext ContextID, const cmsUInt16Number AlarmCodes[16]",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetColorSpace",
+    "parameters": "cmsHPROFILE hProfile, cmsColorSpaceSignature sig",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetDeviceClass",
+    "parameters": "cmsHPROFILE hProfile, cmsProfileClassSignature sig",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetEncodedICCversion",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number Version",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetHeaderAttributes",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt64Number Flags",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetHeaderFlags",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number Flags",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetHeaderManufacturer",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number manufacturer",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetHeaderModel",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number model",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetHeaderProfileID",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt8Number* ProfileID",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetHeaderRenderingIntent",
+    "parameters": "cmsHPROFILE hProfile, cmsUInt32Number RenderingIntent",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetLogErrorHandler",
+    "parameters": "cmsLogErrorHandlerFunction Fn",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetLogErrorHandlerTHR",
+    "parameters": "cmsContext ContextID, cmsLogErrorHandlerFunction Fn",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetPCS",
+    "parameters": "cmsHPROFILE hProfile, cmsColorSpaceSignature pcs",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSetProfileVersion",
+    "parameters": "cmsHPROFILE hProfile, cmsFloat64Number Version",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2_plugin.h",
+    "name": "cmsSignalError",
+    "parameters": "cmsContext ContextID, cmsUInt32Number ErrorCode, const char *ErrorText, ...",
+    "return": "void",
+    "variadic": true
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSliceSpace16",
+    "parameters": "cmsUInt32Number nInputs, const cmsUInt32Number clutPoints[], cmsSAMPLER16 Sampler, void * Cargo",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSliceSpaceFloat",
+    "parameters": "cmsUInt32Number nInputs, const cmsUInt32Number clutPoints[], cmsSAMPLERFLOAT Sampler, void * Cargo",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsSmoothToneCurve",
+    "parameters": "cmsToneCurve* Tab, cmsFloat64Number lambda",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageAllocCLut16bit",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nGridPoints, cmsUInt32Number inputChan, cmsUInt32Number outputChan, const cmsUInt16Number* Table",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageAllocCLut16bitGranular",
+    "parameters": "cmsContext ContextID, const cmsUInt32Number clutPoints[], cmsUInt32Number inputChan, cmsUInt32Number outputChan, const cmsUInt16Number* Table",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageAllocCLutFloat",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nGridPoints, cmsUInt32Number inputChan, cmsUInt32Number outputChan, const cmsFloat32Number* Table",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageAllocCLutFloatGranular",
+    "parameters": "cmsContext ContextID, const cmsUInt32Number clutPoints[], cmsUInt32Number inputChan, cmsUInt32Number outputChan, const cmsFloat32Number* Table",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageAllocIdentity",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nChannels",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageAllocMatrix",
+    "parameters": "cmsContext ContextID, cmsUInt32Number Rows, cmsUInt32Number Cols, const cmsFloat64Number* Matrix, const cmsFloat64Number* Offset",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageAllocToneCurves",
+    "parameters": "cmsContext ContextID, cmsUInt32Number nChannels, cmsToneCurve* const Curves[]",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageData",
+    "parameters": "const cmsStage* mpe",
+    "return": "void*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageDup",
+    "parameters": "cmsStage* mpe",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageFree",
+    "parameters": "cmsStage* mpe",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageInputChannels",
+    "parameters": "const cmsStage* mpe",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageNext",
+    "parameters": "const cmsStage* mpe",
+    "return": "cmsStage*",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageOutputChannels",
+    "parameters": "const cmsStage* mpe",
+    "return": "cmsUInt32Number",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageSampleCLut16bit",
+    "parameters": "cmsStage* mpe, cmsSAMPLER16 Sampler, void* Cargo, cmsUInt32Number dwFlags",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageSampleCLutFloat",
+    "parameters": "cmsStage* mpe, cmsSAMPLERFLOAT Sampler, void* Cargo, cmsUInt32Number dwFlags",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsStageType",
+    "parameters": "const cmsStage* mpe",
+    "return": "cmsStageSignature",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsTagLinkedTo",
+    "parameters": "cmsHPROFILE hProfile, cmsTagSignature sig",
+    "return": "cmsTagSignature",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsTempFromWhitePoint",
+    "parameters": "cmsFloat64Number* TempK, const cmsCIExyY* WhitePoint",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsTransform2DeviceLink",
+    "parameters": "cmsHTRANSFORM hTransform, cmsFloat64Number Version, cmsUInt32Number dwFlags",
+    "return": "cmsHPROFILE",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsUnregisterPlugins",
+    "parameters": "void",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsUnregisterPluginsTHR",
+    "parameters": "cmsContext ContextID",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsWhitePointFromTemp",
+    "parameters": "cmsCIExyY* WhitePoint, cmsFloat64Number TempK",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsWriteRawTag",
+    "parameters": "cmsHPROFILE hProfile, cmsTagSignature sig, const void* data, cmsUInt32Number Size",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsWriteTag",
+    "parameters": "cmsHPROFILE hProfile, cmsTagSignature sig, const void* data",
+    "return": "cmsBool",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsXYZ2Lab",
+    "parameters": "const cmsCIEXYZ* WhitePoint, cmsCIELab* Lab, const cmsCIEXYZ* xyz",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsXYZ2xyY",
+    "parameters": "cmsCIExyY* Dest, const cmsCIEXYZ* Source",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsXYZEncoded2Float",
+    "parameters": "cmsCIEXYZ* fxyz, const cmsUInt16Number XYZ[3]",
+    "return": "void",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsfilelength",
+    "parameters": "FILE* f",
+    "return": "long int",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsstrcasecmp",
+    "parameters": "const char* s1, const char* s2",
+    "return": "int",
+    "variadic": false
+  },
+  {
+    "header": "lcms2.h",
+    "name": "cmsxyY2XYZ",
+    "parameters": "cmsCIEXYZ* Dest, const cmsCIExyY* Source",
+    "return": "void",
+    "variadic": false
+  }
+]
