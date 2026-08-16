@@ -11,7 +11,26 @@
 # serves.  Overridable so a source-built reference wins over a distro one.
 find_package(PkgConfig)
 if(PkgConfig_FOUND)
-    pkg_check_modules(SLCMS_REFERENCE IMPORTED_TARGET lcms2)
+    pkg_check_modules(SLCMS_REFERENCE IMPORTED_TARGET "lcms2>=2.19")
+endif()
+
+# A reference that is actually us is worse than no reference: the suite
+# would compare this library against itself and report agreement.  Once
+# this library is installed somewhere pkg-config looks, that is exactly
+# what happens, so the discovered library is rejected when it resolves
+# inside our own install prefix.
+if(SLCMS_REFERENCE_FOUND)
+    foreach(dir ${SLCMS_REFERENCE_LIBRARY_DIRS})
+        cmake_path(IS_PREFIX CMAKE_INSTALL_PREFIX "${dir}" NORMALIZE is_ours)
+        if(is_ours)
+            message(WARNING
+                "The lcms2 pkg-config found (${dir}) is inside this project's "
+                "install prefix, so it is probably this library rather than the "
+                "reference.  The differential suites are disabled; point "
+                "PKG_CONFIG_PATH at a reference build of 2.19.")
+            set(SLCMS_REFERENCE_FOUND FALSE)
+        endif()
+    endforeach()
 endif()
 
 # -- ABI invariants ----------------------------------------------------------
@@ -78,6 +97,19 @@ endif()
 # binds must come out of our 382 exports, which is the point.
 
 if(SLCMS_UPSTREAM_DIR)
+    # The headers are vendored verbatim, and with the upstream tree in hand
+    # that is measurable rather than merely asserted.  An edit here would
+    # silently move the contract this library claims to satisfy.
+    add_test(NAME header_verbatim_lcms2
+        COMMAND ${CMAKE_COMMAND} -E compare_files
+                ${SLCMS_INCLUDE_DIR}/lcms2.h
+                ${SLCMS_UPSTREAM_DIR}/include/lcms2.h)
+
+    add_test(NAME header_verbatim_lcms2_plugin
+        COMMAND ${CMAKE_COMMAND} -E compare_files
+                ${SLCMS_INCLUDE_DIR}/lcms2_plugin.h
+                ${SLCMS_UPSTREAM_DIR}/include/lcms2_plugin.h)
+
     add_executable(testcms2
         ${SLCMS_UPSTREAM_DIR}/testbed/testcms2.c
         ${SLCMS_UPSTREAM_DIR}/testbed/testplugin.c

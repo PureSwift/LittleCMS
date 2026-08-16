@@ -26,25 +26,40 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 # The toolchain is found through swiftc itself rather than guessed at, so
 # whichever toolchain the caller has selected is the one whose embedded
 # stdlib is used.
-swiftc=$(xcrun --find swiftc 2>/dev/null || command -v swiftc)
+swiftc=$(xcrun --find swiftc 2>/dev/null) || swiftc=$(command -v swiftc) || {
+    echo "build_embedded.sh: no swiftc on PATH" >&2
+    exit 2
+}
 toolchain=$(dirname "$(dirname "$swiftc")")
 
-if [ ! -d "$toolchain/lib/swift/embedded/$triple" ] \
-    && [ ! -d "$toolchain/usr/lib/swift/embedded/$triple" ]; then
+has_stdlib() {
+    [ -d "$1/lib/swift/embedded/$triple" ] || [ -d "$1/usr/lib/swift/embedded/$triple" ]
+}
+
+if ! has_stdlib "$toolchain"; then
     # Fall back to any installed toolchain that does ship it.  Both
     # locations, because a per-user install lands under the caller's home
     # directory while the swift.org .pkg installer places it system-wide.
+    # Harmless where those directories do not exist: the Linux containers
+    # carry the embedded stdlib in the toolchain found above.
     for candidate in "$HOME"/Library/Developer/Toolchains/*.xctoolchain \
                      /Library/Developer/Toolchains/*.xctoolchain; do
         if [ -d "$candidate/usr/lib/swift/embedded/$triple" ]; then
             swiftc="$candidate/usr/bin/swiftc"
+            toolchain="$candidate"
             break
         fi
     done
 fi
 
+if ! has_stdlib "$toolchain"; then
+    echo "build_embedded.sh: no toolchain with an embedded stdlib for $triple" >&2
+    echo "  (looked in $toolchain and the installed toolchain directories)" >&2
+    exit 2
+fi
+
 if ! "$swiftc" --version > /dev/null 2>&1; then
-    echo "build_embedded.sh: no swiftc with an embedded stdlib for $triple" >&2
+    echo "build_embedded.sh: $swiftc does not run" >&2
     exit 2
 fi
 

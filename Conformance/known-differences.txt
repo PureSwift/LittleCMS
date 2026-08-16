@@ -5,4 +5,11 @@
 # marker is reported but not failed on.  A marker that matches no difference
 # in the run FAILS the build, so this file cannot go stale.
 #
+# A changed line appears twice in the diff — once as the reference's and
+# once as ours — so the marker has to identify both sides.  Pick a word the
+# line keeps across the change, not the part that differs.
+#
+# Markers are matched as fixed substrings, so no globbing; they may not
+# contain whitespace, since only the first field is read.
+#
 # (empty)

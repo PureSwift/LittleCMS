@@ -29,9 +29,10 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # The ABI we are compatible with.  2 is the soname generation the reference
 # has carried since Little CMS 2.0; the Mach-O versions are what the reference
-# build of 2.19 records (libtool current:revision:age = 4:18:2 mapped to
-# compatibility 3.0.0, current 3.18.0).  Clients bind to these, so they are
-# part of the contract rather than our own version number.
+# build of 2.19 records (libtool current:revision:age = 2:18:0, which libtool
+# maps to compatibility 3.0.0 and current 3.18.0 on Mach-O, and to
+# liblcms2.so.2.0.18 with soname liblcms2.so.2 on ELF).  Clients bind to
+# these, so they are part of the contract rather than our own version number.
 set(SLCMS_ABI_SONAME 2)
 set(SLCMS_ELF_VERSION 2.0.18)
 set(SLCMS_MACHO_COMPATIBILITY_VERSION 3.0.0)
@@ -150,6 +151,11 @@ if(APPLE)
     target_link_options(lcms2 PRIVATE
         "LINKER:-exported_symbols_list,${SLCMS_EXPORT_LIST}")
 
+    # The export list is an input to the link, not just an argument: editing
+    # symbols.txt has to relink, or the shipped library keeps yesterday's
+    # exports and check_exports passes against a stale artifact.
+    set_property(TARGET lcms2 APPEND PROPERTY LINK_DEPENDS ${SLCMS_EXPORT_LIST})
+
     target_link_libraries(lcms2 PRIVATE LCMS2ABI)
 else()
     # liblcms2.so.2.0.18, soname liblcms2.so.2, exactly as libtool names the
@@ -175,6 +181,14 @@ else()
     target_link_options(lcms2 PRIVATE
         "LINKER:--whole-archive,$<TARGET_FILE:LCMS2ABI>,--no-whole-archive"
         "LINKER:$<TARGET_FILE:LittleCMS>")
+
+    # Naming the archives in link options makes them arguments, not inputs:
+    # add_dependencies only orders the build, so an incremental build that
+    # recompiles the engine would leave the shared library holding the
+    # previous objects.  LINK_DEPENDS makes the archives real inputs, and
+    # the version script with them.
+    set_property(TARGET lcms2 APPEND PROPERTY LINK_DEPENDS
+        $<TARGET_FILE:LCMS2ABI> $<TARGET_FILE:LittleCMS> ${SLCMS_VERSION_SCRIPT})
 
     if(SLCMS_STATIC_STDLIB)
         target_link_options(lcms2 PRIVATE -static-stdlib)

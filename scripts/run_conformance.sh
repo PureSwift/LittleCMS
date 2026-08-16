@@ -27,17 +27,22 @@ echo "exit $?" >> "$work/reference.out"
 
 diff -u "$work/reference.out" "$work/ours.out" > "$work/diff" || true
 
-# Content lines of the diff only: changes, not the file headers or hunk marks.
-grep -E '^[+-]' "$work/diff" | grep -Ev '^(\+\+\+|---)' > "$work/changes" || true
+# Content lines of the diff only.  The two file headers are dropped by
+# position rather than by pattern: an output line that itself begins with
+# `---` or `+++` is a real difference, and filtering those by shape would
+# hide exactly the differences a diff-shaped output format produces.
+# Hunk marks start with `@`, so `^[+-]` never picks them up.
+tail -n +3 "$work/diff" | grep -E '^[+-]' > "$work/changes" || true
 
-# Markers: first word of each non-comment, non-empty line.
-markers=$(grep -Ev '^[[:space:]]*(#|$)' "$known" | awk '{print $1}')
+# Markers: the first field of each non-comment, non-empty line, written
+# once to a file.  Never re-expanded through the shell — a marker
+# containing a glob character would otherwise become a filename.
+grep -Ev '^[[:space:]]*(#|$)' "$known" | awk '{print $1}' > "$work/markers"
 
 status=0
 
 if [ -s "$work/changes" ]; then
-    if [ -n "$markers" ]; then
-        printf '%s\n' $markers > "$work/markers"
+    if [ -s "$work/markers" ]; then
         grep -F -v -f "$work/markers" "$work/changes" > "$work/unaccepted" || true
     else
         cp "$work/changes" "$work/unaccepted"
@@ -52,13 +57,15 @@ if [ -s "$work/changes" ]; then
     fi
 fi
 
-# Self-invalidation: every marker must still match something.
-for marker in $markers; do
-    if ! grep -F -q "$marker" "$work/changes" 2>/dev/null; then
+# Self-invalidation: every marker must still match something, so the file
+# of accepted differences cannot outlive the differences it accepts.
+while IFS= read -r marker; do
+    [ -n "$marker" ] || continue
+    if ! grep -F -q -- "$marker" "$work/changes" 2>/dev/null; then
         echo "stale known-difference marker: $marker (matches nothing; remove it)" >&2
         status=1
     fi
-done
+done < "$work/markers"
 
 if [ "$status" -eq 0 ]; then
     echo "conformance: output and exit status match the reference"

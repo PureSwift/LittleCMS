@@ -102,6 +102,24 @@ Legend — **owner**: who frees a returned pointer, and with which function.
 *(each section is filled in the phase that implements it; the section must
 be complete before the family's stubs are retired)*
 
+## Layouts constrained by the upstream testbed
+
+The reference's own `testbed/testcms2.c` is part of this project's
+conformance contract (compiled unmodified, linked against us, and it has to
+pass eventually).  It includes the reference's private `lcms2_internal.h`
+and reaches through two otherwise-opaque layouts, on objects **we**
+allocated — which makes their upstream field order contract even though no
+installed header declares it, exactly as it does for the 18 CMSCHECKPOINT
+symbols:
+
+| Struct | What the testbed touches | Consequence |
+|---|---|---|
+| `_cms_curve_struct` | reads `InterpParams->ContextID`, indexes `Table16[]`; writes `Table16[]` and `Segments[0].Type` on `cmsBuildGamma`/`cmsBuildTabulatedToneCurve16` results | the engine's curve must carry upstream's field prefix (InterpParams, nSegments, Segments, SegInterp, Evals, nEntries, Table16); `swift_ctx` appends after it |
+| `_cmstransform_struct` | stack-allocates at upstream `sizeof`, sets `InputFormat`/`OutputFormat` at upstream offsets, passes it to the formatters `_cmsGetFormatter` returns | the head of the transform struct through `OutputFormat` must match upstream offsets |
+
+Tail extension is safe in both cases: the testbed only dereferences pointers
+our allocator produced.
+
 ## The three variadics (permanent C)
 
 | Symbol | Declared | Notes |

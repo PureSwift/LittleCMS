@@ -22,15 +22,18 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
+# Every defined external symbol, whatever its type, with the Mach-O leading
+# underscore removed.  Not just text: the reference exports no data at all,
+# so a data symbol appearing here is a leak the type filter would hide —
+# and the engine's globals are exactly the kind of thing that leaks.
 case "$(uname -s)" in
 Darwin)
-    # Defined external text symbols, with the Mach-O leading underscore removed.
-    nm -gU "$library" | awk '$2 == "T" { print substr($3, 2) }' \
+    nm -gU "$library" | awk 'NF >= 3 { print substr($3, 2) }' \
         | sort -u > "$work/actual"
     ;;
 *)
     nm --dynamic --defined-only --format=posix "$library" \
-        | awk '$2 == "T" { sub(/@.*/, "", $1); print $1 }' \
+        | awk '$2 != "U" { sub(/@.*/, "", $1); print $1 }' \
         | sort -u > "$work/actual"
     ;;
 esac

@@ -1,12 +1,40 @@
 /*
  * Completions of the structs the public headers leave opaque.
  *
- * The public ABI never sees inside these — lcms2.h forward-declares them
- * and hands out pointers — so their layout is ours to choose.  The rule for
- * what lives here directly: only plain data the C floor (error dispatch,
- * generated stubs) must reach without entering Swift.  Everything with a
- * lifetime managed by Swift hangs off the single opaque `swift_ctx` pointer,
- * which holds a retained Unmanaged reference to the engine object.
+ * The public ABI does not see inside these — lcms2.h forward-declares them
+ * and hands out pointers — so their layout is mostly ours to choose.  The
+ * rule for what lives here directly: only plain data the C floor (error
+ * dispatch, generated stubs) must reach without entering Swift.  Everything
+ * with a lifetime managed by Swift hangs off the single opaque `swift_ctx`
+ * pointer, which holds a retained Unmanaged reference to the engine object.
+ *
+ * "Mostly", because the reference's own testbed is part of this project's
+ * conformance contract: Conformance/CMakeLists.txt compiles testcms2.c
+ * unmodified against the reference's private lcms2_internal.h and links it
+ * against us, and that suite has to pass eventually.  The testbed reaches
+ * through two of these layouts on objects it obtained from us, which makes
+ * their upstream field order contract in the same way the eighteen
+ * CMSCHECKPOINT symbols are ABI:
+ *
+ *   _cms_curve_struct     testcms2.c reads InterpParams->ContextID and
+ *                         indexes Table16[], and writes Table16[] and
+ *                         Segments[0].Type, on curves from cmsBuildGamma
+ *                         and cmsBuildTabulatedToneCurve16.  Reproduce
+ *                         upstream's prefix (InterpParams, nSegments,
+ *                         Segments, SegInterp, Evals, nEntries, Table16)
+ *                         and append swift_ctx after it — the testbed only
+ *                         ever holds pointers we allocated, so extending
+ *                         the tail is invisible to it.
+ *
+ *   _cmstransform_struct  testcms2.c stack-allocates one at upstream
+ *                         sizeof, sets InputFormat/OutputFormat at upstream
+ *                         offsets, and hands it to the formatters that
+ *                         _cmsGetFormatter returns, so the head of the
+ *                         struct through OutputFormat is constrained too.
+ *
+ * Neither object exists yet.  The phase that first allocates one takes the
+ * upstream layout with it; the layouts below are free of that constraint
+ * only because nothing reaches into them.
  *
  * lcms2 has no setjmp/longjmp contract — errors are a logger callback plus
  * NULL/FALSE returns — so unlike a libpng-style boundary there is no jump
@@ -27,6 +55,8 @@ struct _cmsContext_struct {
     void* swift_ctx;                          /* retained Unmanaged<Context>, engine-owned */
 };
 
+/* Gains upstream's field prefix when the engine first allocates a curve;
+ * see the note above. */
 struct _cms_curve_struct           { void* swift_ctx; };
 struct _cmsPipeline_struct         { void* swift_ctx; };
 struct _cmsStage_struct            { void* swift_ctx; };

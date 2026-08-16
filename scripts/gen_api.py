@@ -26,7 +26,9 @@ Outputs (committed; scripts/check_generated.sh keeps them honest):
 """
 
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -47,6 +49,19 @@ EXPECTED_VARIADICS = {
 }
 
 
+def compiler() -> str:
+    """The C compiler to preprocess with.
+
+    Not hardcoded to `cc`: the Swift CI containers ship clang without the
+    `cc` alias, and a caller with a cross toolchain sets CC.
+    """
+    candidates = [os.environ.get("CC"), "cc", "clang", "gcc"]
+    for candidate in candidates:
+        if candidate and shutil.which(candidate):
+            return candidate
+    sys.exit("gen_api: no C compiler found (looked for $CC, cc, clang, gcc)")
+
+
 def preprocess(source: str) -> str:
     """Run the C preprocessor over a translation unit built from `source`."""
     with tempfile.NamedTemporaryFile("w", suffix=".c", delete=False) as tu:
@@ -54,7 +69,7 @@ def preprocess(source: str) -> str:
         path = tu.name
     try:
         result = subprocess.run(
-            ["cc", "-E", "-P", f"-I{INCLUDE}", *CPP_DEFINES, path],
+            [compiler(), "-E", "-P", f"-I{INCLUDE}", *CPP_DEFINES, path],
             capture_output=True,
             text=True,
             check=True,

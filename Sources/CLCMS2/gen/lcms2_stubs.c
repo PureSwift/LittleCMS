@@ -48,8 +48,7 @@ cmsInterpParams* _cmsComputeInterpParams(cmsContext ContextID, cmsUInt32Number n
 
 void* _cmsCreateMutex(cmsContext ContextID)
 {
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsCreateMutex is not implemented");
-    return (void*){0};
+    swift_unimplemented_fatal("_cmsCreateMutex");
 }
 
 void _cmsDecodeDateTimeNumber(const cmsDateTimeNumber *Source, struct tm *Dest)
@@ -942,7 +941,7 @@ void cmsGetAlarmCodes(cmsUInt16Number NewAlarm[16])
 
 void cmsGetAlarmCodesTHR(cmsContext ContextID, cmsUInt16Number AlarmCodes[16])
 {
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGetAlarmCodesTHR is not implemented");
+    swift_unimplemented_fatal("cmsGetAlarmCodesTHR");
 }
 
 cmsColorSpaceSignature cmsGetColorSpace(cmsHPROFILE hProfile)
@@ -1724,8 +1723,7 @@ cmsFloat64Number cmsSetAdaptationState(cmsFloat64Number d)
 
 cmsFloat64Number cmsSetAdaptationStateTHR(cmsContext ContextID, cmsFloat64Number d)
 {
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsSetAdaptationStateTHR is not implemented");
-    return (cmsFloat64Number){0};
+    swift_unimplemented_fatal("cmsSetAdaptationStateTHR");
 }
 
 void cmsSetAlarmCodes(const cmsUInt16Number NewAlarm[16])

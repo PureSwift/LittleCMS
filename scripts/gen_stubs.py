@@ -13,6 +13,9 @@ Body policy:
   - No `cmsContext` anywhere: swift_unimplemented_fatal, which prints to
     stderr and aborts.  With no reporting channel, a silent zero from,
     say, cmsD50_XYZ would be a wrong answer rather than a failure.
+  - ALWAYS_FATAL overrides the first rule where zero is not a failure
+    value but a valid answer, so a silent logger would leave the caller
+    believing it got one.
   - A variadic in the stub set is a generator error: variadics cannot be
     generated (or written in Swift) and live permanently in
     lcms2_variadic.c and scripts/implemented.txt.
@@ -46,6 +49,23 @@ HEADER = """\
 
 CONTEXT_PARAMETER = re.compile(r"(?:^|[(,])\s*cmsContext\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?=[,)]|$)")
 
+# Functions that take a context but whose zero return is a valid answer
+# rather than a failure, so the graceful path would lie to the caller:
+#
+#   cmsGetAlarmCodesTHR    void, fills a 16-entry out-array the reference
+#                          always writes; returning leaves stack garbage
+#                          that a save/restore pair feeds straight back.
+#   cmsSetAdaptationStateTHR  returns the *previous* state, default 1.0;
+#                          0.0 is a settable value, so a save/restore pair
+#                          would silently disable chromatic adaptation.
+#   _cmsCreateMutex        NULL means "no locking needed" — success — so a
+#                          plugin would proceed unsynchronized.
+ALWAYS_FATAL = {
+    "cmsGetAlarmCodesTHR",
+    "cmsSetAdaptationStateTHR",
+    "_cmsCreateMutex",
+}
+
 
 def stub(record: dict) -> str:
     name = record["name"]
@@ -53,7 +73,7 @@ def stub(record: dict) -> str:
     parameters = record["parameters"]
     lines = [f"{returns} {name}({parameters})", "{"]
     context = CONTEXT_PARAMETER.search(parameters)
-    if context:
+    if context and name not in ALWAYS_FATAL:
         lines.append(
             f'    swift_c_signal_error({context.group(1)}, cmsERROR_NOT_SUITABLE, "{name} is not implemented");'
         )
