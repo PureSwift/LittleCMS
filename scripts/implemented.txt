@@ -48,3 +48,29 @@ _cmsMAT3eval
 cmsMD5alloc
 cmsMD5add
 cmsMD5finish
+
+# Sources/LCMS2ABI/ContextAPI.swift
+cmsCreateContext
+cmsDupContext
+cmsDeleteContext
+cmsGetContextUserData
+cmsSetAlarmCodes
+cmsSetAlarmCodesTHR
+cmsGetAlarmCodes
+cmsGetAlarmCodesTHR
+cmsSetAdaptationState
+cmsSetAdaptationStateTHR
+
+# Sources/LCMS2ABI/MemoryAPI.swift
+_cmsMalloc
+_cmsMallocZero
+_cmsCalloc
+_cmsRealloc
+_cmsFree
+_cmsDupMem
+
+# Sources/LCMS2ABI/MutexAPI.swift
+_cmsCreateMutex
+_cmsDestroyMutex
+_cmsLockMutex
+_cmsUnlockMutex

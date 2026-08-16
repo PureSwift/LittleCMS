@@ -9,21 +9,10 @@
 
 #include "swift_internal.h"
 
-void* _cmsCalloc(cmsContext ContextID, cmsUInt32Number num, cmsUInt32Number size)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsCalloc is not implemented");
-    return (void*){0};
-}
-
 cmsInterpParams* _cmsComputeInterpParams(cmsContext ContextID, cmsUInt32Number nSamples, cmsUInt32Number InputChan, cmsUInt32Number OutputChan, const void* Table, cmsUInt32Number dwFlags)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsComputeInterpParams is not implemented");
     return (cmsInterpParams*){0};
-}
-
-void* _cmsCreateMutex(cmsContext ContextID)
-{
-    swift_unimplemented_fatal("_cmsCreateMutex");
 }
 
 void _cmsDecodeDateTimeNumber(const cmsDateTimeNumber *Source, struct tm *Dest)
@@ -37,25 +26,9 @@ cmsPipeline* _cmsDefaultICCintents(cmsContext ContextID, cmsUInt32Number nProfil
     return (cmsPipeline*){0};
 }
 
-void _cmsDestroyMutex(cmsContext ContextID, void* mtx)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsDestroyMutex is not implemented");
-}
-
-void* _cmsDupMem(cmsContext ContextID, const void* Org, cmsUInt32Number size)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsDupMem is not implemented");
-    return (void*){0};
-}
-
 void _cmsEncodeDateTimeNumber(cmsDateTimeNumber *Dest, const struct tm *Source)
 {
     swift_unimplemented_fatal("_cmsEncodeDateTimeNumber");
-}
-
-void _cmsFree(cmsContext ContextID, void* Ptr)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsFree is not implemented");
 }
 
 void _cmsFreeInterpParams(cmsInterpParams* p)
@@ -112,24 +85,6 @@ cmsColorSpaceSignature _cmsICCcolorSpace(int OurNotation)
 int _cmsLCMScolorSpace(cmsColorSpaceSignature ProfileSpace)
 {
     swift_unimplemented_fatal("_cmsLCMScolorSpace");
-}
-
-cmsBool _cmsLockMutex(cmsContext ContextID, void* mtx)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsLockMutex is not implemented");
-    return (cmsBool){0};
-}
-
-void* _cmsMalloc(cmsContext ContextID, cmsUInt32Number size)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsMalloc is not implemented");
-    return (void*){0};
-}
-
-void* _cmsMallocZero(cmsContext ContextID, cmsUInt32Number size)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsMallocZero is not implemented");
-    return (void*){0};
 }
 
 cmsBool _cmsOptimizePipeline(cmsContext ContextID, cmsPipeline** Lut, cmsUInt32Number Intent, cmsUInt32Number* InputFormat, cmsUInt32Number* OutputFormat, cmsUInt32Number* dwFlags)
@@ -208,12 +163,6 @@ cmsBool _cmsReadXYZNumber(cmsIOHANDLER* io, cmsCIEXYZ* XYZ)
     swift_unimplemented_fatal("_cmsReadXYZNumber");
 }
 
-void* _cmsRealloc(cmsContext ContextID, void* Ptr, cmsUInt32Number NewSize)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsRealloc is not implemented");
-    return (void*){0};
-}
-
 cmsUInt32Number _cmsReasonableGridpointsByColorspace(cmsColorSpaceSignature Colorspace, cmsUInt32Number dwFlags)
 {
     swift_unimplemented_fatal("_cmsReasonableGridpointsByColorspace");
@@ -269,11 +218,6 @@ cmsStage* _cmsStageAllocXYZ2Lab(cmsContext ContextID)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsStageAllocXYZ2Lab is not implemented");
     return (cmsStage*){0};
-}
-
-void _cmsUnlockMutex(cmsContext ContextID, void* mtx)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsUnlockMutex is not implemented");
 }
 
 cmsBool _cmsWrite15Fixed16Number(cmsIOHANDLER* io, cmsFloat64Number n)
@@ -455,11 +399,6 @@ cmsHPROFILE cmsCreateBCHSWabstractProfileTHR(cmsContext ContextID, cmsUInt32Numb
     return (cmsHPROFILE){0};
 }
 
-cmsContext cmsCreateContext(void* Plugin, void* UserData)
-{
-    swift_unimplemented_fatal("cmsCreateContext");
-}
-
 cmsHPROFILE cmsCreateDeviceLinkFromCubeFile(const char* cFileName)
 {
     swift_unimplemented_fatal("cmsCreateDeviceLinkFromCubeFile");
@@ -631,11 +570,6 @@ const cmsCIExyY* cmsD50_xyY(void)
     swift_unimplemented_fatal("cmsD50_xyY");
 }
 
-void cmsDeleteContext(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsDeleteContext is not implemented");
-}
-
 void cmsDeleteTransform(cmsHTRANSFORM hTransform)
 {
     swift_unimplemented_fatal("cmsDeleteTransform");
@@ -715,12 +649,6 @@ void cmsDoTransformLineStride(cmsHTRANSFORM Transform, const void* InputBuffer, 
 void cmsDoTransformStride(cmsHTRANSFORM Transform, const void * InputBuffer, void * OutputBuffer, cmsUInt32Number Size, cmsUInt32Number Stride)
 {
     swift_unimplemented_fatal("cmsDoTransformStride");
-}
-
-cmsContext cmsDupContext(cmsContext ContextID, void* NewUserData)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsDupContext is not implemented");
-    return (cmsContext){0};
 }
 
 cmsNAMEDCOLORLIST* cmsDupNamedColorList(const cmsNAMEDCOLORLIST* v)
@@ -824,25 +752,9 @@ cmsBool cmsGDBCompute(cmsHANDLE hGDB, cmsUInt32Number dwFlags)
     swift_unimplemented_fatal("cmsGDBCompute");
 }
 
-void cmsGetAlarmCodes(cmsUInt16Number NewAlarm[16])
-{
-    swift_unimplemented_fatal("cmsGetAlarmCodes");
-}
-
-void cmsGetAlarmCodesTHR(cmsContext ContextID, cmsUInt16Number AlarmCodes[16])
-{
-    swift_unimplemented_fatal("cmsGetAlarmCodesTHR");
-}
-
 cmsColorSpaceSignature cmsGetColorSpace(cmsHPROFILE hProfile)
 {
     swift_unimplemented_fatal("cmsGetColorSpace");
-}
-
-void* cmsGetContextUserData(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGetContextUserData is not implemented");
-    return (void*){0};
 }
 
 cmsProfileClassSignature cmsGetDeviceClass(cmsHPROFILE hProfile)
@@ -1588,26 +1500,6 @@ cmsBool cmsSaveProfileToMem(cmsHPROFILE hProfile, void *MemPtr, cmsUInt32Number*
 cmsBool cmsSaveProfileToStream(cmsHPROFILE hProfile, FILE* Stream)
 {
     swift_unimplemented_fatal("cmsSaveProfileToStream");
-}
-
-cmsFloat64Number cmsSetAdaptationState(cmsFloat64Number d)
-{
-    swift_unimplemented_fatal("cmsSetAdaptationState");
-}
-
-cmsFloat64Number cmsSetAdaptationStateTHR(cmsContext ContextID, cmsFloat64Number d)
-{
-    swift_unimplemented_fatal("cmsSetAdaptationStateTHR");
-}
-
-void cmsSetAlarmCodes(const cmsUInt16Number NewAlarm[16])
-{
-    swift_unimplemented_fatal("cmsSetAlarmCodes");
-}
-
-void cmsSetAlarmCodesTHR(cmsContext ContextID, const cmsUInt16Number AlarmCodes[16])
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsSetAlarmCodesTHR is not implemented");
 }
 
 void cmsSetColorSpace(cmsHPROFILE hProfile, cmsColorSpaceSignature sig)

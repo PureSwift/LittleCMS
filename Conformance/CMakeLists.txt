@@ -71,6 +71,10 @@ add_test(NAME primitives_probe COMMAND primprobe_ours)
 add_test(NAME matrix_probe COMMAND matprobe_ours)
 add_test(NAME md5_probe COMMAND md5probe_ours)
 
+add_executable(ctxprobe_ours ctxprobe.c)
+target_link_libraries(ctxprobe_ours PRIVATE lcms2)
+add_test(NAME context_probe COMMAND ctxprobe_ours)
+
 # The stubs' contract: the gap is reported through the error path and the
 # call fails cleanly rather than answering.
 add_test(NAME stub_behavior COMMAND stub_probe_ours)
@@ -118,6 +122,15 @@ if(SLCMS_REFERENCE_FOUND)
 
     add_executable(md5probe_reference md5probe.c)
     target_link_libraries(md5probe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_executable(ctxprobe_reference ctxprobe.c)
+    target_link_libraries(ctxprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME context_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:ctxprobe_ours>
+                $<TARGET_FILE:ctxprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
     add_test(NAME md5_differential
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh

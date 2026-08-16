@@ -36,7 +36,7 @@ Legend — **owner**: who frees a returned pointer, and with which function.
 
 ## Families
 
-### Context management (6) — `cmsCreateContext`, `cmsDeleteContext`, `cmsDupContext`, `cmsGetContextUserData`, `cmsSetLogErrorHandlerTHR`, …
+### Context management (6) — `cmsCreateContext`, `cmsDeleteContext`, `cmsDupContext`, `cmsGetContextUserData`, `cmsSetLogErrorHandlerTHR`, … — *implemented*
 
 - **owner**: caller frees contexts with `cmsDeleteContext`.  UserData is
   borrowed — never freed by the library.
@@ -45,6 +45,41 @@ Legend — **owner**: who frees a returned pointer, and with which function.
 - Deleting the context a profile/transform was created against while the
   object lives is client UB in the reference; we match (document, don't
   defend).
+- `cmsCreateContext` with a non-null `Plugin` returns `NULL` and logs,
+  because registration is not implemented — the reference's own failure
+  path for a plugin it cannot register, rather than a context that
+  silently ignored what it was given.
+- **Snapshot semantics**: `cmsDupContext` copies the settings and the
+  logger, and the copy stops hearing about the original.  The reference
+  duplicates chunk by chunk; here the settings are one value, so copying
+  it is the whole of it.  A null `NewUserData` means "keep the
+  original's", which is not the same as "no user data".
+- Defaults, which a fresh context starts from regardless of what the
+  global context has been set to: alarm codes `{0x7F00, 0x7F00, 0x7F00,
+  0…}`, adaptation state `1.0`.
+- `cmsSetAdaptationState(THR)` always returns the **previous** value and
+  only stores a non-negative one, so a negative argument reads the
+  setting without disturbing it.  Zero is a legitimate value to store.
+
+### Memory (6) — `_cmsMalloc`, `_cmsMallocZero`, `_cmsCalloc`, `_cmsRealloc`, `_cmsFree`, `_cmsDupMem` — *implemented*
+
+- **owner**: caller frees with `_cmsFree`.  Blocks come from the
+  platform's `malloc`, as the reference's do, so a block can cross
+  between the two libraries — which plugins and clients do rely on.
+- **errors**: `B` — a refused size returns `NULL` with no log.
+- The size ceiling is `512 MiB` (`MAX_MEMORY_FOR_ALLOC` without
+  large-file support, which is how the measured reference is built; with
+  it the reference's ceiling is 2 GiB).  Zero is refused by `_cmsMalloc`
+  and permitted by `_cmsRealloc`.  `_cmsCalloc` refuses a wrapped
+  product three separate ways, which is what stops a malformed profile
+  claiming a table that cannot exist.
+
+### Mutexes (4) — `_cmsCreateMutex`, `_cmsDestroyMutex`, `_cmsLockMutex`, `_cmsUnlockMutex` — *implemented*
+
+- A `NULL` from `_cmsCreateMutex` means **success**: "no locking needed",
+  which is what a context with no mutex implementation reports.  The
+  default has one, so ours returns a real pthread mutex.
+- `_cmsLockMutex(NULL)` returns `TRUE` for the same reason.
 
 ### Error handling + plugin registration (7) — `cmsSignalError` (variadic, C shim), `cmsSetLogErrorHandler`, `cmsPlugin`, `cmsPluginTHR`, `cmsUnregisterPlugins`, …
 
