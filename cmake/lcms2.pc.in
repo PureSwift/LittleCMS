@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: lcms2
+Description: LCMS Color Management Library
+Version: 2.19
+Libs: -L${libdir} -llcms2
+Libs.private: -lm -lpthread
+Cflags: -I${includedir}
