@@ -1,0 +1,16 @@
+# Functions with real definitions.  Everything exported and not listed here
+# is generated into Sources/CLCMS2/gen/lcms2_stubs.c as a stub that reports
+# through the library's normal error path.
+#
+# Retiring a stub means adding its name here and rerunning gen_stubs.py;
+# forgetting either half is a duplicate-symbol link error, so this file and
+# the stub table cannot drift apart.
+
+# Sources/CLCMS2/lcms2_error.c
+cmsSetLogErrorHandler
+cmsSetLogErrorHandlerTHR
+
+# Sources/CLCMS2/lcms2_variadic.c — the three C variadics, hand-written forever
+cmsSignalError
+_cmsIOPrintf
+cmsPipelineCheckAndRetreiveStages
