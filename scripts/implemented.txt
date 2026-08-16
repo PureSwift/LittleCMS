@@ -29,3 +29,17 @@ _cmsAdjustEndianess32
 _cmsAdjustEndianess64
 _cmsHalf2Float
 _cmsFloat2Half
+
+# Sources/LCMS2ABI/MatrixAPI.swift
+_cmsVEC3init
+_cmsVEC3minus
+_cmsVEC3cross
+_cmsVEC3dot
+_cmsVEC3length
+_cmsVEC3distance
+_cmsMAT3identity
+_cmsMAT3isIdentity
+_cmsMAT3per
+_cmsMAT3inverse
+_cmsMAT3solve
+_cmsMAT3eval

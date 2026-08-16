@@ -120,36 +120,6 @@ cmsBool _cmsLockMutex(cmsContext ContextID, void* mtx)
     return (cmsBool){0};
 }
 
-void _cmsMAT3eval(cmsVEC3* r, const cmsMAT3* a, const cmsVEC3* v)
-{
-    swift_unimplemented_fatal("_cmsMAT3eval");
-}
-
-void _cmsMAT3identity(cmsMAT3* a)
-{
-    swift_unimplemented_fatal("_cmsMAT3identity");
-}
-
-cmsBool _cmsMAT3inverse(const cmsMAT3* a, cmsMAT3* b)
-{
-    swift_unimplemented_fatal("_cmsMAT3inverse");
-}
-
-cmsBool _cmsMAT3isIdentity(const cmsMAT3* a)
-{
-    swift_unimplemented_fatal("_cmsMAT3isIdentity");
-}
-
-void _cmsMAT3per(cmsMAT3* r, const cmsMAT3* a, const cmsMAT3* b)
-{
-    swift_unimplemented_fatal("_cmsMAT3per");
-}
-
-cmsBool _cmsMAT3solve(cmsVEC3* x, cmsMAT3* a, cmsVEC3* b)
-{
-    swift_unimplemented_fatal("_cmsMAT3solve");
-}
-
 void* _cmsMalloc(cmsContext ContextID, cmsUInt32Number size)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsMalloc is not implemented");
@@ -304,36 +274,6 @@ cmsStage* _cmsStageAllocXYZ2Lab(cmsContext ContextID)
 void _cmsUnlockMutex(cmsContext ContextID, void* mtx)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsUnlockMutex is not implemented");
-}
-
-void _cmsVEC3cross(cmsVEC3* r, const cmsVEC3* u, const cmsVEC3* v)
-{
-    swift_unimplemented_fatal("_cmsVEC3cross");
-}
-
-cmsFloat64Number _cmsVEC3distance(const cmsVEC3* a, const cmsVEC3* b)
-{
-    swift_unimplemented_fatal("_cmsVEC3distance");
-}
-
-cmsFloat64Number _cmsVEC3dot(const cmsVEC3* u, const cmsVEC3* v)
-{
-    swift_unimplemented_fatal("_cmsVEC3dot");
-}
-
-void _cmsVEC3init(cmsVEC3* r, cmsFloat64Number x, cmsFloat64Number y, cmsFloat64Number z)
-{
-    swift_unimplemented_fatal("_cmsVEC3init");
-}
-
-cmsFloat64Number _cmsVEC3length(const cmsVEC3* a)
-{
-    swift_unimplemented_fatal("_cmsVEC3length");
-}
-
-void _cmsVEC3minus(cmsVEC3* r, const cmsVEC3* a, const cmsVEC3* b)
-{
-    swift_unimplemented_fatal("_cmsVEC3minus");
 }
 
 cmsBool _cmsWrite15Fixed16Number(cmsIOHANDLER* io, cmsFloat64Number n)

@@ -59,9 +59,12 @@ let package = Package(
             path: "Sources/LittleCMS"
         ),
 
+        // Depends on CLCMS2 as well as the engine: some of what the engine
+        // must guarantee is agreement with a C layout, and the only honest
+        // way to check that is against the imported C type itself.
         .testTarget(
             name: "LittleCMSTests",
-            dependencies: ["LittleCMS"],
+            dependencies: ["LittleCMS", "CLCMS2"],
             path: "Tests/LittleCMSTests"
         ),
     ],

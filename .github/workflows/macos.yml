@@ -36,12 +36,19 @@ jobs:
       - name: Install dependencies
         run: brew install ninja pkgconf
 
+      # -ffp-contract=off is what makes the differential mean something.
+      # C compilers fuse multiply-add by default and Swift never does, so a
+      # stock build's doubles differ from ours in the last bit — and from
+      # each other, since arm64 fuses where baseline x86-64 cannot.  Fusion
+      # is unspecified, so comparing against it would measure the compiler
+      # rather than this library.  Disabling it makes every remaining
+      # difference ours.
       - name: Build the reference lcms2
         run: |
           git clone --quiet --depth 1 --branch "$LCMS_TAG" \
               https://github.com/mm2/Little-CMS.git upstream
           cd upstream
-          ./configure --prefix="$GITHUB_WORKSPACE/reference" > /dev/null
+          ./configure --prefix="$GITHUB_WORKSPACE/reference" CFLAGS="-O2 -ffp-contract=off" > /dev/null
           make -j"$(sysctl -n hw.ncpu)" > /dev/null
           make install > /dev/null
           PKG_CONFIG_PATH="$GITHUB_WORKSPACE/reference/lib/pkgconfig" \

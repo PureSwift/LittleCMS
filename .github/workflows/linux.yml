@@ -47,12 +47,15 @@ jobs:
           apt-get install -y -qq build-essential ninja-build pkg-config python3-pip curl
           pip3 install -q --break-system-packages cmake
 
+      # -ffp-contract=off: see the note in macos.yml.  Fusion is
+      # unspecified and target-dependent, so a stock build would have the
+      # differential measuring the compiler rather than this library.
       - name: Build the reference lcms2
         run: |
           git clone --quiet --depth 1 --branch "$LCMS_TAG" \
               https://github.com/mm2/Little-CMS.git upstream
           cd upstream
-          ./configure --prefix=/usr/local > /dev/null
+          ./configure --prefix=/usr/local CFLAGS="-O2 -ffp-contract=off" > /dev/null
           make -j"$(nproc)" > /dev/null
           make install > /dev/null
           ldconfig

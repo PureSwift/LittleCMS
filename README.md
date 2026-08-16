@@ -52,6 +52,17 @@ cmake --build build/release
 ctest --test-dir build/release
 ```
 
+The conformance suites compare against the reference library, built at the
+pinned version with floating-point contraction disabled — Swift's
+arithmetic never fuses a multiply-add and a stock C build does, which puts
+the two a last bit apart on doubles and puts a stock build a last bit away
+from itself between arm64 and x86-64:
+
+```sh
+./scripts/build_reference.sh
+PKG_CONFIG_PATH=$PWD/build/reference/lib/pkgconfig cmake --preset release
+```
+
 ## License
 
 The Swift implementation is MIT ([`LICENSE`](LICENSE)).  The vendored lcms2

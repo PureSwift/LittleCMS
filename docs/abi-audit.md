@@ -102,6 +102,30 @@ Legend — **owner**: who frees a returned pointer, and with which function.
 *(each section is filled in the phase that implements it; the section must
 be complete before the family's stubs are retired)*
 
+## Floating point: what "agreement" means
+
+Swift's arithmetic is IEEE-strict: it never contracts `a*b + c*d` into a
+fused multiply-add, and its results are the same on every target.  C
+compilers contract by default, so the reference's own doubles depend on
+whether the target has the instruction — arm64 does, baseline x86-64 does
+not — and a stock build of the reference disagrees with itself across the
+two platforms this library ships on.
+
+So the standard is:
+
+- **Exact**, for everything quantized or encoded: 16-bit codes, pixel
+  bytes, 15.16 fields, profile bytes.  This is what reaches files and
+  images, and it is what the differential suites assert.
+- **Exact against a reference built with `-ffp-contract=off`**, for raw
+  doubles.  `scripts/build_reference.sh` builds it that way and CI uses
+  it, so a remaining difference is this library's rather than the
+  compiler's.
+- **Within one ulp of a stock distribution build**, for raw doubles, and
+  unspecified which way — because that build's own answer is unspecified.
+
+Verified: the vector and matrix primitives are bit-identical to the
+reference's own `cmsmtrx.c` compiled without contraction.
+
 ## Layouts constrained by the upstream testbed
 
 The reference's own `testbed/testcms2.c` is part of this project's

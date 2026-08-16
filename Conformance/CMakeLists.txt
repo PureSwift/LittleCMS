@@ -7,8 +7,12 @@
 # from memory rather than from observation is worse than no test.
 
 # The reference library, for the second build of each differential program.
-# CI builds it from source at the pinned tag; locally any installed 2.19
-# serves.  Overridable so a source-built reference wins over a distro one.
+#
+# It must be one built by scripts/build_reference.sh, which pins the
+# version and — the part that is easy to miss — disables floating-point
+# contraction.  A stock build fuses multiply-add where Swift cannot, so its
+# doubles differ from ours in the last bit, and differ between arm64 and
+# x86-64 as well.  Point PKG_CONFIG_PATH at that prefix; CI does the same.
 find_package(PkgConfig)
 if(PkgConfig_FOUND)
     pkg_check_modules(SLCMS_REFERENCE IMPORTED_TARGET "lcms2>=2.19")
@@ -56,8 +60,12 @@ if(NOT APPLE)
     target_link_libraries(primprobe_ours PRIVATE m)
 endif()
 
+add_executable(matprobe_ours matprobe.c)
+target_link_libraries(matprobe_ours PRIVATE lcms2)
+
 add_test(NAME version_probe COMMAND version_probe_ours)
 add_test(NAME primitives_probe COMMAND primprobe_ours)
+add_test(NAME matrix_probe COMMAND matprobe_ours)
 
 # The stubs' contract: the gap is reported through the error path and the
 # call fails cleanly rather than answering.
@@ -93,6 +101,15 @@ if(SLCMS_REFERENCE_FOUND)
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
                 $<TARGET_FILE:primprobe_ours>
                 $<TARGET_FILE:primprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+
+    add_executable(matprobe_reference matprobe.c)
+    target_link_libraries(matprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME matrix_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:matprobe_ours>
+                $<TARGET_FILE:matprobe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
     # The synthetic profile corpus the differential suites will read.
