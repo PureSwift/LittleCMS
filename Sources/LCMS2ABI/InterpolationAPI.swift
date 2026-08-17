@@ -1,0 +1,152 @@
+import CLCMS2
+import LittleCMS
+
+// The interpolation parameters, and the function pointers a client
+// invokes through them.
+//
+// cmsInterpParams is a published layout that plugins read in their hot
+// loops, and the `Interpolation` member is a union of two function
+// pointers a caller may call directly.  So the struct is C memory and the
+// kernels are reachable as plain C functions — the engine holds the
+// arithmetic, these are the addresses.
+
+/// `MAX_INPUT_DIMENSIONS`, as a count rather than the macro's Int32.
+private let maximumInputDimensions = Int(MAX_INPUT_DIMENSIONS)
+
+@inline(__always)
+private func grid(_ p: UnsafePointer<cmsInterpParams>) -> InterpolationGrid {
+    let inputs = Int(p.pointee.nInputs)
+    var domain = [UInt32](repeating: 0, count: maximumInputDimensions)
+    var opta = [UInt32](repeating: 0, count: maximumInputDimensions)
+
+    withUnsafeBytes(of: p.pointee.Domain) { source in
+        source.withMemoryRebound(to: cmsUInt32Number.self) { values in
+            for i in 0..<maximumInputDimensions { domain[i] = values[i] }
+        }
+    }
+    withUnsafeBytes(of: p.pointee.opta) { source in
+        source.withMemoryRebound(to: cmsUInt32Number.self) { values in
+            for i in 0..<maximumInputDimensions { opta[i] = values[i] }
+        }
+    }
+
+    return InterpolationGrid(
+        domain: domain, opta: opta, inputs: inputs, outputs: Int(p.pointee.nOutputs)
+    )
+}
+
+// The kernels as C function pointers.  One pair covers every shape,
+// because the dispatch the reference does once at build time is cheap
+// enough to do per call and keeps twenty-six entry points from existing.
+
+private func interpolate16(
+    _ input: UnsafePointer<cmsUInt16Number>?,
+    _ output: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ p: UnsafePointer<cmsInterpParams>?
+) {
+    guard let input, let output, let p,
+          let table = p.pointee.Table?.assumingMemoryBound(to: cmsUInt16Number.self)
+    else { return }
+
+    let trilinear = (p.pointee.dwFlags & cmsUInt32Number(CMS_LERP_FLAGS_TRILINEAR)) != 0
+    Interpolation.evaluate(input, output, table, grid(p), trilinear: trilinear)
+}
+
+private func interpolateFloat(
+    _ input: UnsafePointer<cmsFloat32Number>?,
+    _ output: UnsafeMutablePointer<cmsFloat32Number>?,
+    _ p: UnsafePointer<cmsInterpParams>?
+) {
+    guard let input, let output, let p,
+          let table = p.pointee.Table?.assumingMemoryBound(to: cmsFloat32Number.self)
+    else { return }
+
+    let trilinear = (p.pointee.dwFlags & cmsUInt32Number(CMS_LERP_FLAGS_TRILINEAR)) != 0
+    Interpolation.evaluate(input, output, table, grid(p), trilinear: trilinear)
+}
+
+/// Fills in the parameters for a grid whose inputs all have the same
+/// number of nodes.  The extended form the reference also has is not
+/// exported, so this is the only way in.
+@c @implementation
+public func _cmsComputeInterpParams(
+    _ ContextID: cmsContext?,
+    _ nSamples: cmsUInt32Number,
+    _ InputChan: cmsUInt32Number,
+    _ OutputChan: cmsUInt32Number,
+    _ Table: UnsafeRawPointer?,
+    _ dwFlags: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsInterpParams>? {
+    if Int(InputChan) > maximumInputDimensions {
+        report(
+            cmsUInt32Number(cmsERROR_RANGE),
+            "Too many input channels (\(InputChan) channels, max=\(maximumInputDimensions))",
+            to: ContextID
+        )
+        return nil
+    }
+
+    guard let raw = _cmsMallocZero(
+        ContextID, cmsUInt32Number(MemoryLayout<cmsInterpParams>.size)
+    ) else { return nil }
+    let p = raw.assumingMemoryBound(to: cmsInterpParams.self)
+
+    p.pointee.ContextID = ContextID
+    p.pointee.dwFlags = dwFlags
+    p.pointee.nInputs = InputChan
+    p.pointee.nOutputs = OutputChan
+    p.pointee.Table = Table
+
+    let inputs = Int(InputChan)
+    withUnsafeMutableBytes(of: &p.pointee.nSamples) { field in
+        field.withMemoryRebound(to: cmsUInt32Number.self) { values in
+            for i in 0..<inputs { values[i] = nSamples }
+        }
+    }
+    withUnsafeMutableBytes(of: &p.pointee.Domain) { field in
+        field.withMemoryRebound(to: cmsUInt32Number.self) { values in
+            for i in 0..<inputs { values[i] = nSamples - 1 }
+        }
+    }
+
+    // opta[0] is the output channel count and each further entry
+    // multiplies in the node count of one more input, counting from the
+    // last — which is what makes a single index reach into the grid.
+    withUnsafeMutableBytes(of: &p.pointee.opta) { field in
+        field.withMemoryRebound(to: cmsUInt32Number.self) { values in
+            values[0] = OutputChan
+            for i in 1..<max(inputs, 1) {
+                values[i] = values[i - 1] &* nSamples
+            }
+        }
+    }
+
+    guard Interpolation.isSupported(
+        inputs: inputs, outputs: Int(OutputChan),
+        trilinear: (dwFlags & cmsUInt32Number(CMS_LERP_FLAGS_TRILINEAR)) != 0
+    ) else {
+        report(
+            cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
+            "Unsupported interpolation (\(InputChan)->\(OutputChan) channels)",
+            to: ContextID
+        )
+        _cmsFree(ContextID, raw)
+        return nil
+    }
+
+    // The union holds either pointer; which one a caller reads is
+    // decided by the flag it passed, and both occupy the same slot.
+    if (dwFlags & cmsUInt32Number(CMS_LERP_FLAGS_FLOAT)) != 0 {
+        p.pointee.Interpolation.LerpFloat = interpolateFloat
+    } else {
+        p.pointee.Interpolation.Lerp16 = interpolate16
+    }
+
+    return p
+}
+
+@c @implementation
+public func _cmsFreeInterpParams(_ p: UnsafeMutablePointer<cmsInterpParams>?) {
+    guard let p else { return }
+    _cmsFree(p.pointee.ContextID, UnsafeMutableRawPointer(p))
+}

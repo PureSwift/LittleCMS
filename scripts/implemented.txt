@@ -191,3 +191,7 @@ cmsDictDup
 cmsDictAddEntry
 cmsDictGetEntryList
 cmsDictNextEntry
+
+# Sources/LCMS2ABI/InterpolationAPI.swift
+_cmsComputeInterpParams
+_cmsFreeInterpParams

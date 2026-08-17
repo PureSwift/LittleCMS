@@ -9,12 +9,6 @@
 
 #include "swift_internal.h"
 
-cmsInterpParams* _cmsComputeInterpParams(cmsContext ContextID, cmsUInt32Number nSamples, cmsUInt32Number InputChan, cmsUInt32Number OutputChan, const void* Table, cmsUInt32Number dwFlags)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsComputeInterpParams is not implemented");
-    return (cmsInterpParams*){0};
-}
-
 void _cmsDecodeDateTimeNumber(const cmsDateTimeNumber *Source, struct tm *Dest)
 {
     swift_unimplemented_fatal("_cmsDecodeDateTimeNumber");
@@ -29,11 +23,6 @@ cmsPipeline* _cmsDefaultICCintents(cmsContext ContextID, cmsUInt32Number nProfil
 void _cmsEncodeDateTimeNumber(cmsDateTimeNumber *Dest, const struct tm *Source)
 {
     swift_unimplemented_fatal("_cmsEncodeDateTimeNumber");
-}
-
-void _cmsFreeInterpParams(cmsInterpParams* p)
-{
-    swift_unimplemented_fatal("_cmsFreeInterpParams");
 }
 
 cmsFormatter _cmsGetFormatter(cmsContext ContextID, cmsUInt32Number Type, cmsFormatterDirection Dir, cmsUInt32Number dwFlags)
