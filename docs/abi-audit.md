@@ -263,6 +263,11 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   and its PCS coordinates. The name is **truncated at 32 bytes on the
   way out**, so a longer one set through the named-colour API does not
   survive a save.
+- `cmsAppendNamedColor`'s prototype declares its colorant argument as
+  `cmsUInt16Number[cmsMAXCHANNELS]`, which entitles the callee to read
+  sixteen entries; the implementation reads only as many as the list has
+  colorants. A caller passing a narrower array is correct in practice
+  and wrong by the declaration, and gcc says so. Pass the full width.
 - `ncl2` stores a **list-wide** prefix and suffix and a per-entry root,
   all cut to 32 bytes. The name a user sees is prefix + root + suffix,
   but `cmsNamedColorIndex` matches the **root alone** — so a caller that

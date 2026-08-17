@@ -13,6 +13,25 @@
 # contraction.  A stock build fuses multiply-add where Swift cannot, so its
 # doubles differ from ours in the last bit, and differ between arm64 and
 # x86-64 as well.  Point PKG_CONFIG_PATH at that prefix; CI does the same.
+# If a reference has been built in-tree, it wins over anything installed
+# on the system, without the caller having to remember to say so.
+#
+# A distro or Homebrew lcms2 is the same library and passes the identity
+# guard below, but it is compiled with floating-point contraction on --
+# so its doubles differ from ours in the last bit and five differentials
+# fail for a reason that has nothing to do with this port. Finding that
+# out costs an hour; making the right reference the default costs this
+# paragraph.
+set(SLCMS_IN_TREE_REFERENCE "${CMAKE_SOURCE_DIR}/build/reference/lib/pkgconfig")
+if(EXISTS "${SLCMS_IN_TREE_REFERENCE}/lcms2.pc")
+    if(DEFINED ENV{PKG_CONFIG_PATH})
+        set(ENV{PKG_CONFIG_PATH} "${SLCMS_IN_TREE_REFERENCE}:$ENV{PKG_CONFIG_PATH}")
+    else()
+        set(ENV{PKG_CONFIG_PATH} "${SLCMS_IN_TREE_REFERENCE}")
+    endif()
+    message(STATUS "conformance: using the in-tree reference at ${SLCMS_IN_TREE_REFERENCE}")
+endif()
+
 find_package(PkgConfig)
 if(PkgConfig_FOUND)
     pkg_check_modules(SLCMS_REFERENCE IMPORTED_TARGET "lcms2>=2.19")
@@ -74,11 +93,20 @@ target_link_libraries(version_probe_ours PRIVATE lcms2)
 add_executable(stub_probe_ours stub_probe.c)
 target_link_libraries(stub_probe_ours PRIVATE lcms2)
 
+# Every probe that touches <math.h> must say so.  On Apple platforms
+# libm is part of libSystem and linking is automatic; everywhere else it
+# is a separate library and forgetting it is a build failure only the
+# non-Apple job can see.  A helper rather than a repeated `if`, because
+# the repeated `if` is what got forgotten.
+function(slcms_probe_uses_math target)
+    if(NOT APPLE)
+        target_link_libraries(${target} PRIVATE m)
+    endif()
+endfunction()
+
 add_executable(primprobe_ours primprobe.c)
 target_link_libraries(primprobe_ours PRIVATE lcms2)
-if(NOT APPLE)
-    target_link_libraries(primprobe_ours PRIVATE m)
-endif()
+slcms_probe_uses_math(primprobe_ours)
 
 add_executable(matprobe_ours matprobe.c)
 target_link_libraries(matprobe_ours PRIVATE lcms2)
@@ -102,9 +130,7 @@ add_test(NAME io_probe COMMAND ioprobe_ours
 
 add_executable(colorprobe_ours colorprobe.c)
 target_link_libraries(colorprobe_ours PRIVATE lcms2)
-if(NOT APPLE)
-    target_link_libraries(colorprobe_ours PRIVATE m)
-endif()
+slcms_probe_uses_math(colorprobe_ours)
 add_test(NAME color_probe COMMAND colorprobe_ours)
 
 add_executable(curveprobe_ours curveprobe.c)
@@ -137,6 +163,7 @@ add_test(NAME clut_probe COMMAND clutprobe_ours)
 
 add_executable(profileprobe_ours profileprobe.c)
 target_link_libraries(profileprobe_ours PRIVATE lcms2)
+slcms_probe_uses_math(profileprobe_ours)
 add_test(NAME profile_probe COMMAND profileprobe_ours)
 
 # The stubs' contract: the gap is reported through the error path and the
@@ -165,9 +192,7 @@ if(SLCMS_REFERENCE_FOUND)
     # the reference exactly.
     add_executable(primprobe_reference primprobe.c)
     target_link_libraries(primprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
-    if(NOT APPLE)
-        target_link_libraries(primprobe_reference PRIVATE m)
-    endif()
+    slcms_probe_uses_math(primprobe_reference)
 
     add_test(NAME primitives_differential
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
@@ -207,9 +232,7 @@ if(SLCMS_REFERENCE_FOUND)
 
     add_executable(colorprobe_reference colorprobe.c)
     target_link_libraries(colorprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
-    if(NOT APPLE)
-        target_link_libraries(colorprobe_reference PRIVATE m)
-    endif()
+    slcms_probe_uses_math(colorprobe_reference)
 
     add_test(NAME color_differential
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
@@ -282,6 +305,7 @@ if(SLCMS_REFERENCE_FOUND)
 
     add_executable(profileprobe_reference profileprobe.c)
     target_link_libraries(profileprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+    slcms_probe_uses_math(profileprobe_reference)
 
     add_test(NAME profile_differential
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
@@ -324,6 +348,20 @@ endif()
 # upstream tree's headers — the public ones are byte-identical to our
 # vendored copies — while the link is against us: whatever the testbed
 # binds must come out of our 382 exports, which is the point.
+
+# The same courtesy as the reference: if the upstream checkout is where
+# scripts/build_reference.sh leaves its source, use it without being
+# told. Silently running three fewer tests than yesterday is its own
+# kind of wrong answer.
+if(NOT SLCMS_UPSTREAM_DIR AND EXISTS "${CMAKE_SOURCE_DIR}/build/reference/src/testbed/testcms2.c")
+    set(SLCMS_UPSTREAM_DIR "${CMAKE_SOURCE_DIR}/build/reference/src")
+endif()
+
+if(NOT SLCMS_UPSTREAM_DIR)
+    message(STATUS
+        "conformance: no upstream checkout, so the testbed tests are skipped "
+        "(set SLCMS_UPSTREAM_DIR to enable them)")
+endif()
 
 if(SLCMS_UPSTREAM_DIR)
     # The headers are vendored verbatim, and with the upstream tree in hand

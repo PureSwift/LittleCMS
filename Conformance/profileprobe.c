@@ -1185,7 +1185,13 @@ int main(void)
             cmsAllocNamedColorList(NULL, 5, 4, "PANTONE ", " CV");
         for (int i = 0; i < 5; i++) {
             char root[64];
-            cmsUInt16Number pcs[3], ink[4];
+            /* Declared at the full channel width the API's prototype
+             * promises, even though the implementation reads only as
+             * many as the list has colorants.  A narrower array is what
+             * the prototype entitles the callee to over-read, and gcc
+             * says so. */
+            cmsUInt16Number pcs[3], ink[cmsMAXCHANNELS];
+            memset(ink, 0, sizeof ink);
             snprintf(root, sizeof root, "%d-%d", 100 + i, i);
             for (int k = 0; k < 3; k++) pcs[k] = (cmsUInt16Number) ((i + 1) * 6000 + k);
             for (int k = 0; k < 4; k++) ink[k] = (cmsUInt16Number) ((i + 1) * 3000 + k);
