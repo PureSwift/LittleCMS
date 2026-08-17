@@ -192,6 +192,15 @@ else()
         "LINKER:--whole-archive,$<TARGET_FILE:LCMS2ABI>,--no-whole-archive"
         "LINKER:$<TARGET_FILE:LittleCMS>")
 
+    # The engine defines no part of the published API — every exported
+    # name comes from the boundary or the C floor — so nothing it
+    # contains should reach the dynamic symbol table.  Saying that
+    # directly is what works: a version script's local rules did not
+    # demote these, and six engine functions were exported on Linux while
+    # Mach-O's allowlist had been refusing them all along.
+    target_link_options(lcms2 PRIVATE
+        "LINKER:--exclude-libs,libLittleCMS.a")
+
     # Naming the archives in link options makes them arguments, not inputs:
     # add_dependencies only orders the build, so an incremental build that
     # recompiles the engine would leave the shared library holding the
