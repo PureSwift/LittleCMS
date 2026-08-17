@@ -385,6 +385,102 @@ int main(void)
         free(bytes);
     }
 
+    /* -- saving: the bytes that come back out ------------------------------ */
+    {
+        size_t size = 0;
+        unsigned char* bytes = build_profile(&size, 4, 0);
+        cmsHPROFILE h = cmsOpenProfileFromMem(bytes, (cmsUInt32Number) size);
+
+        /* Asking how much room a save would need must not write. */
+        cmsUInt32Number needed = 0;
+        printf("size query %d needed %u\n", cmsSaveProfileToMem(h, NULL, &needed), needed);
+
+        unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+        cmsUInt32Number room = needed;
+        printf("saved %d wrote %u\n", cmsSaveProfileToMem(h, out, &room), room);
+        feed(out, needed);
+        report("saved bytes");
+
+        /* Saving must leave the profile exactly as it was, so a second
+         * save of the same profile is the same bytes. */
+        cmsUInt32Number again = needed;
+        unsigned char* twice = (unsigned char*) calloc(1, needed ? needed : 1);
+        cmsSaveProfileToMem(h, twice, &again);
+        printf("second save identical %d\n",
+               needed && memcmp(out, twice, needed) == 0);
+
+        /* And the saved bytes must reopen as the same profile. */
+        cmsHPROFILE reopened = cmsOpenProfileFromMem(out, needed);
+        inspect(reopened, "reopened after save");
+        cmsCloseProfile(reopened);
+
+        /* A buffer too small to hold it. */
+        cmsUInt32Number tiny = 8;
+        unsigned char small[8];
+        printf("save into 8 bytes -> %d\n", cmsSaveProfileToMem(h, small, &tiny));
+
+        free(twice);
+        free(out);
+        cmsCloseProfile(h);
+        free(bytes);
+    }
+
+    /* -- the profile identifier -------------------------------------------- */
+    {
+        size_t size = 0;
+        unsigned char* bytes = build_profile(&size, 3, 0);
+        cmsHPROFILE h = cmsOpenProfileFromMem(bytes, (cmsUInt32Number) size);
+
+        cmsUInt8Number before[16], after[16];
+        cmsGetHeaderProfileID(h, before);
+        feed(before, sizeof before);
+
+        printf("computed id %d\n", cmsMD5computeID(h));
+        cmsGetHeaderProfileID(h, after);
+        feed(after, sizeof after);
+        printf("id changed %d\n", memcmp(before, after, 16) != 0);
+
+        /* The identifier ignores the rendering intent, the flags and
+         * the previous identifier, so changing those must not change it. */
+        cmsSetHeaderRenderingIntent(h, INTENT_SATURATION);
+        cmsSetHeaderFlags(h, 0xFFFFFFFF);
+        cmsMD5computeID(h);
+        cmsUInt8Number third[16];
+        cmsGetHeaderProfileID(h, third);
+        printf("id stable under intent and flags %d\n",
+               memcmp(after, third, 16) == 0);
+
+        /* But those fields are still there afterwards. */
+        printf("intent %u flags %08x survive\n",
+               cmsGetHeaderRenderingIntent(h), (unsigned) cmsGetHeaderFlags(h));
+
+        report("profile identifier");
+        cmsCloseProfile(h);
+        free(bytes);
+    }
+
+    /* -- saving through a file, and the write-mode close that saves --------- */
+    {
+        size_t size = 0;
+        unsigned char* bytes = build_profile(&size, 3, 0);
+        cmsHPROFILE h = cmsOpenProfileFromMem(bytes, (cmsUInt32Number) size);
+
+        const char* path = "profileprobe.save.icc";
+        printf("save to file %d\n", cmsSaveProfileToFile(h, path));
+
+        cmsHPROFILE back = cmsOpenProfileFromFile(path, "r");
+        inspect(back, "read back from file");
+        cmsCloseProfile(back);
+
+        /* A path that cannot be written. */
+        printf("save to bad path %d\n",
+               cmsSaveProfileToFile(h, "no-such-directory/out.icc"));
+
+        cmsCloseProfile(h);
+        remove(path);
+        free(bytes);
+    }
+
     printf("profile probe OK\n");
     return 0;
 }

@@ -227,6 +227,18 @@ public func cmsCloseProfile(_ hProfile: cmsHPROFILE?) -> cmsBool {
     guard let hProfile, let box = profile(hProfile) else { return 0 }
     var result: cmsBool = 1
 
+    // A profile opened for writing saves itself on close, back to the
+    // file it was opened on.  The flag is cleared first so that nothing
+    // reached from here can save it a second time.
+    if box.isWrite {
+        box.isWrite = false
+        result &= withUnsafeBytes(of: &box.io!.pointee.PhysicalFile) { path in
+            cmsSaveProfileToFile(
+                hProfile, path.baseAddress!.assumingMemoryBound(to: CChar.self)
+            )
+        }
+    }
+
     if let io = box.io {
         result &= cmsCloseIOhandler(io)
         box.io = nil
@@ -799,4 +811,291 @@ public func _cmsEncodeDateTimeNumber(
     Dest.pointee.day = _cmsAdjustEndianess16(cmsUInt16Number(truncatingIfNeeded: Source.pointee.tm_mday))
     Dest.pointee.month = _cmsAdjustEndianess16(cmsUInt16Number(truncatingIfNeeded: Source.pointee.tm_mon + 1))
     Dest.pointee.year = _cmsAdjustEndianess16(cmsUInt16Number(truncatingIfNeeded: Source.pointee.tm_year + 1900))
+}
+
+// -- saving -----------------------------------------------------------------
+
+/// `_cmsWriteHeader`: the 128 bytes, then the tag directory.
+///
+/// Two fields do not come from the profile.  The magic is always
+/// `'acsp'`, and the illuminant is always D50 — the ICC header has a
+/// field for it, but no profile is allowed to say anything else there.
+private func writeHeader(_ box: ProfileBox, usedSpace: cmsUInt32Number) -> Bool {
+    guard let io = box.io, let write = io.pointee.Write else { return false }
+
+    var header = cmsICCHeader()
+    header.size = _cmsAdjustEndianess32(usedSpace)
+    header.cmmId = _cmsAdjustEndianess32(box.cmm)
+    header.version = _cmsAdjustEndianess32(box.version)
+    header.deviceClass = cmsProfileClassSignature(_cmsAdjustEndianess32(box.deviceClass.rawValue))
+    header.colorSpace = cmsColorSpaceSignature(_cmsAdjustEndianess32(box.colorSpace.rawValue))
+    header.pcs = cmsColorSpaceSignature(_cmsAdjustEndianess32(box.pcs.rawValue))
+    _cmsEncodeDateTimeNumber(&header.date, &box.created)
+    header.magic = _cmsAdjustEndianess32(cmsUInt32Number(iccMagicNumber))
+    header.platform = cmsPlatformSignature(_cmsAdjustEndianess32(box.platform.rawValue))
+    header.flags = _cmsAdjustEndianess32(box.flags)
+    header.manufacturer = _cmsAdjustEndianess32(box.manufacturer)
+    header.model = _cmsAdjustEndianess32(box.model)
+    _cmsAdjustEndianess64(&header.attributes, &box.attributes)
+    header.renderingIntent = _cmsAdjustEndianess32(box.renderingIntent)
+
+    if let d50 = cmsD50_XYZ() {
+        header.illuminant.X = cmsS15Fixed16Number(bitPattern:
+            _cmsAdjustEndianess32(cmsUInt32Number(bitPattern: _cmsDoubleTo15Fixed16(d50.pointee.X))))
+        header.illuminant.Y = cmsS15Fixed16Number(bitPattern:
+            _cmsAdjustEndianess32(cmsUInt32Number(bitPattern: _cmsDoubleTo15Fixed16(d50.pointee.Y))))
+        header.illuminant.Z = cmsS15Fixed16Number(bitPattern:
+            _cmsAdjustEndianess32(cmsUInt32Number(bitPattern: _cmsDoubleTo15Fixed16(d50.pointee.Z))))
+    }
+
+    header.creator = _cmsAdjustEndianess32(box.creator)
+    withUnsafeMutableBytes(of: &header.reserved) { reserved in
+        for i in 0..<reserved.count { reserved[i] = 0 }
+    }
+    // The profile ID is 16 raw bytes and is never byte-swapped.
+    withUnsafeBytes(of: box.profileID) { source in
+        withUnsafeMutableBytes(of: &header.profileID) { $0.copyMemory(from: source) }
+    }
+
+    let wrote = withUnsafeBytes(of: &header) { buffer in
+        write(io, cmsUInt32Number(MemoryLayout<cmsICCHeader>.size), buffer.baseAddress)
+    }
+    if wrote == 0 { return false }
+
+    // A slot whose name is zero is a placeholder and is not counted.
+    var count: cmsUInt32Number = 0
+    for i in 0..<box.tagCount where box.tagNames[i] != cmsTagSignature(0) { count += 1 }
+    if _cmsWriteUInt32Number(io, count) == 0 { return false }
+
+    for i in 0..<box.tagCount {
+        if box.tagNames[i] == cmsTagSignature(0) { continue }
+        var entry = cmsTagEntry()
+        entry.sig = cmsTagSignature(_cmsAdjustEndianess32(box.tagNames[i].rawValue))
+        entry.offset = _cmsAdjustEndianess32(box.tagOffsets[i])
+        entry.size = _cmsAdjustEndianess32(box.tagSizes[i])
+        let ok = withUnsafeBytes(of: &entry) { buffer in
+            write(io, cmsUInt32Number(MemoryLayout<cmsTagEntry>.size), buffer.baseAddress)
+        }
+        if ok == 0 { return false }
+    }
+    return true
+}
+
+/// `SaveTags`.  Every tag today is a byte range in the file it came
+/// from, so every tag takes the blind-copy path: seek in the original,
+/// read the block, write it out, pad to a four-byte boundary.  The
+/// cooked path needs a tag to have been decoded, which cannot yet
+/// happen; when it can, it belongs here.
+private func saveTags(
+    _ box: ProfileBox,
+    destination: UnsafeMutablePointer<cmsIOHANDLER>,
+    original: UnsafeMutablePointer<cmsIOHANDLER>?,
+    originalOffsets: [cmsUInt32Number],
+    originalSizes: [cmsUInt32Number]
+) -> Bool {
+    guard let write = destination.pointee.Write else { return false }
+
+    for i in 0..<box.tagCount {
+        if box.tagNames[i] == cmsTagSignature(0) { continue }
+        // A linked tag shares another tag's bytes and is not written
+        // twice; SetLinks points it at where the other one landed.
+        if box.tagLinked[i] != cmsTagSignature(0) { continue }
+
+        let begin = destination.pointee.UsedSpace
+        box.tagOffsets[i] = begin
+
+        // The reference guards on the offset it has just assigned, so a
+        // tag landing at zero would be skipped.  It never can: the
+        // header and directory are always written first.
+        guard box.tagOffsets[i] != 0, let original,
+              let seek = original.pointee.Seek, let read = original.pointee.Read
+        else { continue }
+
+        let size = originalSizes[i]
+        if seek(original, originalOffsets[i]) == 0 { return false }
+        guard let block = _cmsMalloc(box.context, size) else { return false }
+        defer { _cmsFree(box.context, block) }
+
+        if read(original, block, size, 1) != 1 { return false }
+        if write(destination, size, block) == 0 { return false }
+
+        box.tagSizes[i] = destination.pointee.UsedSpace - begin
+        if _cmsWriteAlignment(destination) == 0 { return false }
+    }
+    return true
+}
+
+/// `SetLinks`: a linked tag borrows the extent of the tag it links to,
+/// which is only known once that one has been written.
+private func setLinks(_ box: ProfileBox) {
+    for i in 0..<box.tagCount {
+        let link = box.tagLinked[i]
+        if link == cmsTagSignature(0) { continue }
+        if let j = box.search(link, followLinks: false) {
+            box.tagOffsets[i] = box.tagOffsets[j]
+            box.tagSizes[i] = box.tagSizes[j]
+        }
+    }
+}
+
+/// Saves in two passes: once into a handler that counts without
+/// storing, to learn the offsets and the total, and then for real with
+/// those numbers in the header.  Saving must not change the profile, so
+/// everything the passes move is snapshotted and put back.
+@c @implementation
+public func cmsSaveProfileToIOhandler(
+    _ hProfile: cmsHPROFILE?,
+    _ io: UnsafeMutablePointer<cmsIOHANDLER>?
+) -> cmsUInt32Number {
+    guard let hProfile, let box = profile(hProfile) else { return 0 }
+    if _cmsLockMutex(box.context, box.mutex) == 0 { return 0 }
+
+    let keptIO = box.io
+    let keptOffsets = box.tagOffsets
+    let keptSizes = box.tagSizes
+
+    func restore() {
+        box.io = keptIO
+        box.tagOffsets = keptOffsets
+        box.tagSizes = keptSizes
+        _cmsUnlockMutex(box.context, box.mutex)
+    }
+
+    guard let counting = cmsOpenIOhandlerFromNULL(box.context) else {
+        restore()
+        return 0
+    }
+    box.io = counting
+
+    // Pass one: offsets and the total, written nowhere.
+    guard writeHeader(box, usedSpace: 0),
+          saveTags(
+              box, destination: counting, original: keptIO,
+              originalOffsets: keptOffsets, originalSizes: keptSizes
+          )
+    else {
+        _ = cmsCloseIOhandler(counting)
+        restore()
+        return 0
+    }
+
+    var usedSpace = counting.pointee.UsedSpace
+
+    // Pass two.  A null destination means the caller only wanted the size.
+    if let io {
+        box.io = io
+        setLinks(box)
+        guard writeHeader(box, usedSpace: usedSpace),
+              saveTags(
+                  box, destination: io, original: keptIO,
+                  originalOffsets: keptOffsets, originalSizes: keptSizes
+              )
+        else {
+            _ = cmsCloseIOhandler(counting)
+            restore()
+            return 0
+        }
+    }
+
+    if cmsCloseIOhandler(counting) == 0 {
+        usedSpace = 0   // as an error marker
+    }
+    restore()
+    return usedSpace
+}
+
+@c @implementation
+public func cmsSaveProfileToFile(
+    _ hProfile: cmsHPROFILE?,
+    _ FileName: UnsafePointer<CChar>?
+) -> cmsBool {
+    let context = cmsGetProfileContextID(hProfile)
+    guard let io = cmsOpenIOhandlerFromFile(context, FileName, "w") else { return 0 }
+
+    var result: cmsBool = cmsSaveProfileToIOhandler(hProfile, io) != 0 ? 1 : 0
+    result &= cmsCloseIOhandler(io)
+
+    // A half-written profile is worse than none, so it is removed.
+    if result == 0, let FileName { remove(FileName) }
+    return result
+}
+
+@c @implementation
+public func cmsSaveProfileToStream(
+    _ hProfile: cmsHPROFILE?,
+    _ Stream: UnsafeMutablePointer<FILE>?
+) -> cmsBool {
+    let context = cmsGetProfileContextID(hProfile)
+    guard let io = cmsOpenIOhandlerFromStream(context, Stream) else { return 0 }
+    var result: cmsBool = cmsSaveProfileToIOhandler(hProfile, io) != 0 ? 1 : 0
+    result &= cmsCloseIOhandler(io)
+    return result
+}
+
+@c @implementation
+public func cmsSaveProfileToMem(
+    _ hProfile: cmsHPROFILE?,
+    _ MemPtr: UnsafeMutableRawPointer?,
+    _ BytesNeeded: UnsafeMutablePointer<cmsUInt32Number>?
+) -> cmsBool {
+    guard let BytesNeeded else { return 0 }
+
+    // No buffer means the caller is asking how big one would have to be.
+    guard let MemPtr else {
+        BytesNeeded.pointee = cmsSaveProfileToIOhandler(hProfile, nil)
+        return BytesNeeded.pointee == 0 ? 0 : 1
+    }
+
+    let context = cmsGetProfileContextID(hProfile)
+    guard let io = cmsOpenIOhandlerFromMem(context, MemPtr, BytesNeeded.pointee, "w")
+    else { return 0 }
+    var result: cmsBool = cmsSaveProfileToIOhandler(hProfile, io) != 0 ? 1 : 0
+    result &= cmsCloseIOhandler(io)
+    return result
+}
+
+/// The profile's identifier is an MD5 over the profile as saved, with
+/// the three fields that are allowed to vary between copies zeroed
+/// first: the rendering intent, the flags, and the identifier itself.
+/// Those are put back afterwards, so computing the ID changes only the
+/// ID.
+@c @implementation
+public func cmsMD5computeID(_ hProfile: cmsHPROFILE?) -> cmsBool {
+    guard let hProfile, let box = profile(hProfile) else { return 0 }
+    let context = cmsGetProfileContextID(hProfile)
+
+    let keptFlags = box.flags
+    let keptIntent = box.renderingIntent
+    let keptID = box.profileID
+
+    func restore() {
+        box.flags = keptFlags
+        box.renderingIntent = keptIntent
+        box.profileID = keptID
+    }
+
+    box.flags = 0
+    box.renderingIntent = 0
+    box.profileID = cmsProfileID()
+
+    var needed: cmsUInt32Number = 0
+    guard cmsSaveProfileToMem(hProfile, nil, &needed) != 0,
+          let memory = _cmsMalloc(context, needed)
+    else {
+        restore()
+        return 0
+    }
+    defer { _cmsFree(context, memory) }
+
+    guard cmsSaveProfileToMem(hProfile, memory, &needed) != 0,
+          let md5 = cmsMD5alloc(context)
+    else {
+        restore()
+        return 0
+    }
+
+    cmsMD5add(md5, memory.assumingMemoryBound(to: cmsUInt8Number.self), needed)
+    restore()
+    cmsMD5finish(&box.profileID, md5)
+    return 1
 }

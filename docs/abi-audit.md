@@ -99,7 +99,7 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   ownership of the handler iff opened via `cmsOpenProfileFromIOhandler2THR`
   with... *(verify exact close policy against cmsio0.c in Phase 3)*.
 
-### Profile container + header (46) — `cmsOpenProfileFrom*`, `cmsCloseProfile`, `cmsCreateProfilePlaceholder`, `cmsGet/SetHeader*`, `cmsGetTagCount`, `cmsReadRawTag`, … — *implemented (reading; saving pending)*
+### Profile container + header (46) — `cmsOpenProfileFrom*`, `cmsCloseProfile`, `cmsCreateProfilePlaceholder`, `cmsGet/SetHeader*`, `cmsGetTagCount`, `cmsReadRawTag`, … — *implemented*
 
 - **`_cmsICCPROFILE` carries no layout obligation.** It is declared only
   in `lcms2_internal.h`, appears in neither shipped header, and the
@@ -126,6 +126,23 @@ Legend — **owner**: who frees a returned pointer, and with which function.
 - `cmsCreateProfilePlaceholder` stamps the current time, so a new
   profile's creation date is **not** differential-testable; a date read
   out of a file is.
+- **Saving is two passes**: once into a counting handler that stores
+  nothing, to learn each tag's offset and the total, then for real with
+  those numbers in the header. Saving must not change the profile, so
+  the offsets, sizes and IO handler are snapshotted and restored — a
+  second save of the same profile is byte-identical to the first.
+- A **linked tag is not written twice**: it is skipped during the walk
+  and then pointed at wherever the tag it links to landed. So a save
+  can be smaller than the file it came from, and tags move.
+- Two header fields never come from the profile: the magic is always
+  `'acsp'`, and the illuminant is always D50 — the field exists but no
+  profile may say anything else in it.
+- `cmsSaveProfileToFile` **removes the file** if the save fails: a
+  half-written profile is worse than none.
+- `cmsMD5computeID` hashes the profile as saved with rendering intent,
+  flags and the identifier itself zeroed first, then puts all three
+  back — so computing the identifier changes only the identifier, and
+  the identifier does not depend on those three fields.
 
 ### Tag access (10) — `cmsReadTag`, `cmsWriteTag`, `cmsReadRawTag`, `cmsWriteRawTag`, `cmsLinkTag`, `cmsTagLinkedTo`, `cmsGetTagCount`, `cmsGetTagSignature`, …
 

@@ -167,6 +167,7 @@ cmsLabEncoded2Float
 cmsLabEncoded2FloatV2
 cmsMD5add
 cmsMD5alloc
+cmsMD5computeID
 cmsMD5finish
 cmsMLUalloc
 cmsMLUdup
@@ -214,6 +215,10 @@ cmsPipelineUnlinkStage
 cmsReadRawTag
 cmsReverseToneCurve
 cmsReverseToneCurveEx
+cmsSaveProfileToFile
+cmsSaveProfileToIOhandler
+cmsSaveProfileToMem
+cmsSaveProfileToStream
 cmsSetAdaptationState
 cmsSetAdaptationStateTHR
 cmsSetAlarmCodes

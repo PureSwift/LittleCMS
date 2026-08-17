@@ -714,11 +714,6 @@ cmsBool cmsLinkTag(cmsHPROFILE hProfile, cmsTagSignature sig, cmsTagSignature de
     swift_unimplemented_fatal("cmsLinkTag");
 }
 
-cmsBool cmsMD5computeID(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsMD5computeID");
-}
-
 cmsBool cmsPlugin(void* Plugin)
 {
     swift_unimplemented_fatal("cmsPlugin");
@@ -733,26 +728,6 @@ cmsBool cmsPluginTHR(cmsContext ContextID, void* Plugin)
 void* cmsReadTag(cmsHPROFILE hProfile, cmsTagSignature sig)
 {
     swift_unimplemented_fatal("cmsReadTag");
-}
-
-cmsBool cmsSaveProfileToFile(cmsHPROFILE hProfile, const char* FileName)
-{
-    swift_unimplemented_fatal("cmsSaveProfileToFile");
-}
-
-cmsUInt32Number cmsSaveProfileToIOhandler(cmsHPROFILE hProfile, cmsIOHANDLER* io)
-{
-    swift_unimplemented_fatal("cmsSaveProfileToIOhandler");
-}
-
-cmsBool cmsSaveProfileToMem(cmsHPROFILE hProfile, void *MemPtr, cmsUInt32Number* BytesNeeded)
-{
-    swift_unimplemented_fatal("cmsSaveProfileToMem");
-}
-
-cmsBool cmsSaveProfileToStream(cmsHPROFILE hProfile, FILE* Stream)
-{
-    swift_unimplemented_fatal("cmsSaveProfileToStream");
 }
 
 cmsHPROFILE cmsTransform2DeviceLink(cmsHTRANSFORM hTransform, cmsFloat64Number Version, cmsUInt32Number dwFlags)
