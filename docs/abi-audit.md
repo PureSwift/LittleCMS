@@ -131,6 +131,21 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   public layouts lcms2_plugin.h:516–542); clients read and, via the
   sampling idiom, observe mutation.  `_cmsStageCLutData.Params` points to
   the live `cmsInterpParams` (public layout, lcms2_plugin.h:290).
+- A CLUT stage is **three pieces of memory that must be one**: the table,
+  the `_cmsStageCLutData` block, and the `cmsInterpParams` pointing at
+  that table.  A client samples by writing through `Tab.T` and then
+  evaluates, so the evaluator reads the pointer the client wrote through
+  — and calls through `Params->Interpolation`, so a replaced kernel takes
+  effect.  Duplicating a stage must break all three apart: a shared table
+  makes two stages one, and a shared `Params` frees twice.
+- `cmsPipelineInsertStage` reports a chain mismatch by returning FALSE
+  but **leaves the stage inserted** — the caller is left holding exactly
+  the pipeline it asked for.  `cmsPipelineUnlinkStage` re-checks and
+  ignores the answer.
+- `cmsSliceSpace16/Float` hand the sampler a **null output**: there is no
+  table behind the walk.  `SAMPLER_INSPECT` keeps the output buffer but
+  discards whatever the sampler writes.  A sampler that returns 0
+  abandons the walk, and what it already wrote stays written.
 
 ### Transforms (20), Colorimetry (23), Formatters (2 + `TYPE_*` space), MLU (12), Named colors (8), Dictionaries (6), PSEQ (3), Intents (5), CHAD (5), Alarm codes (4), GBD (12, stubbed), IT8/CGATS (37, stubbed), PostScript (3, stubbed), MD5 (3), IO handlers (5), Header access (26), Virtual profiles (24), Misc (3)
 

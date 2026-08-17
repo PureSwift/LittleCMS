@@ -890,21 +890,6 @@ cmsHPROFILE cmsOpenProfileFromStreamTHR(cmsContext ContextID, FILE* ICCProfile, 
     return (cmsHPROFILE){0};
 }
 
-cmsBool cmsPipelineCat(cmsPipeline* l1, const cmsPipeline* l2)
-{
-    swift_unimplemented_fatal("cmsPipelineCat");
-}
-
-cmsPipeline* cmsPipelineDup(const cmsPipeline* Orig)
-{
-    swift_unimplemented_fatal("cmsPipelineDup");
-}
-
-cmsBool cmsPipelineEvalReverseFloat(cmsFloat32Number Target[], cmsFloat32Number Result[], cmsFloat32Number Hint[], const cmsPipeline* lut)
-{
-    swift_unimplemented_fatal("cmsPipelineEvalReverseFloat");
-}
-
 cmsBool cmsPlugin(void* Plugin)
 {
     swift_unimplemented_fatal("cmsPlugin");
@@ -999,55 +984,6 @@ void cmsSetPCS(cmsHPROFILE hProfile, cmsColorSpaceSignature pcs)
 void cmsSetProfileVersion(cmsHPROFILE hProfile, cmsFloat64Number Version)
 {
     swift_unimplemented_fatal("cmsSetProfileVersion");
-}
-
-cmsBool cmsSliceSpace16(cmsUInt32Number nInputs, const cmsUInt32Number clutPoints[], cmsSAMPLER16 Sampler, void * Cargo)
-{
-    swift_unimplemented_fatal("cmsSliceSpace16");
-}
-
-cmsBool cmsSliceSpaceFloat(cmsUInt32Number nInputs, const cmsUInt32Number clutPoints[], cmsSAMPLERFLOAT Sampler, void * Cargo)
-{
-    swift_unimplemented_fatal("cmsSliceSpaceFloat");
-}
-
-cmsStage* cmsStageAllocCLut16bit(cmsContext ContextID, cmsUInt32Number nGridPoints, cmsUInt32Number inputChan, cmsUInt32Number outputChan, const cmsUInt16Number* Table)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsStageAllocCLut16bit is not implemented");
-    return (cmsStage*){0};
-}
-
-cmsStage* cmsStageAllocCLut16bitGranular(cmsContext ContextID, const cmsUInt32Number clutPoints[], cmsUInt32Number inputChan, cmsUInt32Number outputChan, const cmsUInt16Number* Table)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsStageAllocCLut16bitGranular is not implemented");
-    return (cmsStage*){0};
-}
-
-cmsStage* cmsStageAllocCLutFloat(cmsContext ContextID, cmsUInt32Number nGridPoints, cmsUInt32Number inputChan, cmsUInt32Number outputChan, const cmsFloat32Number* Table)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsStageAllocCLutFloat is not implemented");
-    return (cmsStage*){0};
-}
-
-cmsStage* cmsStageAllocCLutFloatGranular(cmsContext ContextID, const cmsUInt32Number clutPoints[], cmsUInt32Number inputChan, cmsUInt32Number outputChan, const cmsFloat32Number* Table)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsStageAllocCLutFloatGranular is not implemented");
-    return (cmsStage*){0};
-}
-
-cmsStage* cmsStageDup(cmsStage* mpe)
-{
-    swift_unimplemented_fatal("cmsStageDup");
-}
-
-cmsBool cmsStageSampleCLut16bit(cmsStage* mpe, cmsSAMPLER16 Sampler, void* Cargo, cmsUInt32Number dwFlags)
-{
-    swift_unimplemented_fatal("cmsStageSampleCLut16bit");
-}
-
-cmsBool cmsStageSampleCLutFloat(cmsStage* mpe, cmsSAMPLERFLOAT Sampler, void* Cargo, cmsUInt32Number dwFlags)
-{
-    swift_unimplemented_fatal("cmsStageSampleCLutFloat");
 }
 
 cmsTagSignature cmsTagLinkedTo(cmsHPROFILE hProfile, cmsTagSignature sig)

@@ -21,9 +21,27 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 "$ours" "$@" > "$work/ours.out" 2>&1
-echo "exit $?" >> "$work/ours.out"
+ours_status=$?
+echo "exit $ours_status" >> "$work/ours.out"
 "$reference" "$@" > "$work/reference.out" 2>&1
-echo "exit $?" >> "$work/reference.out"
+reference_status=$?
+echo "exit $reference_status" >> "$work/reference.out"
+
+# A probe killed by a signal fails even when both builds die the same way.
+# Agreement is only evidence when the question was answered: two crashed
+# probes produce identical truncated output and would otherwise pass,
+# which is how a probe that dereferences a null the reference hands it
+# can look like conformance.
+crashed=0
+for s in "$ours_status" "$reference_status"; do
+    if [ "$s" -ge 128 ]; then crashed=1; fi
+done
+if [ "$crashed" -eq 1 ]; then
+    echo "probe died on a signal (ours $ours_status, reference $reference_status);" >&2
+    echo "the comparison below is not evidence of anything" >&2
+    tail -n 5 "$work/ours.out" >&2
+    exit 1
+fi
 
 diff -u "$work/reference.out" "$work/ours.out" > "$work/diff" || true
 

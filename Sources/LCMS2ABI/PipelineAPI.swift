@@ -27,6 +27,10 @@ final class StageBox: HandleBox {
     var retained: [AnyObject] = []
     /// Evaluated in floating point, always.
     var evaluate: (UnsafePointer<Float>, UnsafeMutablePointer<Float>, StageBox) -> Void
+    /// Makes an independent copy — the reference's `DupElemPtr`, except
+    /// that here it rebuilds the whole stage rather than only its data,
+    /// because the evaluator is a closure rather than a function pointer.
+    var duplicate: ((StageBox) -> UnsafeMutablePointer<cmsStage>?)?
     /// The next stage in the pipeline, or nil at the end.
     var next: UnsafeMutablePointer<cmsStage>?
 
@@ -53,8 +57,13 @@ private func stage(_ p: UnsafePointer<cmsStage>?) -> StageBox? {
 }
 
 @inline(__always)
-private func handle(_ box: StageBox) -> UnsafeMutablePointer<cmsStage> {
+func stageHandle(_ box: StageBox) -> UnsafeMutablePointer<cmsStage> {
     StageBox.handle(for: box).assumingMemoryBound(to: cmsStage.self)
+}
+
+@inline(__always)
+private func handle(_ box: StageBox) -> UnsafeMutablePointer<cmsStage> {
+    stageHandle(box)
 }
 
 final class PipelineBox: HandleBox {
@@ -76,6 +85,27 @@ final class PipelineBox: HandleBox {
         for (i, s) in stages.enumerated() {
             stage(s)?.next = i + 1 < stages.count ? stages[i + 1] : nil
         }
+    }
+
+    /// `BlessLUT`: the pipeline's own channel counts follow its ends, and
+    /// the answer says whether the chain actually joins up.  A chain that
+    /// does not still stays linked — the reference reports the mismatch
+    /// rather than undoing the insertion, and a caller that ignores the
+    /// answer is left holding exactly that.
+    @discardableResult
+    func bless() -> Bool {
+        guard let first = stage(stages.first), let last = stage(stages.last)
+        else { return true }
+
+        inputChannels = first.inputChannels
+        outputChannels = last.outputChannels
+
+        for i in 1..<max(stages.count, 1) {
+            guard let previous = stage(stages[i - 1]), let next = stage(stages[i]),
+                  next.inputChannels == previous.outputChannels
+            else { return false }
+        }
+        return true
     }
 }
 
@@ -105,6 +135,7 @@ public func cmsStageAllocIdentity(
     ) { input, output, stage in
         for i in 0..<stage.inputChannels { output[i] = input[i] }
     }
+    box.duplicate = { cmsStageAllocIdentity($0.context, cmsUInt32Number($0.inputChannels)) }
     return handle(box)
 }
 
@@ -157,6 +188,23 @@ public func cmsStageAllocToneCurves(
         }
     }
     box.data = raw
+    box.duplicate = { source in
+        // The copy needs its own curves: the stage frees whatever it
+        // holds, so sharing them would free them twice.
+        guard let data = source.data?.assumingMemoryBound(to: _cmsStageToneCurvesData.self),
+              let list = data.pointee.TheCurves
+        else { return nil }
+        let n = Int(data.pointee.nCurves)
+        var copies = [UnsafeMutablePointer<cmsToneCurve>?](repeating: nil, count: max(n, 1))
+        for i in 0..<n {
+            guard let copy = cmsDupToneCurve(list[i]) else {
+                for j in 0..<i { cmsFreeToneCurve(copies[j]) }
+                return nil
+            }
+            copies[i] = copy
+        }
+        return cmsStageAllocToneCurves(source.context, cmsUInt32Number(n), &copies)
+    }
     return handle(box)
 }
 
@@ -226,6 +274,15 @@ public func cmsStageAllocMatrix(
         }
     }
     box.data = raw
+    box.duplicate = { source in
+        guard let data = source.data?.assumingMemoryBound(to: _cmsStageMatrixData.self)
+        else { return nil }
+        return cmsStageAllocMatrix(
+            source.context,
+            cmsUInt32Number(source.outputChannels), cmsUInt32Number(source.inputChannels),
+            data.pointee.Double, data.pointee.Offset
+        )
+    }
     return handle(box)
 }
 
@@ -252,6 +309,8 @@ public func cmsStageFree(_ mpe: UnsafeMutablePointer<cmsStage>?) {
             if let offset = matrix.pointee.Offset {
                 _cmsFree(box.context, UnsafeMutableRawPointer(offset))
             }
+        case cmsSigCLutElemType:
+            freeCLutData(box, data)
         default:
             break
         }
@@ -291,6 +350,20 @@ public func cmsStageData(_ mpe: UnsafePointer<cmsStage>?) -> UnsafeMutableRawPoi
 @c @implementation
 public func cmsGetStageContextID(_ mpe: UnsafePointer<cmsStage>?) -> cmsContext? {
     stage(mpe)?.context
+}
+
+@c @implementation
+public func cmsStageDup(
+    _ mpe: UnsafeMutablePointer<cmsStage>?
+) -> UnsafeMutablePointer<cmsStage>? {
+    guard let mpe, let box = stage(mpe), let duplicate = box.duplicate,
+          let copy = duplicate(box)
+    else { return nil }
+    // What the stage *implements* can differ from what it is — a stage
+    // built as a CLUT may stand in for a named transform — and the copy
+    // stands in for the same thing.
+    stage(copy)?.implements = box.implements
+    return copy
 }
 
 // -- pipelines ------------------------------------------------------------
@@ -375,15 +448,7 @@ public func cmsPipelineInsertStage(
         box.stages.append(mpe)
     }
     box.relink()
-
-    // The pipeline's own channel counts follow its ends.
-    if let first = box.stages.first, let firstBox = stage(first) {
-        box.inputChannels = firstBox.inputChannels
-    }
-    if let last = box.stages.last, let lastBox = stage(last) {
-        box.outputChannels = lastBox.outputChannels
-    }
-    return 1
+    return box.bless() ? 1 : 0
 }
 
 @c @implementation
@@ -398,14 +463,10 @@ public func cmsPipelineUnlinkStage(
     }
 
     let removed = loc == cmsAT_BEGIN ? box.stages.removeFirst() : box.stages.removeLast()
+    stage(removed)?.next = nil
     box.relink()
-
-    if let first = box.stages.first, let firstBox = stage(first) {
-        box.inputChannels = firstBox.inputChannels
-    }
-    if let last = box.stages.last, let lastBox = stage(last) {
-        box.outputChannels = lastBox.outputChannels
-    }
+    // May fail, and the reference ignores it here.
+    box.bless()
 
     // Handing the stage back transfers it; keeping no pointer frees it.
     if let mpe {
@@ -474,4 +535,146 @@ public func cmsPipelineEval16(
 @c @implementation
 public func cmsGetPipelineContextID(_ lut: UnsafePointer<cmsPipeline>?) -> cmsContext? {
     pipeline(lut)?.context
+}
+
+@c @implementation
+public func cmsPipelineDup(
+    _ Orig: UnsafePointer<cmsPipeline>?
+) -> UnsafeMutablePointer<cmsPipeline>? {
+    guard let Orig, let source = pipeline(Orig) else { return nil }
+    guard let copy = cmsPipelineAlloc(
+        source.context,
+        cmsUInt32Number(source.inputChannels), cmsUInt32Number(source.outputChannels)
+    ), let box = pipeline(copy) else { return nil }
+
+    for s in source.stages {
+        guard let duplicated = cmsStageDup(s) else {
+            cmsPipelineFree(copy)
+            return nil
+        }
+        box.stages.append(duplicated)
+    }
+    box.relink()
+    box.saveAs8Bits = source.saveAs8Bits
+
+    if !box.bless() {
+        cmsPipelineFree(copy)
+        return nil
+    }
+    return copy
+}
+
+@c @implementation
+public func cmsPipelineCat(
+    _ l1: UnsafeMutablePointer<cmsPipeline>?,
+    _ l2: UnsafePointer<cmsPipeline>?
+) -> cmsBool {
+    guard let l1, let l2, let first = pipeline(l1), let second = pipeline(l2) else { return 0 }
+
+    // Two empty pipelines: the shape has to come from somewhere, so it
+    // comes from the one being appended.
+    if first.stages.isEmpty && second.stages.isEmpty {
+        first.inputChannels = second.inputChannels
+        first.outputChannels = second.outputChannels
+    }
+
+    for s in second.stages {
+        // Each stage is copied — l2 keeps its own.
+        if cmsPipelineInsertStage(l1, cmsAT_END, cmsStageDup(s)) == 0 { return 0 }
+    }
+    return first.bless() ? 1 : 0
+}
+
+/// Newton's method on a 3->3 or 4->3 pipeline: step towards the target
+/// using a Jacobian estimated by finite differences, and stop as soon as
+/// a step stops improving — the *previous* guess is then the answer, so
+/// the result is written before each step rather than after the loop.
+@c @implementation
+public func cmsPipelineEvalReverseFloat(
+    _ Target: UnsafeMutablePointer<cmsFloat32Number>?,
+    _ Result: UnsafeMutablePointer<cmsFloat32Number>?,
+    _ Hint: UnsafeMutablePointer<cmsFloat32Number>?,
+    _ lut: UnsafePointer<cmsPipeline>?
+) -> cmsBool {
+    guard let Target, let Result, let box = pipeline(lut) else { return 0 }
+
+    let inputs = box.inputChannels
+    if inputs != 3 && inputs != 4 { return 0 }
+    if box.outputChannels != 3 { return 0 }
+
+    let epsilon: Float = 0.001
+    let maximumIterations = 30
+
+    var x = [Float](repeating: 0, count: 4)
+    if let Hint {
+        // Only three channels come from the hint whatever the shape.
+        for j in 0..<3 { x[j] = Hint[j] }
+    } else {
+        // Begin at any point; a third of the way along each axis.
+        x[0] = 0.3; x[1] = 0.3; x[2] = 0.3
+    }
+    // A four-input pipeline holds its fourth channel fixed.
+    x[3] = inputs == 4 ? Target[3] : 0
+
+    var fx = [Float](repeating: 0, count: 4)
+    var xd = [Float](repeating: 0, count: 4)
+    var fxd = [Float](repeating: 0, count: 4)
+    var lastError = 1e20
+
+    for _ in 0..<maximumIterations {
+        x.withUnsafeBufferPointer { source in
+            fx.withUnsafeMutableBufferPointer { destination in
+                cmsPipelineEvalFloat(source.baseAddress!, destination.baseAddress!, lut)
+            }
+        }
+
+        var sum: Float = 0
+        for i in 0..<3 {
+            let difference = Target[i] - fx[i]
+            sum += difference * difference
+        }
+        // Square root is one of the operations IEEE 754 requires to be
+        // correctly rounded, so this and the reference's sqrtf cannot
+        // disagree — no libm shim needed for it.
+        let error = cmsFloat64Number(sum.squareRoot())
+
+        // Not converging any more: the last kept guess stands.
+        if error >= lastError { break }
+        lastError = error
+        for j in 0..<inputs { Result[j] = x[j] }
+        if error <= 0 { break }
+
+        var jacobian = Matrix3(Vector3(0, 0, 0), Vector3(0, 0, 0), Vector3(0, 0, 0))
+        for j in 0..<3 {
+            for k in 0..<4 { xd[k] = x[k] }
+            // Stepped away from the boundary rather than across it.
+            if xd[j] < 1.0 - epsilon { xd[j] += epsilon } else { xd[j] -= epsilon }
+
+            xd.withUnsafeBufferPointer { source in
+                fxd.withUnsafeMutableBufferPointer { destination in
+                    cmsPipelineEvalFloat(source.baseAddress!, destination.baseAddress!, lut)
+                }
+            }
+
+            for row in 0..<3 {
+                jacobian[row][j] = cmsFloat64Number((fxd[row] - fx[row]) / epsilon)
+            }
+        }
+
+        guard let step = jacobian.solve(Vector3(
+            cmsFloat64Number(fx[0] - Target[0]),
+            cmsFloat64Number(fx[1] - Target[1]),
+            cmsFloat64Number(fx[2] - Target[2])
+        )) else { return 0 }
+
+        x[0] -= cmsFloat32Number(step.x)
+        x[1] -= cmsFloat32Number(step.y)
+        x[2] -= cmsFloat32Number(step.z)
+
+        for j in 0..<3 {
+            if x[j] < 0 { x[j] = 0 } else if x[j] > 1.0 { x[j] = 1.0 }
+        }
+    }
+
+    return 1
 }

@@ -67,11 +67,30 @@ private func interpolateFloat(
 
 /// Fills in the parameters for a grid whose inputs all have the same
 /// number of nodes.  The extended form the reference also has is not
-/// exported, so this is the only way in.
+/// exported, so this is the only way in from C — but the CLUT stages
+/// need it, so the work lives in `computeInterpParams` below and this is
+/// the uniform case of it.
 @c @implementation
 public func _cmsComputeInterpParams(
     _ ContextID: cmsContext?,
     _ nSamples: cmsUInt32Number,
+    _ InputChan: cmsUInt32Number,
+    _ OutputChan: cmsUInt32Number,
+    _ Table: UnsafeRawPointer?,
+    _ dwFlags: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsInterpParams>? {
+    // The reference builds the full-width array and hands it on, so the
+    // range check below happens after that — but it reads only the first
+    // InputChan entries, which is what a too-wide request never reaches.
+    var uniform = [cmsUInt32Number](repeating: nSamples, count: maximumInputDimensions)
+    return computeInterpParams(ContextID, &uniform, InputChan, OutputChan, Table, dwFlags)
+}
+
+/// A grid may have a different node count per input.  Only the CLUT
+/// stages build one of those, and nothing exported reaches it.
+func computeInterpParams(
+    _ ContextID: cmsContext?,
+    _ nSamples: UnsafePointer<cmsUInt32Number>,
     _ InputChan: cmsUInt32Number,
     _ OutputChan: cmsUInt32Number,
     _ Table: UnsafeRawPointer?,
@@ -100,12 +119,12 @@ public func _cmsComputeInterpParams(
     let inputs = Int(InputChan)
     withUnsafeMutableBytes(of: &p.pointee.nSamples) { field in
         field.withMemoryRebound(to: cmsUInt32Number.self) { values in
-            for i in 0..<inputs { values[i] = nSamples }
+            for i in 0..<inputs { values[i] = nSamples[i] }
         }
     }
     withUnsafeMutableBytes(of: &p.pointee.Domain) { field in
         field.withMemoryRebound(to: cmsUInt32Number.self) { values in
-            for i in 0..<inputs { values[i] = nSamples - 1 }
+            for i in 0..<inputs { values[i] = nSamples[i] &- 1 }
         }
     }
 
@@ -116,7 +135,7 @@ public func _cmsComputeInterpParams(
         field.withMemoryRebound(to: cmsUInt32Number.self) { values in
             values[0] = OutputChan
             for i in 1..<max(inputs, 1) {
-                values[i] = values[i - 1] &* nSamples
+                values[i] = values[i - 1] &* nSamples[inputs - i]
             }
         }
     }

@@ -1,222 +1,234 @@
-# Functions with real definitions.  Everything exported and not listed here
-# is generated into Sources/CLCMS2/gen/lcms2_stubs.c as a stub that reports
-# through the library's normal error path.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #
+# Functions with real definitions.  Everything exported and not listed here
 # Retiring a stub means adding its name here and rerunning gen_stubs.py;
-# forgetting either half is a duplicate-symbol link error, so this file and
-# the stub table cannot drift apart.
-
 # Sources/CLCMS2/lcms2_error.c
-cmsSetLogErrorHandler
-cmsSetLogErrorHandlerTHR
-
 # Sources/CLCMS2/lcms2_variadic.c — the three C variadics, hand-written forever
-cmsSignalError
-_cmsIOPrintf
-cmsPipelineCheckAndRetreiveStages
-
-# Sources/LCMS2ABI/Version.swift
-cmsGetEncodedCMMversion
-
+# Sources/LCMS2ABI/ColorimetryAPI.swift
+# Sources/LCMS2ABI/ContextAPI.swift
+# Sources/LCMS2ABI/DictionaryAPI.swift
+# Sources/LCMS2ABI/FieldCodecAPI.swift
+# Sources/LCMS2ABI/IOHandlerAPI.swift
+# Sources/LCMS2ABI/InterpolationAPI.swift
+# Sources/LCMS2ABI/MD5API.swift
+# Sources/LCMS2ABI/MLUAPI.swift
+# Sources/LCMS2ABI/MatrixAPI.swift
+# Sources/LCMS2ABI/MemoryAPI.swift
+# Sources/LCMS2ABI/MutexAPI.swift
+# Sources/LCMS2ABI/NamedColorAPI.swift
+# Sources/LCMS2ABI/PipelineAPI.swift
 # Sources/LCMS2ABI/PrimitivesAPI.swift
+# Sources/LCMS2ABI/ToneCurveAPI.swift
+# Sources/LCMS2ABI/ToneCurveOpsAPI.swift
+# Sources/LCMS2ABI/Version.swift
+# forgetting either half is a duplicate-symbol link error, so this file and
+# is generated into Sources/CLCMS2/gen/lcms2_stubs.c as a stub that reports
+# the stub table cannot drift apart.
+# through the library's normal error path.
 _cms15Fixed16toDouble
-_cmsDoubleTo15Fixed16
 _cms8Fixed8toDouble
-_cmsDoubleTo8Fixed8
-_cmsQuantizeVal
 _cmsAdjustEndianess16
 _cmsAdjustEndianess32
 _cmsAdjustEndianess64
-_cmsHalf2Float
-_cmsFloat2Half
-
-# Sources/LCMS2ABI/MatrixAPI.swift
-_cmsVEC3init
-_cmsVEC3minus
-_cmsVEC3cross
-_cmsVEC3dot
-_cmsVEC3length
-_cmsVEC3distance
-_cmsMAT3identity
-_cmsMAT3isIdentity
-_cmsMAT3per
-_cmsMAT3inverse
-_cmsMAT3solve
-_cmsMAT3eval
-
-# Sources/LCMS2ABI/MD5API.swift
-cmsMD5alloc
-cmsMD5add
-cmsMD5finish
-
-# Sources/LCMS2ABI/ContextAPI.swift
-cmsCreateContext
-cmsDupContext
-cmsDeleteContext
-cmsGetContextUserData
-cmsSetAlarmCodes
-cmsSetAlarmCodesTHR
-cmsGetAlarmCodes
-cmsGetAlarmCodesTHR
-cmsSetAdaptationState
-cmsSetAdaptationStateTHR
-
-# Sources/LCMS2ABI/MemoryAPI.swift
-_cmsMalloc
-_cmsMallocZero
 _cmsCalloc
-_cmsRealloc
-_cmsFree
-_cmsDupMem
-
-# Sources/LCMS2ABI/MutexAPI.swift
+_cmsComputeInterpParams
 _cmsCreateMutex
 _cmsDestroyMutex
+_cmsDoubleTo15Fixed16
+_cmsDoubleTo8Fixed8
+_cmsDupMem
+_cmsFloat2Half
+_cmsFree
+_cmsFreeInterpParams
+_cmsHalf2Float
+_cmsIOPrintf
 _cmsLockMutex
-_cmsUnlockMutex
-
-# Sources/LCMS2ABI/IOHandlerAPI.swift
-cmsOpenIOhandlerFromNULL
-cmsOpenIOhandlerFromMem
-cmsOpenIOhandlerFromFile
-cmsOpenIOhandlerFromStream
-cmsCloseIOhandler
-cmsfilelength
-
-# Sources/LCMS2ABI/FieldCodecAPI.swift
-_cmsReadUInt8Number
-_cmsReadUInt16Number
-_cmsReadUInt16Array
-_cmsReadUInt32Number
-_cmsReadFloat32Number
-_cmsReadUInt64Number
+_cmsMAT3eval
+_cmsMAT3identity
+_cmsMAT3inverse
+_cmsMAT3isIdentity
+_cmsMAT3per
+_cmsMAT3solve
+_cmsMalloc
+_cmsMallocZero
+_cmsQuantizeVal
 _cmsRead15Fixed16Number
-_cmsReadXYZNumber
-_cmsWriteUInt8Number
-_cmsWriteUInt16Number
-_cmsWriteUInt16Array
-_cmsWriteUInt32Number
-_cmsWriteFloat32Number
-_cmsWriteUInt64Number
-_cmsWrite15Fixed16Number
-_cmsWriteXYZNumber
-_cmsReadTypeBase
-_cmsWriteTypeBase
 _cmsReadAlignment
+_cmsReadFloat32Number
+_cmsReadTypeBase
+_cmsReadUInt16Array
+_cmsReadUInt16Number
+_cmsReadUInt32Number
+_cmsReadUInt64Number
+_cmsReadUInt8Number
+_cmsReadXYZNumber
+_cmsRealloc
+_cmsUnlockMutex
+_cmsVEC3cross
+_cmsVEC3distance
+_cmsVEC3dot
+_cmsVEC3init
+_cmsVEC3length
+_cmsVEC3minus
+_cmsWrite15Fixed16Number
 _cmsWriteAlignment
-
-# Sources/LCMS2ABI/ColorimetryAPI.swift
-cmsD50_XYZ
-cmsD50_xyY
-cmsXYZ2xyY
-cmsxyY2XYZ
-cmsXYZ2Lab
-cmsLab2XYZ
-cmsLab2LCh
-cmsLCh2Lab
-cmsLabEncoded2Float
-cmsFloat2LabEncoded
-cmsLabEncoded2FloatV2
-cmsFloat2LabEncodedV2
-cmsXYZEncoded2Float
-cmsFloat2XYZEncoded
-cmsDeltaE
-cmsCIE94DeltaE
-cmsBFDdeltaE
-cmsCMCdeltaE
-cmsCIE2000DeltaE
-cmsWhitePointFromTemp
-cmsTempFromWhitePoint
+_cmsWriteFloat32Number
+_cmsWriteTypeBase
+_cmsWriteUInt16Array
+_cmsWriteUInt16Number
+_cmsWriteUInt32Number
+_cmsWriteUInt64Number
+_cmsWriteUInt8Number
+_cmsWriteXYZNumber
 cmsAdaptToIlluminant
-cmsDesaturateLab
-
-# Sources/LCMS2ABI/ToneCurveAPI.swift
-cmsBuildSegmentedToneCurve
-cmsBuildParametricToneCurve
+cmsAllocNamedColorList
+cmsAllocProfileSequenceDescription
+cmsAppendNamedColor
+cmsBFDdeltaE
 cmsBuildGamma
+cmsBuildParametricToneCurve
+cmsBuildSegmentedToneCurve
 cmsBuildTabulatedToneCurve16
 cmsBuildTabulatedToneCurveFloat
+cmsCIE2000DeltaE
+cmsCIE94DeltaE
+cmsCMCdeltaE
+cmsCloseIOhandler
+cmsCreateContext
+cmsD50_XYZ
+cmsD50_xyY
+cmsDeleteContext
+cmsDeltaE
+cmsDesaturateLab
+cmsDictAddEntry
+cmsDictAlloc
+cmsDictDup
+cmsDictFree
+cmsDictGetEntryList
+cmsDictNextEntry
+cmsDupContext
+cmsDupNamedColorList
+cmsDupProfileSequenceDescription
 cmsDupToneCurve
-cmsFreeToneCurve
-cmsFreeToneCurveTriple
+cmsEstimateGamma
 cmsEvalToneCurve16
 cmsEvalToneCurveFloat
-cmsGetToneCurveEstimatedTableEntries
+cmsFloat2LabEncoded
+cmsFloat2LabEncodedV2
+cmsFloat2XYZEncoded
+cmsFreeNamedColorList
+cmsFreeProfileSequenceDescription
+cmsFreeToneCurve
+cmsFreeToneCurveTriple
+cmsGetAlarmCodes
+cmsGetAlarmCodesTHR
+cmsGetContextUserData
+cmsGetEncodedCMMversion
+cmsGetPipelineContextID
+cmsGetStageContextID
 cmsGetToneCurveEstimatedTable
-cmsGetToneCurveSegment
+cmsGetToneCurveEstimatedTableEntries
 cmsGetToneCurveParametricType
-cmsIsToneCurveMultisegment
-
-# Sources/LCMS2ABI/ToneCurveOpsAPI.swift
+cmsGetToneCurveSegment
 cmsIsToneCurveDescending
 cmsIsToneCurveLinear
 cmsIsToneCurveMonotonic
-cmsReverseToneCurve
-cmsReverseToneCurveEx
+cmsIsToneCurveMultisegment
 cmsJoinToneCurve
-cmsEstimateGamma
-cmsSmoothToneCurve
-
-# Sources/LCMS2ABI/MLUAPI.swift
+cmsLCh2Lab
+cmsLab2LCh
+cmsLab2XYZ
+cmsLabEncoded2Float
+cmsLabEncoded2FloatV2
+cmsMD5add
+cmsMD5alloc
+cmsMD5finish
 cmsMLUalloc
-cmsMLUfree
 cmsMLUdup
-cmsMLUsetASCII
-cmsMLUsetWide
-cmsMLUsetUTF8
+cmsMLUfree
 cmsMLUgetASCII
-cmsMLUgetWide
-cmsMLUgetUTF8
-cmsMLUtranslationsCount
-cmsMLUtranslationsCodes
 cmsMLUgetTranslation
-
-# Sources/LCMS2ABI/NamedColorAPI.swift
-cmsAllocNamedColorList
-cmsFreeNamedColorList
-cmsDupNamedColorList
-cmsAppendNamedColor
+cmsMLUgetUTF8
+cmsMLUgetWide
+cmsMLUsetASCII
+cmsMLUsetUTF8
+cmsMLUsetWide
+cmsMLUtranslationsCodes
+cmsMLUtranslationsCount
 cmsNamedColorCount
 cmsNamedColorIndex
 cmsNamedColorInfo
-cmsstrcasecmp
-
-# Sources/LCMS2ABI/DictionaryAPI.swift
-cmsAllocProfileSequenceDescription
-cmsFreeProfileSequenceDescription
-cmsDupProfileSequenceDescription
-cmsDictAlloc
-cmsDictFree
-cmsDictDup
-cmsDictAddEntry
-cmsDictGetEntryList
-cmsDictNextEntry
-
-# Sources/LCMS2ABI/InterpolationAPI.swift
-_cmsComputeInterpParams
-_cmsFreeInterpParams
-
-# Sources/LCMS2ABI/PipelineAPI.swift
-cmsStageAllocIdentity
-cmsStageAllocToneCurves
-cmsStageAllocMatrix
-cmsStageFree
-cmsStageNext
-cmsStageInputChannels
-cmsStageOutputChannels
-cmsStageType
-cmsStageData
-cmsGetStageContextID
+cmsOpenIOhandlerFromFile
+cmsOpenIOhandlerFromMem
+cmsOpenIOhandlerFromNULL
+cmsOpenIOhandlerFromStream
 cmsPipelineAlloc
+cmsPipelineCat
+cmsPipelineCheckAndRetreiveStages
+cmsPipelineDup
+cmsPipelineEval16
+cmsPipelineEvalFloat
+cmsPipelineEvalReverseFloat
 cmsPipelineFree
-cmsPipelineInputChannels
-cmsPipelineOutputChannels
-cmsPipelineStageCount
 cmsPipelineGetPtrToFirstStage
 cmsPipelineGetPtrToLastStage
-cmsPipelineSetSaveAs8bitsFlag
+cmsPipelineInputChannels
 cmsPipelineInsertStage
+cmsPipelineOutputChannels
+cmsPipelineSetSaveAs8bitsFlag
+cmsPipelineStageCount
 cmsPipelineUnlinkStage
-cmsPipelineEvalFloat
-cmsPipelineEval16
-cmsGetPipelineContextID
+cmsReverseToneCurve
+cmsReverseToneCurveEx
+cmsSetAdaptationState
+cmsSetAdaptationStateTHR
+cmsSetAlarmCodes
+cmsSetAlarmCodesTHR
+cmsSetLogErrorHandler
+cmsSetLogErrorHandlerTHR
+cmsSignalError
+cmsSliceSpace16
+cmsSliceSpaceFloat
+cmsSmoothToneCurve
+cmsStageAllocCLut16bit
+cmsStageAllocCLut16bitGranular
+cmsStageAllocCLutFloat
+cmsStageAllocCLutFloatGranular
+cmsStageAllocIdentity
+cmsStageAllocMatrix
+cmsStageAllocToneCurves
+cmsStageData
+cmsStageDup
+cmsStageFree
+cmsStageInputChannels
+cmsStageNext
+cmsStageOutputChannels
+cmsStageSampleCLut16bit
+cmsStageSampleCLutFloat
+cmsStageType
+cmsTempFromWhitePoint
+cmsWhitePointFromTemp
+cmsXYZ2Lab
+cmsXYZ2xyY
+cmsXYZEncoded2Float
+cmsfilelength
+cmsstrcasecmp
+cmsxyY2XYZ
