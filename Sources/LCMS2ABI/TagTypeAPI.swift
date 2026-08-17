@@ -479,6 +479,8 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     table[cmsSigTextDescriptionType] = textDescriptionTagType
     table[cmsSigLut8Type] = lut8TagType
     table[cmsSigLut16Type] = lut16TagType
+    table[cmsSigLutAtoBType] = lutAtoBTagType
+    table[cmsSigLutBtoAType] = lutBtoATagType
 
     return table
 }()
@@ -1461,4 +1463,567 @@ let lut16TagType = TagTypeHandler(
         UnsafeMutableRawPointer(cmsPipelineDup(pointer.assumingMemoryBound(to: cmsPipeline.self)))
     },
     free: { _, object in cmsPipelineFree(object.assumingMemoryBound(to: cmsPipeline.self)) }
+)
+
+// -- the v4 LUT types -----------------------------------------------------------
+
+// mAB and mBA store five optional elements, each at its own offset from
+// the start of the tag, so any of them may be absent and they may sit in
+// any order in the file.  The pipeline they build is always in the
+// order the name says: A, CLUT, M, matrix, B going one way, and B,
+// matrix, M, CLUT, A coming back.
+//
+// Every offset is measured from the tag base, which is eight bytes
+// before the point where a type handler starts reading — the type
+// signature and its reserved word have already been consumed.
+
+private let tagBaseSize = cmsUInt32Number(MemoryLayout<_cmsTagBase>.size)
+
+/// A curve stored inline, as either of the two curve types.
+private func readEmbeddedCurve(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>
+) -> UnsafeMutablePointer<cmsToneCurve>? {
+    let base = _cmsReadTypeBase(io)
+    var items: cmsUInt32Number = 0
+    switch base {
+    case cmsSigCurveType:
+        return readCurve(context, io, &items, 0)?.assumingMemoryBound(to: cmsToneCurve.self)
+    case cmsSigParametricCurveType:
+        return readParametricCurve(context, io, &items, 0)?
+            .assumingMemoryBound(to: cmsToneCurve.self)
+    default:
+        report(
+            cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
+            "Unknown curve type '\(signatureText(base.rawValue))'", to: context
+        )
+        return nil
+    }
+}
+
+private func readSetOfCurves(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ offset: cmsUInt32Number, _ count: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsStage>? {
+    if count > cmsUInt32Number(cmsMAXCHANNELS) { return nil }
+    guard let seek = io.pointee.Seek, seek(io, offset) != 0 else { return nil }
+
+    var curves = [UnsafeMutablePointer<cmsToneCurve>?](repeating: nil, count: Int(count))
+    // Freed unconditionally: the stage copies them, and on failure they
+    // are all that was built.
+    defer { for c in curves { cmsFreeToneCurve(c) } }
+
+    for i in 0..<Int(count) {
+        guard let curve = readEmbeddedCurve(context, io) else { return nil }
+        curves[i] = curve
+        // Each curve is padded to a four-byte boundary.
+        if _cmsReadAlignment(io) == 0 { return nil }
+    }
+    return cmsStageAllocToneCurves(context, count, &curves)
+}
+
+private func readEmbeddedMatrix(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>, _ offset: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsStage>? {
+    guard let seek = io.pointee.Seek, seek(io, offset) != 0 else { return nil }
+    var matrix = [cmsFloat64Number](repeating: 0, count: 9)
+    var offsets = [cmsFloat64Number](repeating: 0, count: 3)
+    for i in 0..<9 where _cmsRead15Fixed16Number(io, &matrix[i]) == 0 { return nil }
+    // Unlike the v2 forms, this one always carries an offset vector.
+    for i in 0..<3 where _cmsRead15Fixed16Number(io, &offsets[i]) == 0 { return nil }
+    return cmsStageAllocMatrix(context, 3, 3, matrix, offsets)
+}
+
+/// The grid here is granular — a node count per dimension — and the
+/// samples are one or two bytes wide, said by a precision byte.
+private func readEmbeddedCLUT(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ offset: cmsUInt32Number, _ inputs: cmsUInt32Number, _ outputs: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsStage>? {
+    guard let seek = io.pointee.Seek, seek(io, offset) != 0,
+          let read = io.pointee.Read
+    else { return nil }
+
+    var packed = [UInt8](repeating: 0, count: Int(cmsMAXCHANNELS))
+    let got = packed.withUnsafeMutableBufferPointer { buffer in
+        read(io, buffer.baseAddress, cmsUInt32Number(cmsMAXCHANNELS), 1)
+    }
+    if got != 1 { return nil }
+
+    var points = [cmsUInt32Number](repeating: 0, count: Int(cmsMAXCHANNELS))
+    for i in 0..<Int(cmsMAXCHANNELS) {
+        if packed[i] == 1 { return nil }   // cannot interpolate one node
+        points[i] = cmsUInt32Number(packed[i])
+    }
+
+    var precision: cmsUInt8Number = 0
+    if _cmsReadUInt8Number(io, &precision) == 0 { return nil }
+    for _ in 0..<3 where _cmsReadUInt8Number(io, nil) == 0 { return nil }
+
+    guard let clut = cmsStageAllocCLut16bitGranular(context, points, inputs, outputs, nil)
+    else { return nil }
+    guard let data = cmsStageData(clut)?.assumingMemoryBound(to: _cmsStageCLutData.self),
+          let table = data.pointee.Tab.T
+    else {
+        cmsStageFree(clut)
+        return nil
+    }
+
+    switch precision {
+    case 1:
+        for i in 0..<Int(data.pointee.nEntries) {
+            var byte: UInt8 = 0
+            if read(io, &byte, 1, 1) != 1 {
+                cmsStageFree(clut)
+                return nil
+            }
+            table[i] = from8To16(byte)
+        }
+    case 2:
+        if _cmsReadUInt16Array(io, data.pointee.nEntries, table) == 0 {
+            cmsStageFree(clut)
+            return nil
+        }
+    default:
+        cmsStageFree(clut)
+        report(
+            cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
+            "Unknown precision of '\(precision)'", to: context
+        )
+        return nil
+    }
+    return clut
+}
+
+/// The five offsets, in the order the directory stores them.
+private struct ElementOffsets {
+    var b: cmsUInt32Number = 0
+    var matrix: cmsUInt32Number = 0
+    var m: cmsUInt32Number = 0
+    var clut: cmsUInt32Number = 0
+    var a: cmsUInt32Number = 0
+}
+
+private func readElementDirectory(
+    _ io: UnsafeMutablePointer<cmsIOHANDLER>
+) -> (inputs: cmsUInt8Number, outputs: cmsUInt8Number, offsets: ElementOffsets)? {
+    var inputs: cmsUInt8Number = 0
+    var outputs: cmsUInt8Number = 0
+    if _cmsReadUInt8Number(io, &inputs) == 0 { return nil }
+    if _cmsReadUInt8Number(io, &outputs) == 0 { return nil }
+    if _cmsReadUInt16Number(io, nil) == 0 { return nil }   // padding
+
+    var offsets = ElementOffsets()
+    if _cmsReadUInt32Number(io, &offsets.b) == 0 { return nil }
+    if _cmsReadUInt32Number(io, &offsets.matrix) == 0 { return nil }
+    if _cmsReadUInt32Number(io, &offsets.m) == 0 { return nil }
+    if _cmsReadUInt32Number(io, &offsets.clut) == 0 { return nil }
+    if _cmsReadUInt32Number(io, &offsets.a) == 0 { return nil }
+
+    // Note the bound: unlike the v2 forms this one refuses the maximum
+    // itself rather than allowing it.
+    if inputs == 0 || cmsUInt32Number(inputs) >= cmsUInt32Number(cmsMAXCHANNELS) { return nil }
+    if outputs == 0 || cmsUInt32Number(outputs) >= cmsUInt32Number(cmsMAXCHANNELS) { return nil }
+    return (inputs, outputs, offsets)
+}
+
+@Sendable private func readLUTAtoB(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    guard let tell = io.pointee.Tell else { return nil }
+    let base = tell(io) - tagBaseSize
+
+    guard let (inputs, outputs, offsets) = readElementDirectory(io) else { return nil }
+    guard let lut = cmsPipelineAlloc(context, cmsUInt32Number(inputs), cmsUInt32Number(outputs))
+    else { return nil }
+
+    func fail() -> UnsafeMutableRawPointer? {
+        cmsPipelineFree(lut)
+        return nil
+    }
+    func add(_ stage: UnsafeMutablePointer<cmsStage>?) -> Bool {
+        cmsPipelineInsertStage(lut, cmsAT_END, stage) != 0
+    }
+
+    // A curves take the input width, everything after the CLUT takes
+    // the output width.
+    if offsets.a != 0 {
+        guard add(readSetOfCurves(context, io, base + offsets.a, cmsUInt32Number(inputs)))
+        else { return fail() }
+    }
+    if offsets.clut != 0 {
+        guard add(readEmbeddedCLUT(
+            context, io, base + offsets.clut,
+            cmsUInt32Number(inputs), cmsUInt32Number(outputs)
+        )) else { return fail() }
+    }
+    if offsets.m != 0 {
+        guard add(readSetOfCurves(context, io, base + offsets.m, cmsUInt32Number(outputs)))
+        else { return fail() }
+    }
+    if offsets.matrix != 0 {
+        guard add(readEmbeddedMatrix(context, io, base + offsets.matrix)) else { return fail() }
+    }
+    if offsets.b != 0 {
+        guard add(readSetOfCurves(context, io, base + offsets.b, cmsUInt32Number(outputs)))
+        else { return fail() }
+    }
+
+    items = 1
+    return UnsafeMutableRawPointer(lut)
+}
+
+@Sendable private func readLUTBtoA(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    guard let tell = io.pointee.Tell else { return nil }
+    let base = tell(io) - tagBaseSize
+
+    guard let (inputs, outputs, offsets) = readElementDirectory(io) else { return nil }
+    guard let lut = cmsPipelineAlloc(context, cmsUInt32Number(inputs), cmsUInt32Number(outputs))
+    else { return nil }
+
+    func fail() -> UnsafeMutableRawPointer? {
+        cmsPipelineFree(lut)
+        return nil
+    }
+    func add(_ stage: UnsafeMutablePointer<cmsStage>?) -> Bool {
+        cmsPipelineInsertStage(lut, cmsAT_END, stage) != 0
+    }
+
+    // Reversed: B first, and everything before the CLUT is input-wide.
+    if offsets.b != 0 {
+        guard add(readSetOfCurves(context, io, base + offsets.b, cmsUInt32Number(inputs)))
+        else { return fail() }
+    }
+    if offsets.matrix != 0 {
+        guard add(readEmbeddedMatrix(context, io, base + offsets.matrix)) else { return fail() }
+    }
+    if offsets.m != 0 {
+        guard add(readSetOfCurves(context, io, base + offsets.m, cmsUInt32Number(inputs)))
+        else { return fail() }
+    }
+    if offsets.clut != 0 {
+        guard add(readEmbeddedCLUT(
+            context, io, base + offsets.clut,
+            cmsUInt32Number(inputs), cmsUInt32Number(outputs)
+        )) else { return fail() }
+    }
+    if offsets.a != 0 {
+        guard add(readSetOfCurves(context, io, base + offsets.a, cmsUInt32Number(outputs)))
+        else { return fail() }
+    }
+
+    items = 1
+    return UnsafeMutableRawPointer(lut)
+}
+
+/// A curve set, each curve written as whichever of the two curve types
+/// can actually hold it.  A tabulated or inverted curve falls back to
+/// the table form even on a version 4 profile, because the parametric
+/// form has no way to spell either.
+private func writeSetOfCurves(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ stage: UnsafeMutablePointer<cmsStage>
+) -> Bool {
+    guard let data = cmsStageData(stage)?
+        .assumingMemoryBound(to: _cmsStageToneCurvesData.self),
+        let curves = data.pointee.TheCurves
+    else { return false }
+
+    for i in 0..<Int(cmsStageOutputChannels(stage)) {
+        guard let curve = curves[i] else { return false }
+
+        var type = cmsSigParametricCurveType
+        let segments = curve.pointee.Segments
+        if curve.pointee.nSegments == 0 {
+            type = cmsSigCurveType                       // 16-bit tabulated
+        } else if curve.pointee.nSegments == 3, let segments, segments[1].Type == 0 {
+            type = cmsSigCurveType                       // floating-point tabulated
+        } else if let segments, segments[0].Type < 0 {
+            type = cmsSigCurveType                       // inverted
+        }
+
+        if _cmsWriteTypeBase(io, type) == 0 { return false }
+        let object = UnsafeMutableRawPointer(curve)
+        let ok = type == cmsSigCurveType
+            ? writeCurve(context, io, object, 1)
+            : writeParametricCurve(context, io, object, 1)
+        if !ok { return false }
+        if _cmsWriteAlignment(io) == 0 { return false }
+    }
+    return true
+}
+
+private func writeEmbeddedMatrix(
+    _ io: UnsafeMutablePointer<cmsIOHANDLER>, _ stage: UnsafeMutablePointer<cmsStage>
+) -> Bool {
+    guard let data = cmsStageData(stage)?.assumingMemoryBound(to: _cmsStageMatrixData.self),
+          let values = data.pointee.Double
+    else { return false }
+
+    let elements = Int(cmsStageInputChannels(stage)) * Int(cmsStageOutputChannels(stage))
+    for i in 0..<elements where _cmsWrite15Fixed16Number(io, values[i]) == 0 { return false }
+
+    // The offset vector is not optional here: a stage without one
+    // writes zeroes rather than nothing.
+    for i in 0..<Int(cmsStageOutputChannels(stage)) {
+        let offset = data.pointee.Offset.map { $0[i] } ?? 0
+        if _cmsWrite15Fixed16Number(io, offset) == 0 { return false }
+    }
+    return true
+}
+
+private func writeEmbeddedCLUT(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ precision: cmsUInt8Number, _ stage: UnsafeMutablePointer<cmsStage>
+) -> Bool {
+    guard let data = cmsStageData(stage)?.assumingMemoryBound(to: _cmsStageCLutData.self),
+          let params = data.pointee.Params, let write = io.pointee.Write
+    else { return false }
+
+    if data.pointee.HasFloatValues != 0 {
+        report(
+            cmsUInt32Number(cmsERROR_NOT_SUITABLE),
+            "Cannot save floating point data, CLUT are 8 or 16 bit only", to: context
+        )
+        return false
+    }
+
+    // The grid is a full-width array of bytes, zero past the inputs.
+    var points = [UInt8](repeating: 0, count: Int(cmsMAXCHANNELS))
+    withUnsafeBytes(of: params.pointee.nSamples) { raw in
+        let samples = raw.bindMemory(to: cmsUInt32Number.self)
+        for i in 0..<Int(params.pointee.nInputs) {
+            points[i] = UInt8(truncatingIfNeeded: samples[i])
+        }
+    }
+    let wrote = points.withUnsafeBufferPointer { buffer in
+        write(io, cmsUInt32Number(cmsMAXCHANNELS), buffer.baseAddress)
+    }
+    if wrote == 0 { return false }
+
+    if _cmsWriteUInt8Number(io, precision) == 0 { return false }
+    for _ in 0..<3 where _cmsWriteUInt8Number(io, 0) == 0 { return false }
+
+    guard let table = data.pointee.Tab.T else { return false }
+    switch precision {
+    case 1:
+        for i in 0..<Int(data.pointee.nEntries) {
+            if _cmsWriteUInt8Number(io, from16To8(table[i])) == 0 { return false }
+        }
+    case 2:
+        if _cmsWriteUInt16Array(io, data.pointee.nEntries, table) == 0 { return false }
+    default:
+        report(
+            cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
+            "Unknown precision of '\(precision)'", to: context
+        )
+        return false
+    }
+    return _cmsWriteAlignment(io) != 0
+}
+
+/// The four layouts either type accepts, tried in turn.  Nothing is
+/// filled in unless a whole shape matches, which is what makes trying
+/// them one after another safe.
+private struct LUTElements {
+    var a: UnsafeMutablePointer<cmsStage>?
+    var clut: UnsafeMutablePointer<cmsStage>?
+    var m: UnsafeMutablePointer<cmsStage>?
+    var matrix: UnsafeMutablePointer<cmsStage>?
+    var b: UnsafeMutablePointer<cmsStage>?
+}
+
+/// Writes the header, the elements, and then goes back and fills in the
+/// directory — the offsets are not knowable until the elements have
+/// been laid down.
+private func writeElementDirectory(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ lut: UnsafeMutablePointer<cmsPipeline>, _ parts: LUTElements,
+    order: [WritableElement]
+) -> Bool {
+    guard let tell = io.pointee.Tell, let seek = io.pointee.Seek else { return false }
+    let base = tell(io) - tagBaseSize
+
+    if _cmsWriteUInt8Number(io, UInt8(truncatingIfNeeded: cmsPipelineInputChannels(lut))) == 0 {
+        return false
+    }
+    if _cmsWriteUInt8Number(io, UInt8(truncatingIfNeeded: cmsPipelineOutputChannels(lut))) == 0 {
+        return false
+    }
+    if _cmsWriteUInt16Number(io, 0) == 0 { return false }
+
+    let directory = tell(io)
+    for _ in 0..<5 where _cmsWriteUInt32Number(io, 0) == 0 { return false }
+
+    var offsets = ElementOffsets()
+    let precision: cmsUInt8Number = pipelineSavesAs8Bits(UnsafeRawPointer(lut)) ? 1 : 2
+
+    for element in order {
+        switch element {
+        case .a:
+            guard let stage = parts.a else { continue }
+            offsets.a = tell(io) - base
+            if !writeSetOfCurves(context, io, stage) { return false }
+        case .clut:
+            guard let stage = parts.clut else { continue }
+            offsets.clut = tell(io) - base
+            if !writeEmbeddedCLUT(context, io, precision, stage) { return false }
+        case .m:
+            guard let stage = parts.m else { continue }
+            offsets.m = tell(io) - base
+            if !writeSetOfCurves(context, io, stage) { return false }
+        case .matrix:
+            guard let stage = parts.matrix else { continue }
+            offsets.matrix = tell(io) - base
+            if !writeEmbeddedMatrix(io, stage) { return false }
+        case .b:
+            guard let stage = parts.b else { continue }
+            offsets.b = tell(io) - base
+            if !writeSetOfCurves(context, io, stage) { return false }
+        }
+    }
+
+    let end = tell(io)
+    if seek(io, directory) == 0 { return false }
+    for value in [offsets.b, offsets.matrix, offsets.m, offsets.clut, offsets.a]
+    where _cmsWriteUInt32Number(io, value) == 0 { return false }
+    return seek(io, end) != 0
+}
+
+private enum WritableElement { case a, clut, m, matrix, b }
+
+/// Whether the pipeline's stages are exactly these types in this order,
+/// and if so the stages themselves.
+///
+/// This is what `cmsPipelineCheckAndRetreiveStages` does for a C client.
+/// Swift cannot call a C variadic at all, and does not need to: the
+/// matching is a comparison over the chain, and doing it here keeps the
+/// answer in Swift types rather than out-parameters.
+private func matchStages(
+    _ lut: UnsafeMutablePointer<cmsPipeline>, _ types: [cmsStageSignature]
+) -> [UnsafeMutablePointer<cmsStage>]? {
+    if Int(cmsPipelineStageCount(lut)) != types.count { return nil }
+
+    var found: [UnsafeMutablePointer<cmsStage>] = []
+    var stage = cmsPipelineGetPtrToFirstStage(lut)
+    for type in types {
+        guard let s = stage, cmsStageType(s) == type else { return nil }
+        found.append(s)
+        stage = cmsStageNext(s)
+    }
+    return found
+}
+
+/// Tries the four shapes this type accepts, in the reference's order.
+/// Nothing is assigned unless a whole shape matches, which is what makes
+/// trying them one after another safe.
+private func matchShapes(
+    _ lut: UnsafeMutablePointer<cmsPipeline>, forwards: Bool
+) -> LUTElements? {
+    var parts = LUTElements()
+    let curves = cmsSigCurveSetElemType
+    let matrix = cmsSigMatrixElemType
+    let clut = cmsSigCLutElemType
+
+    // An empty pipeline is accepted and writes no elements at all.
+    if cmsPipelineStageCount(lut) == 0 { return parts }
+
+    if let m = matchStages(lut, [curves]) {
+        parts.b = m[0]
+        return parts
+    }
+
+    if forwards {
+        // M, matrix, B
+        if let m = matchStages(lut, [curves, matrix, curves]) {
+            parts.m = m[0]; parts.matrix = m[1]; parts.b = m[2]
+            return parts
+        }
+        // A, CLUT, B
+        if let m = matchStages(lut, [curves, clut, curves]) {
+            parts.a = m[0]; parts.clut = m[1]; parts.b = m[2]
+            return parts
+        }
+        // A, CLUT, M, matrix, B
+        if let m = matchStages(lut, [curves, clut, curves, matrix, curves]) {
+            parts.a = m[0]; parts.clut = m[1]; parts.m = m[2]
+            parts.matrix = m[3]; parts.b = m[4]
+            return parts
+        }
+    } else {
+        // B, matrix, M
+        if let m = matchStages(lut, [curves, matrix, curves]) {
+            parts.b = m[0]; parts.matrix = m[1]; parts.m = m[2]
+            return parts
+        }
+        // B, CLUT, A
+        if let m = matchStages(lut, [curves, clut, curves]) {
+            parts.b = m[0]; parts.clut = m[1]; parts.a = m[2]
+            return parts
+        }
+        // B, matrix, M, CLUT, A
+        if let m = matchStages(lut, [curves, matrix, curves, clut, curves]) {
+            parts.b = m[0]; parts.matrix = m[1]; parts.m = m[2]
+            parts.clut = m[3]; parts.a = m[4]
+            return parts
+        }
+    }
+    return nil
+}
+
+@Sendable private func writeLUTAtoB(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+) -> Bool {
+    let lut = object.assumingMemoryBound(to: cmsPipeline.self)
+    guard let parts = matchShapes(lut, forwards: true) else {
+        report(
+            cmsUInt32Number(cmsERROR_NOT_SUITABLE),
+            "LUT is not suitable to be saved as LutAToB", to: context
+        )
+        return false
+    }
+    return writeElementDirectory(
+        context, io, lut, parts, order: [.a, .clut, .m, .matrix, .b]
+    )
+}
+
+@Sendable private func writeLUTBtoA(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+) -> Bool {
+    let lut = object.assumingMemoryBound(to: cmsPipeline.self)
+    guard let parts = matchShapes(lut, forwards: false) else {
+        report(
+            cmsUInt32Number(cmsERROR_NOT_SUITABLE),
+            "LUT is not suitable to be saved as LutBToA", to: context
+        )
+        return false
+    }
+    return writeElementDirectory(
+        context, io, lut, parts, order: [.a, .clut, .m, .matrix, .b]
+    )
+}
+
+private let pipelineDuplicate: @Sendable (cmsContext?, UnsafeRawPointer, cmsUInt32Number)
+    -> UnsafeMutableRawPointer? = { _, pointer, _ in
+        UnsafeMutableRawPointer(cmsPipelineDup(pointer.assumingMemoryBound(to: cmsPipeline.self)))
+    }
+private let pipelineFree: @Sendable (cmsContext?, UnsafeMutableRawPointer) -> Void = { _, object in
+    cmsPipelineFree(object.assumingMemoryBound(to: cmsPipeline.self))
+}
+
+let lutAtoBTagType = TagTypeHandler(
+    signature: cmsSigLutAtoBType, read: readLUTAtoB, write: writeLUTAtoB,
+    duplicate: pipelineDuplicate, free: pipelineFree
+)
+
+let lutBtoATagType = TagTypeHandler(
+    signature: cmsSigLutBtoAType, read: readLUTBtoA, write: writeLUTBtoA,
+    duplicate: pipelineDuplicate, free: pipelineFree
 )

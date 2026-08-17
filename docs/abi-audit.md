@@ -242,6 +242,20 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   identity ramp, which it recognises by shape and writes as the
   identity. `mft2` stores its own table lengths, and a length of zero is
   a Little CMS extension meaning the stage is absent.
+- `mAB`/`mBA` store five **optional** elements, each at its own offset
+  from the tag base — so any may be absent and they may sit in the file
+  in any order, while the pipeline they build is always A, CLUT, M,
+  matrix, B one way and the reverse the other. The offsets are measured
+  from eight bytes before the handler starts reading, because the type
+  signature and its reserved word are already consumed.
+- Exactly **four shapes** are writable either way, tried in turn; a
+  pipeline matching none is refused. Unlike `mft1`/`mft2` these accept a
+  **granular** grid, and their matrix always carries an offset vector
+  (zeroes if the stage has none). Sample width is one or two bytes, said
+  by a precision byte and chosen by the pipeline's save-as-8-bits flag.
+- Curves inside these types are written as whichever curve type can hold
+  them: tabulated or inverted curves fall back to `curv` even on a
+  version 4 profile, since `para` cannot spell either.
 - Two reference leaks are **not** reproduced (`Type_Signature_Read` and
   `Type_DateTime_Read` drop their block on a failed read). A leak is not
   observable through the ABI.

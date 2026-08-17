@@ -145,7 +145,12 @@ static unsigned char* build_profile(size_t* out_size, int tag_count,
     return p;
 }
 
-static void inspect(cmsHPROFILE h, const char* label)
+/* `dated` says whether the creation timestamp came out of a file and is
+ * therefore part of the answer.  A profile built by
+ * cmsCreateProfilePlaceholder stamps the clock instead, so printing it
+ * makes the probe fail whenever the two builds happen to run in
+ * different seconds -- which is a flaky test, not a divergence. */
+static void inspect(cmsHPROFILE h, const char* label, int dated)
 {
     if (h == NULL) { printf("%-34s refused\n", label); return; }
 
@@ -174,7 +179,7 @@ static void inspect(cmsHPROFILE h, const char* label)
     /* The date came out of the file, so it is part of the answer. */
     struct tm created;
     memset(&created, 0, sizeof created);
-    if (cmsGetHeaderCreationDateTime(h, &created)) {
+    if (dated && cmsGetHeaderCreationDateTime(h, &created)) {
         printf("  created %04d-%02d-%02d %02d:%02d:%02d wday %d yday %d isdst %d\n",
                created.tm_year + 1900, created.tm_mon + 1, created.tm_mday,
                created.tm_hour, created.tm_min, created.tm_sec,
@@ -219,7 +224,7 @@ int main(void)
         size_t size = 0;
         unsigned char* bytes = build_profile(&size, 4, 0);
         cmsHPROFILE h = cmsOpenProfileFromMem(bytes, (cmsUInt32Number) size);
-        inspect(h, "four tags, three linkable");
+        inspect(h, "four tags, three linkable", 1);
         printf("closed %d\n", cmsCloseProfile(h));
         free(bytes);
     }
@@ -248,7 +253,7 @@ int main(void)
         size_t size = 0;
         unsigned char* bytes = build_profile(&size, 4, 140);
         cmsHPROFILE h = cmsOpenProfileFromMem(bytes, (cmsUInt32Number) size);
-        inspect(h, "declared size clips the tags");
+        inspect(h, "declared size clips the tags", 1);
         cmsCloseProfile(h);
         free(bytes);
     }
@@ -343,7 +348,7 @@ int main(void)
         cmsSetHeaderProfileID(h, id);
         cmsSetEncodedICCversion(h, 0x02300000);
 
-        inspect(h, "placeholder after setting");
+        inspect(h, "placeholder after setting", 0);
         cmsCloseProfile(h);
     }
 
@@ -408,7 +413,7 @@ int main(void)
             fclose(f);
 
             cmsHPROFILE h = cmsOpenProfileFromFile(path, "r");
-            inspect(h, "from file");
+            inspect(h, "from file", 1);
             cmsCloseProfile(h);
 
             /* Opened for writing there is no header to read, so the
@@ -455,7 +460,7 @@ int main(void)
 
         /* And the saved bytes must reopen as the same profile. */
         cmsHPROFILE reopened = cmsOpenProfileFromMem(out, needed);
-        inspect(reopened, "reopened after save");
+        inspect(reopened, "reopened after save", 1);
         cmsCloseProfile(reopened);
 
         /* A buffer too small to hold it. */
@@ -513,7 +518,7 @@ int main(void)
         printf("save to file %d\n", cmsSaveProfileToFile(h, path));
 
         cmsHPROFILE back = cmsOpenProfileFromFile(path, "r");
-        inspect(back, "read back from file");
+        inspect(back, "read back from file", 1);
         cmsCloseProfile(back);
 
         /* A path that cannot be written. */
@@ -918,6 +923,140 @@ int main(void)
         cmsCloseProfile(back);
         free(out);
         cmsCloseProfile(h);
+    }
+
+    /* -- the v4 LUT types --------------------------------------------------- */
+    {
+        /* mAB and mBA store five optional elements at their own offsets,
+         * so the shapes that can be written are exactly four.  Each is
+         * built, written, read back and evaluated. */
+        struct { const char* name; int shape; int a2b; } cases[] = {
+            { "B only",              1, 1 },
+            { "M matrix B",          2, 1 },
+            { "A CLUT B",            3, 1 },
+            { "A CLUT M matrix B",   4, 1 },
+            { "B only (BtoA)",       1, 0 },
+            { "B matrix M",          2, 0 },
+            { "B CLUT A",            3, 0 },
+            { "B matrix M CLUT A",   4, 0 },
+        };
+
+        for (size_t k = 0; k < sizeof cases / sizeof cases[0]; k++) {
+            cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+            cmsSetProfileVersion(h, 4.3);      /* v4 chooses mAB / mBA */
+            cmsSetColorSpace(h, cmsSigRgbData);
+            cmsSetPCS(h, cmsSigLabData);
+
+            cmsPipeline* lut = cmsPipelineAlloc(NULL, 3, 3);
+            static const cmsFloat64Number mat[9] = {
+                1.1, 0.05, 0.0,  0.0, 0.9, 0.05,  0.05, 0.0, 1.05
+            };
+            static const cmsFloat64Number off[3] = { 0.01, -0.02, 0.03 };
+
+            /* A granular grid, which only these types can hold. */
+            static const cmsUInt32Number points[3] = { 5, 6, 7 };
+            cmsUInt16Number* grid = NULL;
+            cmsStage* clutStage = NULL;
+            if (cases[k].shape >= 3) {
+                grid = (cmsUInt16Number*) calloc(5 * 6 * 7 * 3, sizeof(cmsUInt16Number));
+                for (int i = 0; i < 5 * 6 * 7 * 3; i++)
+                    grid[i] = (cmsUInt16Number) ((i * 5077) & 0xFFFF);
+                clutStage = cmsStageAllocCLut16bitGranular(NULL, points, 3, 3, grid);
+            }
+
+            cmsToneCurve* g22[3];
+            for (int i = 0; i < 3; i++) g22[i] = cmsBuildGamma(NULL, 2.2 - 0.1 * i);
+
+            if (cases[k].a2b) {
+                if (cases[k].shape == 1) {
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, g22));
+                } else if (cases[k].shape == 2) {
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, g22));
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocMatrix(NULL, 3, 3, mat, off));
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, NULL));
+                } else if (cases[k].shape == 3) {
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, g22));
+                    cmsPipelineInsertStage(lut, cmsAT_END, clutStage);
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, NULL));
+                } else {
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, g22));
+                    cmsPipelineInsertStage(lut, cmsAT_END, clutStage);
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, NULL));
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocMatrix(NULL, 3, 3, mat, off));
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, g22));
+                }
+            } else {
+                if (cases[k].shape == 1) {
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, g22));
+                } else if (cases[k].shape == 2) {
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, g22));
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocMatrix(NULL, 3, 3, mat, off));
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, NULL));
+                } else if (cases[k].shape == 3) {
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, g22));
+                    cmsPipelineInsertStage(lut, cmsAT_END, clutStage);
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, NULL));
+                } else {
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, g22));
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocMatrix(NULL, 3, 3, mat, off));
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, NULL));
+                    cmsPipelineInsertStage(lut, cmsAT_END, clutStage);
+                    cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, g22));
+                }
+            }
+            for (int i = 0; i < 3; i++) cmsFreeToneCurve(g22[i]);
+            free(grid);
+
+            cmsTagSignature tag = cases[k].a2b ? cmsSigAToB0Tag : cmsSigBToA0Tag;
+            printf("%-20s write %d\n", cases[k].name, cmsWriteTag(h, tag, lut));
+            cmsPipelineFree(lut);
+
+            cmsUInt32Number needed = 0;
+            cmsSaveProfileToMem(h, NULL, &needed);
+            unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+            cmsUInt32Number room = needed;
+            cmsSaveProfileToMem(h, out, &room);
+            feed_saved(out, needed);
+            printf("  saved %u\n", needed);
+
+            cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+            unsigned char base[4] = { 0, 0, 0, 0 };
+            cmsReadRawTag(back, tag, base, sizeof base);
+            cmsPipeline* got = (cmsPipeline*) cmsReadTag(back, tag);
+            printf("  type %s read %d stages %u\n", type_name(base),
+                   got != NULL, got ? cmsPipelineStageCount(got) : 0);
+
+            if (got) {
+                for (cmsStage* st = cmsPipelineGetPtrToFirstStage(got); st; st = cmsStageNext(st))
+                    printf("    %08x %u->%u\n", (unsigned) cmsStageType(st),
+                           cmsStageInputChannels(st), cmsStageOutputChannels(st));
+                seed = 909;
+                for (int trial = 0; trial < 120; trial++) {
+                    cmsFloat32Number in[4], fout[4];
+                    for (int i = 0; i < 3; i++)
+                        in[i] = (cmsFloat32Number) (next() & 0xFFFF) / 65535.0f;
+                    memset(fout, 0, sizeof fout);
+                    cmsPipelineEvalFloat(in, fout, got);
+                    for (int i = 0; i < 3; i++) feed_float(fout[i]);
+                }
+            }
+            report(cases[k].name);
+
+            /* And back out again, which exercises the writer on a
+             * pipeline the reader built rather than one we assembled. */
+            cmsUInt32Number again = 0;
+            cmsSaveProfileToMem(back, NULL, &again);
+            unsigned char* twice = (unsigned char*) calloc(1, again ? again : 1);
+            cmsUInt32Number room2 = again;
+            cmsSaveProfileToMem(back, twice, &room2);
+            printf("  re-saved %u identical %d\n", again,
+                   again == needed && memcmp(out, twice, again) == 0);
+
+            free(twice);
+            cmsCloseProfile(back);
+            free(out);
+            cmsCloseProfile(h);
+        }
     }
 
     printf("profile probe OK\n");
