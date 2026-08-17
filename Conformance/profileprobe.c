@@ -30,6 +30,31 @@ static void feed(const void* bytes, size_t length)
     }
 }
 
+/* A four-byte type signature, printed so it can never contain a NUL.
+ *
+ * Printing raw bytes with %c made diff treat the whole output as binary,
+ * and binary mode emits no +/- lines -- so the runner extracted nothing
+ * and reported agreement while the two builds disagreed.  The runner now
+ * refuses that outcome, and probes do not produce it. */
+static const char* type_name(const unsigned char b[4])
+{
+    static char out[16];
+    int n = 0;
+    for (int i = 0; i < 4; i++) {
+        if (b[i] >= 0x20 && b[i] < 0x7F) out[n++] = (char) b[i];
+        else { out[n++] = '.'; }
+    }
+    out[n] = 0;
+    return out;
+}
+
+/* Curve values are floats, and a NaN is a NaN — see docs/abi-audit.md. */
+static void feed_float(float v)
+{
+    if (v != v) { feed("NaN", 3); return; }
+    feed(&v, sizeof v);
+}
+
 /* Hashes a saved profile with the creation date masked out.
  *
  * A profile made by cmsCreateProfilePlaceholder stamps the clock, so its
@@ -688,6 +713,109 @@ int main(void)
 
         free(out);
         cmsCloseProfile(h);
+    }
+
+    /* -- curves, and the version that decides how they are stored --------- */
+    {
+        /* A gamma keeps its exponent; a table stays a table; and on a
+         * version 4 profile a single ICC-form segment goes out
+         * parametrically instead. */
+        static const double versions[2] = { 2.4, 4.3 };
+        for (int v = 0; v < 2; v++) {
+            cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+            cmsSetProfileVersion(h, versions[v]);
+            cmsSetColorSpace(h, cmsSigRgbData);
+
+            cmsToneCurve* gamma = cmsBuildGamma(NULL, 2.2);
+            cmsToneCurve* sigmoid = cmsBuildParametricToneCurve(NULL, 4,
+                (cmsFloat64Number[]) { 2.4, 1.0 / 1.055, 0.055 / 1.055, 1.0 / 12.92, 0.04045 });
+            cmsUInt16Number table[32];
+            for (int i = 0; i < 32; i++) table[i] = (cmsUInt16Number) (i * 2114);
+            cmsToneCurve* tabulated = cmsBuildTabulatedToneCurve16(NULL, 32, table);
+
+            printf("v%.1f write curves %d %d %d\n", versions[v],
+                   cmsWriteTag(h, cmsSigRedTRCTag, gamma),
+                   cmsWriteTag(h, cmsSigGreenTRCTag, sigmoid),
+                   cmsWriteTag(h, cmsSigBlueTRCTag, tabulated));
+
+            /* Text, which the same version rule sends to a different
+             * type: flat before 4, multi-localized from 4 on. */
+            cmsMLU* mlu = cmsMLUalloc(NULL, 2);
+            cmsMLUsetASCII(mlu, "en", "US", "a description");
+            cmsMLUsetASCII(mlu, "fr", "FR", "une description");
+            printf("  write desc %d\n", cmsWriteTag(h, cmsSigProfileDescriptionTag, mlu));
+            cmsMLUfree(mlu);
+
+            cmsUInt32Number needed = 0;
+            cmsSaveProfileToMem(h, NULL, &needed);
+            unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+            cmsUInt32Number room = needed;
+            cmsSaveProfileToMem(h, out, &room);
+            feed_saved(out, needed);
+            printf("  saved %u bytes\n", needed);
+
+            cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+            printf("  reopened %d\n", back != NULL);
+
+            /* The stored type is visible in the tag's first four bytes,
+             * which is how a client tells parametric from tabulated. */
+            static const cmsTagSignature trcs[3] = {
+                cmsSigRedTRCTag, cmsSigGreenTRCTag, cmsSigBlueTRCTag
+            };
+            for (int i = 0; i < 3; i++) {
+                unsigned char base[4] = { 0, 0, 0, 0 };
+                cmsReadRawTag(back, trcs[i], base, sizeof base);
+                cmsToneCurve* got = (cmsToneCurve*) cmsReadTag(back, trcs[i]);
+                printf("    trc %d type %s read %d\n", i,
+                       type_name(base), got != NULL);
+                if (got) {
+                    for (int k = 0; k <= 16; k++) {
+                        cmsFloat32Number x = (cmsFloat32Number) k / 16.0f;
+                        feed_float(cmsEvalToneCurveFloat(got, x));
+                    }
+                    printf("      linear %d estimated gamma %.4f\n",
+                           cmsIsToneCurveLinear(got),
+                           cmsEstimateGamma(got, 0.01));
+                }
+            }
+
+            unsigned char descbase[4] = { 0, 0, 0, 0 };
+            cmsReadRawTag(back, cmsSigProfileDescriptionTag, descbase, sizeof descbase);
+            cmsMLU* gotmlu = (cmsMLU*) cmsReadTag(back, cmsSigProfileDescriptionTag);
+            printf("    desc type %s read %d translations %u\n",
+                   type_name(descbase), gotmlu != NULL,
+                   gotmlu ? cmsMLUtranslationsCount(gotmlu) : 0);
+            if (gotmlu) {
+                char buffer[64];
+                memset(buffer, 0, sizeof buffer);
+                cmsMLUgetASCII(gotmlu, "en", "US", buffer, sizeof buffer);
+                printf("      en-US '%s'\n", buffer);
+                memset(buffer, 0, sizeof buffer);
+                cmsMLUgetASCII(gotmlu, "fr", "FR", buffer, sizeof buffer);
+                printf("      fr-FR '%s'\n", buffer);
+            }
+
+            report(versions[v] < 4.0 ? "v2 curves and text" : "v4 curves and text");
+
+            /* Saving what was just read must reproduce the same bytes:
+             * a profile that round-trips through the tag layer twice is
+             * the strongest thing this probe can ask. */
+            cmsUInt32Number again = 0;
+            cmsSaveProfileToMem(back, NULL, &again);
+            unsigned char* twice = (unsigned char*) calloc(1, again ? again : 1);
+            cmsUInt32Number room2 = again;
+            cmsSaveProfileToMem(back, twice, &room2);
+            printf("  re-saved %u bytes, identical %d\n", again,
+                   again == needed && memcmp(out, twice, again) == 0);
+
+            free(twice);
+            cmsCloseProfile(back);
+            free(out);
+            cmsCloseProfile(h);
+            cmsFreeToneCurve(gamma);
+            cmsFreeToneCurve(sigmoid);
+            cmsFreeToneCurve(tabulated);
+        }
     }
 
     printf("profile probe OK\n");

@@ -43,7 +43,15 @@ if [ "$crashed" -eq 1 ]; then
     exit 1
 fi
 
-diff -u "$work/reference.out" "$work/ours.out" > "$work/diff" || true
+# Byte equality is the question; the diff only exists to say where.
+#
+# `--text` is not optional: a probe that prints a NUL byte makes diff
+# decide the files are binary, and binary mode emits no +/- lines at all.
+# The extraction below would then find nothing to report and the run
+# would pass while the two builds disagreed.  That is not hypothetical —
+# it happened, and it is why the `cmp` below is the authority and the
+# diff is only the explanation.
+diff -u --text "$work/reference.out" "$work/ours.out" > "$work/diff" || true
 
 # Content lines of the diff only.  The two file headers are dropped by
 # position rather than by pattern: an output line that itself begins with
@@ -58,6 +66,23 @@ tail -n +3 "$work/diff" | grep -E '^[+-]' > "$work/changes" || true
 grep -Ev '^[[:space:]]*(#|$)' "$known" | awk '{print $1}' > "$work/markers"
 
 status=0
+
+# The authority on whether the two builds agree is whether their bytes
+# are the same.  If they are not, something must have been extracted to
+# report; finding nothing means the extraction failed, not that the
+# builds agree, and that must fail loudly rather than pass quietly.
+if ! cmp -s "$work/reference.out" "$work/ours.out"; then
+    if [ ! -s "$work/changes" ]; then
+        echo "outputs differ but no differences could be extracted;" >&2
+        echo "the comparison is broken, not passing" >&2
+        cat "$work/diff" >&2
+        exit 1
+    fi
+elif [ -s "$work/changes" ]; then
+    echo "outputs are byte-identical but differences were extracted;" >&2
+    echo "the comparison is broken" >&2
+    exit 1
+fi
 
 if [ -s "$work/changes" ]; then
     if [ -s "$work/markers" ]; then

@@ -22,6 +22,14 @@ final class MLUBox: HandleBox {
     }
 }
 
+/// The box behind a handle the caller has already checked.  The tag
+/// layer reaches the translations directly, because the on-disk form is
+/// a directory of them rather than anything the accessors expose.
+@inline(__always)
+func mluBox(_ mlu: UnsafeMutablePointer<cmsMLU>) -> MLUBox {
+    Unmanaged<MLUBox>.fromOpaque(UnsafeRawPointer(mlu)).takeUnretainedValue()
+}
+
 @inline(__always)
 private func box(_ mlu: UnsafeMutablePointer<cmsMLU>?) -> MLUBox? {
     guard let mlu else { return nil }

@@ -532,6 +532,13 @@ public func cmsPipelineEval16(
     }
 }
 
+/// Whether a pipeline is marked to be stored in eight bits.  Only the
+/// tag layer asks, and it asks through a raw pointer because that is
+/// what a type-decision function is handed.
+func pipelineSavesAs8Bits(_ data: UnsafeRawPointer) -> Bool {
+    Unmanaged<PipelineBox>.fromOpaque(data).takeUnretainedValue().saveAs8Bits
+}
+
 @c @implementation
 public func cmsGetPipelineContextID(_ lut: UnsafePointer<cmsPipeline>?) -> cmsContext? {
     pipeline(lut)?.context

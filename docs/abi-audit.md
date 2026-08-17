@@ -182,6 +182,36 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   absent entries, and its stored length counts every entry that is not
   the marker, wherever it sits; plain text is handed back as a
   multi-localized container so all three text types read alike.
+- **Which type a tag is written as depends on the profile version, and
+  sometimes on the object.** Curves go out parametrically only on a
+  version 4 profile and only when they are one non-inverted ICC-form
+  segment; text moves from the flat `text`/`desc` forms to `mluc` at
+  version 4; A2B/B2A follow the pipeline's own save-as-8-bits flag
+  before version 4 and have one answer after. `DecideXYZtype` ignores
+  both its arguments, so the broken Corbis type is readable but never
+  written.
+- A consequence worth stating: **a gamma loses precision on version 2
+  and keeps it on version 4.** `curv` stores a single exponent in 8.8,
+  so 2.2 comes back as 2.1992; `para` stores it in 15.16 and it comes
+  back exact.
+- `desc` (version 2) holds the same text three times — ASCII, UTF-16,
+  and a dead Macintosh ScriptCode block the reference fills with zeroes
+  and steps over. Its Unicode entry is filed under `cmsV2Unicode`,
+  which the header spells `"\xff\xff"`: two bytes chosen not to collide
+  with a real language and country. The format keeps **one** string, so
+  a two-language description written to a version 2 profile reads back
+  as the same string under both.
+- The specification concedes `desc` is misaligned by design (the Unicode
+  fields follow the ASCII text immediately), and says readers must cope.
+  The reference pads the *tag* to a four-byte length rather than the
+  fields.
+- `mluc` stores a directory plus one pooled block of UTF-16. The
+  reference keeps that pool verbatim and writes it back untouched; ours
+  rebuilds it by laying the strings out in order, which reproduces what
+  the reference emits (it appends each string once and refuses a
+  repeated language/country pair). A hand-crafted profile whose pool has
+  strings sharing bytes re-emits with the same strings but not the same
+  bytes.
 - Two reference leaks are **not** reproduced (`Type_Signature_Read` and
   `Type_DateTime_Read` drop their block on a failed read). A leak is not
   observable through the ABI.

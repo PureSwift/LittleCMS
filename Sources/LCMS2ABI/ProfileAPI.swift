@@ -19,18 +19,71 @@ import Glibc
 /// What a tag is allowed to be serialized as.  Only the shape matters
 /// here — the reference compares two descriptors to decide whether two
 /// tags sharing a byte range are the same tag under two names.
-struct TagDescriptor {
+struct TagDescriptor: Sendable {
     let elementCount: cmsUInt32Number
     let supportedTypes: [cmsTagTypeSignature]
+    /// How the type is chosen when a tag is written.  Nil means the
+    /// first supported type, which is what the reference does when a
+    /// descriptor carries no decision function.
+    let decide: (@Sendable (cmsFloat64Number, UnsafeRawPointer) -> cmsTagTypeSignature)?
+}
+
+/// `DecideXYZtype`.  It ignores both arguments and always answers with
+/// the real XYZ type, so the broken variant Corbis wrote can be read
+/// but is never produced.
+@Sendable func decideXYZ(_ version: cmsFloat64Number, _ data: UnsafeRawPointer)
+    -> cmsTagTypeSignature { cmsSigXYZType }
+
+/// `DecideCurveType`.  A curve is stored parametrically only when it is
+/// exactly one non-inverted ICC-defined segment on a version 4 profile;
+/// anything else is written out as a table.
+@Sendable func decideCurve(_ version: cmsFloat64Number, _ data: UnsafeRawPointer)
+    -> cmsTagTypeSignature {
+    if version < 4.0 { return cmsSigCurveType }
+    let curve = data.assumingMemoryBound(to: cmsToneCurve.self)
+    if curve.pointee.nSegments != 1 { return cmsSigCurveType }
+    guard let segments = curve.pointee.Segments else { return cmsSigCurveType }
+    if segments[0].Type < 0 { return cmsSigCurveType }   // inverted
+    if segments[0].Type > 5 { return cmsSigCurveType }   // not an ICC form
+    return cmsSigParametricCurveType
+}
+
+/// `DecideTextType` and `DecideTextDescType`: version 4 keeps text in
+/// the multi-localized container; earlier versions each have their own
+/// flat form.
+@Sendable func decideText(_ version: cmsFloat64Number, _ data: UnsafeRawPointer)
+    -> cmsTagTypeSignature {
+    version >= 4.0 ? cmsSigMultiLocalizedUnicodeType : cmsSigTextType
+}
+
+@Sendable func decideTextDescription(_ version: cmsFloat64Number, _ data: UnsafeRawPointer)
+    -> cmsTagTypeSignature {
+    version >= 4.0 ? cmsSigMultiLocalizedUnicodeType : cmsSigTextDescriptionType
+}
+
+/// `DecideLUTtypeA2B`/`B2A`.  Before version 4 the choice is the
+/// pipeline's own save-as-8-bits flag; from 4 on there is one answer.
+@Sendable func decideLUTAtoB(_ version: cmsFloat64Number, _ data: UnsafeRawPointer)
+    -> cmsTagTypeSignature {
+    if version >= 4.0 { return cmsSigLutAtoBType }
+    return pipelineSavesAs8Bits(data) ? cmsSigLut8Type : cmsSigLut16Type
+}
+
+@Sendable func decideLUTBtoA(_ version: cmsFloat64Number, _ data: UnsafeRawPointer)
+    -> cmsTagTypeSignature {
+    if version >= 4.0 { return cmsSigLutBtoAType }
+    return pipelineSavesAs8Bits(data) ? cmsSigLut8Type : cmsSigLut16Type
 }
 
 private let tagDescriptors: [cmsTagSignature: TagDescriptor] = {
     func d(
-        _ elements: cmsUInt32Number, _ types: [Int32]
+        _ elements: cmsUInt32Number, _ types: [Int32],
+        _ decide: (@Sendable (cmsFloat64Number, UnsafeRawPointer) -> cmsTagTypeSignature)? = nil
     ) -> TagDescriptor {
         TagDescriptor(
             elementCount: elements,
-            supportedTypes: types.map { cmsTagTypeSignature(UInt32(bitPattern: $0)) }
+            supportedTypes: types.map { cmsTagTypeSignature(UInt32(bitPattern: $0)) },
+            decide: decide
         )
     }
 
@@ -62,17 +115,17 @@ private let tagDescriptors: [cmsTagSignature: TagDescriptor] = {
     var table: [cmsTagSignature: TagDescriptor] = [:]
 
     for tag in [cmsSigAToB0Tag, cmsSigAToB1Tag, cmsSigAToB2Tag] {
-        table[tag] = d(1, [lut16, lutAtoB, lut8])
+        table[tag] = d(1, [lut16, lutAtoB, lut8], decideLUTAtoB)
     }
     for tag in [cmsSigBToA0Tag, cmsSigBToA1Tag, cmsSigBToA2Tag,
                 cmsSigGamutTag, cmsSigPreview0Tag, cmsSigPreview1Tag, cmsSigPreview2Tag] {
-        table[tag] = d(1, [lut16, lutBtoA, lut8])
+        table[tag] = d(1, [lut16, lutBtoA, lut8], decideLUTBtoA)
     }
     for tag in [cmsSigRedColorantTag, cmsSigGreenColorantTag, cmsSigBlueColorantTag] {
-        table[tag] = d(1, [xyz, corbisXYZ])
+        table[tag] = d(1, [xyz, corbisXYZ], decideXYZ)
     }
     for tag in [cmsSigRedTRCTag, cmsSigGreenTRCTag, cmsSigBlueTRCTag] {
-        table[tag] = d(1, [curve, parametric, monacoCurve])
+        table[tag] = d(1, [curve, parametric, monacoCurve], decideCurve)
     }
     for tag in [cmsSigCalibrationDateTimeTag, cmsSigDateTimeTag] {
         table[tag] = d(1, [dateTime])
@@ -83,12 +136,12 @@ private let tagDescriptors: [cmsTagSignature: TagDescriptor] = {
     table[cmsSigColorantOrderTag] = d(1, [Int32(bitPattern: cmsSigColorantOrderType.rawValue)])
     table[cmsSigColorantTableTag] = d(1, [colorantTable])
     table[cmsSigColorantTableOutTag] = d(1, [colorantTable])
-    table[cmsSigCopyrightTag] = d(1, [text, mlu, textDescription])
+    table[cmsSigCopyrightTag] = d(1, [text, mlu, textDescription], decideText)
     for tag in [cmsSigDeviceMfgDescTag, cmsSigDeviceModelDescTag,
                 cmsSigProfileDescriptionTag, cmsSigViewingCondDescTag] {
-        table[tag] = d(1, [textDescription, mlu, text])
+        table[tag] = d(1, [textDescription, mlu, text], decideTextDescription)
     }
-    table[cmsSigGrayTRCTag] = d(1, [curve, parametric])
+    table[cmsSigGrayTRCTag] = d(1, [curve, parametric], decideCurve)
     table[cmsSigLuminanceTag] = d(1, [xyz])
     table[cmsSigMediaBlackPointTag] = d(1, [xyz, corbisXYZ])
     table[cmsSigMediaWhitePointTag] = d(1, [xyz, corbisXYZ])
@@ -1356,7 +1409,9 @@ public func cmsWriteTag(
         return 0
     }
 
-    guard let type = typeToWrite(for: sig), isTypeSupported(sig, type),
+    guard let type = typeToWrite(
+              for: sig, version: cmsGetProfileVersion(hProfile), data: data
+          ), isTypeSupported(sig, type),
           let handler = tagTypeHandler(for: type)
     else {
         report(
