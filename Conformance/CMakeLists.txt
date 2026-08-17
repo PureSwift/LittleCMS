@@ -95,6 +95,11 @@ add_executable(ctxprobe_ours ctxprobe.c)
 target_link_libraries(ctxprobe_ours PRIVATE lcms2)
 add_test(NAME context_probe COMMAND ctxprobe_ours)
 
+add_executable(ioprobe_ours ioprobe.c)
+target_link_libraries(ioprobe_ours PRIVATE lcms2)
+add_test(NAME io_probe COMMAND ioprobe_ours
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
 # The stubs' contract: the gap is reported through the error path and the
 # call fails cleanly rather than answering.
 add_test(NAME stub_behavior COMMAND stub_probe_ours)
@@ -150,6 +155,15 @@ if(SLCMS_REFERENCE_FOUND)
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
                 $<TARGET_FILE:ctxprobe_ours>
                 $<TARGET_FILE:ctxprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+
+    add_executable(ioprobe_reference ioprobe.c)
+    target_link_libraries(ioprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME io_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:ioprobe_ours>
+                $<TARGET_FILE:ioprobe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
     add_test(NAME md5_differential

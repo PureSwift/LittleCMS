@@ -98,24 +98,9 @@ void _cmsPipelineSetOptimizationParameters(cmsPipeline* Lut, _cmsPipelineEval16F
     swift_unimplemented_fatal("_cmsPipelineSetOptimizationParameters");
 }
 
-cmsBool _cmsRead15Fixed16Number(cmsIOHANDLER* io, cmsFloat64Number* n)
-{
-    swift_unimplemented_fatal("_cmsRead15Fixed16Number");
-}
-
-cmsBool _cmsReadAlignment(cmsIOHANDLER* io)
-{
-    swift_unimplemented_fatal("_cmsReadAlignment");
-}
-
 cmsPipeline* _cmsReadDevicelinkLUT(cmsHPROFILE hProfile, cmsUInt32Number Intent)
 {
     swift_unimplemented_fatal("_cmsReadDevicelinkLUT");
-}
-
-cmsBool _cmsReadFloat32Number(cmsIOHANDLER* io, cmsFloat32Number* n)
-{
-    swift_unimplemented_fatal("_cmsReadFloat32Number");
 }
 
 cmsPipeline* _cmsReadInputLUT(cmsHPROFILE hProfile, cmsUInt32Number Intent)
@@ -126,41 +111,6 @@ cmsPipeline* _cmsReadInputLUT(cmsHPROFILE hProfile, cmsUInt32Number Intent)
 cmsPipeline* _cmsReadOutputLUT(cmsHPROFILE hProfile, cmsUInt32Number Intent)
 {
     swift_unimplemented_fatal("_cmsReadOutputLUT");
-}
-
-cmsTagTypeSignature _cmsReadTypeBase(cmsIOHANDLER* io)
-{
-    swift_unimplemented_fatal("_cmsReadTypeBase");
-}
-
-cmsBool _cmsReadUInt16Array(cmsIOHANDLER* io, cmsUInt32Number n, cmsUInt16Number* Array)
-{
-    swift_unimplemented_fatal("_cmsReadUInt16Array");
-}
-
-cmsBool _cmsReadUInt16Number(cmsIOHANDLER* io, cmsUInt16Number* n)
-{
-    swift_unimplemented_fatal("_cmsReadUInt16Number");
-}
-
-cmsBool _cmsReadUInt32Number(cmsIOHANDLER* io, cmsUInt32Number* n)
-{
-    swift_unimplemented_fatal("_cmsReadUInt32Number");
-}
-
-cmsBool _cmsReadUInt64Number(cmsIOHANDLER* io, cmsUInt64Number* n)
-{
-    swift_unimplemented_fatal("_cmsReadUInt64Number");
-}
-
-cmsBool _cmsReadUInt8Number(cmsIOHANDLER* io, cmsUInt8Number* n)
-{
-    swift_unimplemented_fatal("_cmsReadUInt8Number");
-}
-
-cmsBool _cmsReadXYZNumber(cmsIOHANDLER* io, cmsCIEXYZ* XYZ)
-{
-    swift_unimplemented_fatal("_cmsReadXYZNumber");
 }
 
 cmsUInt32Number _cmsReasonableGridpointsByColorspace(cmsColorSpaceSignature Colorspace, cmsUInt32Number dwFlags)
@@ -218,56 +168,6 @@ cmsStage* _cmsStageAllocXYZ2Lab(cmsContext ContextID)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsStageAllocXYZ2Lab is not implemented");
     return (cmsStage*){0};
-}
-
-cmsBool _cmsWrite15Fixed16Number(cmsIOHANDLER* io, cmsFloat64Number n)
-{
-    swift_unimplemented_fatal("_cmsWrite15Fixed16Number");
-}
-
-cmsBool _cmsWriteAlignment(cmsIOHANDLER* io)
-{
-    swift_unimplemented_fatal("_cmsWriteAlignment");
-}
-
-cmsBool _cmsWriteFloat32Number(cmsIOHANDLER* io, cmsFloat32Number n)
-{
-    swift_unimplemented_fatal("_cmsWriteFloat32Number");
-}
-
-cmsBool _cmsWriteTypeBase(cmsIOHANDLER* io, cmsTagTypeSignature sig)
-{
-    swift_unimplemented_fatal("_cmsWriteTypeBase");
-}
-
-cmsBool _cmsWriteUInt16Array(cmsIOHANDLER* io, cmsUInt32Number n, const cmsUInt16Number* Array)
-{
-    swift_unimplemented_fatal("_cmsWriteUInt16Array");
-}
-
-cmsBool _cmsWriteUInt16Number(cmsIOHANDLER* io, cmsUInt16Number n)
-{
-    swift_unimplemented_fatal("_cmsWriteUInt16Number");
-}
-
-cmsBool _cmsWriteUInt32Number(cmsIOHANDLER* io, cmsUInt32Number n)
-{
-    swift_unimplemented_fatal("_cmsWriteUInt32Number");
-}
-
-cmsBool _cmsWriteUInt64Number(cmsIOHANDLER* io, cmsUInt64Number* n)
-{
-    swift_unimplemented_fatal("_cmsWriteUInt64Number");
-}
-
-cmsBool _cmsWriteUInt8Number(cmsIOHANDLER* io, cmsUInt8Number n)
-{
-    swift_unimplemented_fatal("_cmsWriteUInt8Number");
-}
-
-cmsBool _cmsWriteXYZNumber(cmsIOHANDLER* io, const cmsCIEXYZ* XYZ)
-{
-    swift_unimplemented_fatal("_cmsWriteXYZNumber");
 }
 
 cmsBool cmsAdaptToIlluminant(cmsCIEXYZ* Result, const cmsCIEXYZ* SourceWhitePt, const cmsCIEXYZ* Illuminant, const cmsCIEXYZ* Value)
@@ -376,11 +276,6 @@ cmsUInt32Number cmsChannelsOf(cmsColorSpaceSignature ColorSpace)
 cmsInt32Number cmsChannelsOfColorSpace(cmsColorSpaceSignature ColorSpace)
 {
     swift_unimplemented_fatal("cmsChannelsOfColorSpace");
-}
-
-cmsBool cmsCloseIOhandler(cmsIOHANDLER* io)
-{
-    swift_unimplemented_fatal("cmsCloseIOhandler");
 }
 
 cmsBool cmsCloseProfile(cmsHPROFILE hProfile)
@@ -1306,30 +1201,6 @@ cmsBool cmsNamedColorInfo(const cmsNAMEDCOLORLIST* NamedColorList, cmsUInt32Numb
     swift_unimplemented_fatal("cmsNamedColorInfo");
 }
 
-cmsIOHANDLER* cmsOpenIOhandlerFromFile(cmsContext ContextID, const char* FileName, const char* AccessMode)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsOpenIOhandlerFromFile is not implemented");
-    return (cmsIOHANDLER*){0};
-}
-
-cmsIOHANDLER* cmsOpenIOhandlerFromMem(cmsContext ContextID, void *Buffer, cmsUInt32Number size, const char* AccessMode)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsOpenIOhandlerFromMem is not implemented");
-    return (cmsIOHANDLER*){0};
-}
-
-cmsIOHANDLER* cmsOpenIOhandlerFromNULL(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsOpenIOhandlerFromNULL is not implemented");
-    return (cmsIOHANDLER*){0};
-}
-
-cmsIOHANDLER* cmsOpenIOhandlerFromStream(cmsContext ContextID, FILE* Stream)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsOpenIOhandlerFromStream is not implemented");
-    return (cmsIOHANDLER*){0};
-}
-
 cmsHPROFILE cmsOpenProfileFromFile(const char *ICCProfile, const char *sAccess)
 {
     swift_unimplemented_fatal("cmsOpenProfileFromFile");
@@ -1712,11 +1583,6 @@ void cmsXYZ2xyY(cmsCIExyY* Dest, const cmsCIEXYZ* Source)
 void cmsXYZEncoded2Float(cmsCIEXYZ* fxyz, const cmsUInt16Number XYZ[3])
 {
     swift_unimplemented_fatal("cmsXYZEncoded2Float");
-}
-
-long int cmsfilelength(FILE* f)
-{
-    swift_unimplemented_fatal("cmsfilelength");
 }
 
 int cmsstrcasecmp(const char* s1, const char* s2)

@@ -96,7 +96,7 @@ public func cmsGetAlarmCodesTHR(
 ) {
     guard let AlarmCodes else { return }
     let codes = Context.resolve(ContextID).chunks.alarmCodes
-    UnsafeMutableBufferPointer(start: AlarmCodes, count: Context.maximumChannels)
+    _ = UnsafeMutableBufferPointer(start: AlarmCodes, count: Context.maximumChannels)
         .update(fromContentsOf: codes)
 }
 

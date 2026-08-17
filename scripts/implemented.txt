@@ -74,3 +74,33 @@ _cmsCreateMutex
 _cmsDestroyMutex
 _cmsLockMutex
 _cmsUnlockMutex
+
+# Sources/LCMS2ABI/IOHandlerAPI.swift
+cmsOpenIOhandlerFromNULL
+cmsOpenIOhandlerFromMem
+cmsOpenIOhandlerFromFile
+cmsOpenIOhandlerFromStream
+cmsCloseIOhandler
+cmsfilelength
+
+# Sources/LCMS2ABI/FieldCodecAPI.swift
+_cmsReadUInt8Number
+_cmsReadUInt16Number
+_cmsReadUInt16Array
+_cmsReadUInt32Number
+_cmsReadFloat32Number
+_cmsReadUInt64Number
+_cmsRead15Fixed16Number
+_cmsReadXYZNumber
+_cmsWriteUInt8Number
+_cmsWriteUInt16Number
+_cmsWriteUInt16Array
+_cmsWriteUInt32Number
+_cmsWriteFloat32Number
+_cmsWriteUInt64Number
+_cmsWrite15Fixed16Number
+_cmsWriteXYZNumber
+_cmsReadTypeBase
+_cmsWriteTypeBase
+_cmsReadAlignment
+_cmsWriteAlignment
