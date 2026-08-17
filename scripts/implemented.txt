@@ -170,3 +170,13 @@ cmsMLUgetUTF8
 cmsMLUtranslationsCount
 cmsMLUtranslationsCodes
 cmsMLUgetTranslation
+
+# Sources/LCMS2ABI/NamedColorAPI.swift
+cmsAllocNamedColorList
+cmsFreeNamedColorList
+cmsDupNamedColorList
+cmsAppendNamedColor
+cmsNamedColorCount
+cmsNamedColorIndex
+cmsNamedColorInfo
+cmsstrcasecmp

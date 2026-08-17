@@ -170,21 +170,10 @@ cmsStage* _cmsStageAllocXYZ2Lab(cmsContext ContextID)
     return (cmsStage*){0};
 }
 
-cmsNAMEDCOLORLIST* cmsAllocNamedColorList(cmsContext ContextID, cmsUInt32Number n, cmsUInt32Number ColorantCount, const char* Prefix, const char* Suffix)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsAllocNamedColorList is not implemented");
-    return (cmsNAMEDCOLORLIST*){0};
-}
-
 cmsSEQ* cmsAllocProfileSequenceDescription(cmsContext ContextID, cmsUInt32Number n)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsAllocProfileSequenceDescription is not implemented");
     return (cmsSEQ*){0};
-}
-
-cmsBool cmsAppendNamedColor(cmsNAMEDCOLORLIST* v, const char* Name, cmsUInt16Number PCS[3], cmsUInt16Number Colorant[16])
-{
-    swift_unimplemented_fatal("cmsAppendNamedColor");
 }
 
 void cmsCIECAM02Done(cmsHANDLE hModel)
@@ -471,11 +460,6 @@ void cmsDoTransformStride(cmsHTRANSFORM Transform, const void * InputBuffer, voi
     swift_unimplemented_fatal("cmsDoTransformStride");
 }
 
-cmsNAMEDCOLORLIST* cmsDupNamedColorList(const cmsNAMEDCOLORLIST* v)
-{
-    swift_unimplemented_fatal("cmsDupNamedColorList");
-}
-
 cmsSEQ* cmsDupProfileSequenceDescription(const cmsSEQ* pseq)
 {
     swift_unimplemented_fatal("cmsDupProfileSequenceDescription");
@@ -489,11 +473,6 @@ cmsUInt32Number cmsFormatterForColorspaceOfProfile(cmsHPROFILE hProfile, cmsUInt
 cmsUInt32Number cmsFormatterForPCSOfProfile(cmsHPROFILE hProfile, cmsUInt32Number nBytes, cmsBool lIsFloat)
 {
     swift_unimplemented_fatal("cmsFormatterForPCSOfProfile");
-}
-
-void cmsFreeNamedColorList(cmsNAMEDCOLORLIST* v)
-{
-    swift_unimplemented_fatal("cmsFreeNamedColorList");
 }
 
 void cmsFreeProfileSequenceDescription(cmsSEQ* pseq)
@@ -934,21 +913,6 @@ cmsBool cmsMD5computeID(cmsHPROFILE hProfile)
     swift_unimplemented_fatal("cmsMD5computeID");
 }
 
-cmsUInt32Number cmsNamedColorCount(const cmsNAMEDCOLORLIST* v)
-{
-    swift_unimplemented_fatal("cmsNamedColorCount");
-}
-
-cmsInt32Number cmsNamedColorIndex(const cmsNAMEDCOLORLIST* v, const char* Name)
-{
-    swift_unimplemented_fatal("cmsNamedColorIndex");
-}
-
-cmsBool cmsNamedColorInfo(const cmsNAMEDCOLORLIST* NamedColorList, cmsUInt32Number nColor, char* Name, char* Prefix, char* Suffix, cmsUInt16Number* PCS, cmsUInt16Number* Colorant)
-{
-    swift_unimplemented_fatal("cmsNamedColorInfo");
-}
-
 cmsHPROFILE cmsOpenProfileFromFile(const char *ICCProfile, const char *sAccess)
 {
     swift_unimplemented_fatal("cmsOpenProfileFromFile");
@@ -1291,9 +1255,4 @@ cmsBool cmsWriteRawTag(cmsHPROFILE hProfile, cmsTagSignature sig, const void* da
 cmsBool cmsWriteTag(cmsHPROFILE hProfile, cmsTagSignature sig, const void* data)
 {
     swift_unimplemented_fatal("cmsWriteTag");
-}
-
-int cmsstrcasecmp(const char* s1, const char* s2)
-{
-    swift_unimplemented_fatal("cmsstrcasecmp");
 }
