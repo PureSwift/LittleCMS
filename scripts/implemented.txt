@@ -195,3 +195,28 @@ cmsDictNextEntry
 # Sources/LCMS2ABI/InterpolationAPI.swift
 _cmsComputeInterpParams
 _cmsFreeInterpParams
+
+# Sources/LCMS2ABI/PipelineAPI.swift
+cmsStageAllocIdentity
+cmsStageAllocToneCurves
+cmsStageAllocMatrix
+cmsStageFree
+cmsStageNext
+cmsStageInputChannels
+cmsStageOutputChannels
+cmsStageType
+cmsStageData
+cmsGetStageContextID
+cmsPipelineAlloc
+cmsPipelineFree
+cmsPipelineInputChannels
+cmsPipelineOutputChannels
+cmsPipelineStageCount
+cmsPipelineGetPtrToFirstStage
+cmsPipelineGetPtrToLastStage
+cmsPipelineSetSaveAs8bitsFlag
+cmsPipelineInsertStage
+cmsPipelineUnlinkStage
+cmsPipelineEvalFloat
+cmsPipelineEval16
+cmsGetPipelineContextID

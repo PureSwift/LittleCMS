@@ -518,11 +518,6 @@ cmsColorSpaceSignature cmsGetPCS(cmsHPROFILE hProfile)
     swift_unimplemented_fatal("cmsGetPCS");
 }
 
-cmsContext cmsGetPipelineContextID(const cmsPipeline* lut)
-{
-    swift_unimplemented_fatal("cmsGetPipelineContextID");
-}
-
 cmsUInt32Number cmsGetPostScriptCRD(cmsContext ContextID, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags, void* Buffer, cmsUInt32Number dwBufferLen)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGetPostScriptCRD is not implemented");
@@ -569,11 +564,6 @@ cmsUInt32Number cmsGetProfileInfoUTF8(cmsHPROFILE hProfile, cmsInfoType Info, co
 cmsFloat64Number cmsGetProfileVersion(cmsHPROFILE hProfile)
 {
     swift_unimplemented_fatal("cmsGetProfileVersion");
-}
-
-cmsContext cmsGetStageContextID(const cmsStage* mpe)
-{
-    swift_unimplemented_fatal("cmsGetStageContextID");
 }
 
 cmsUInt32Number cmsGetSupportedIntents(cmsUInt32Number nMax, cmsUInt32Number* Codes, char** Descriptions)
@@ -900,12 +890,6 @@ cmsHPROFILE cmsOpenProfileFromStreamTHR(cmsContext ContextID, FILE* ICCProfile, 
     return (cmsHPROFILE){0};
 }
 
-cmsPipeline* cmsPipelineAlloc(cmsContext ContextID, cmsUInt32Number InputChannels, cmsUInt32Number OutputChannels)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsPipelineAlloc is not implemented");
-    return (cmsPipeline*){0};
-}
-
 cmsBool cmsPipelineCat(cmsPipeline* l1, const cmsPipeline* l2)
 {
     swift_unimplemented_fatal("cmsPipelineCat");
@@ -916,64 +900,9 @@ cmsPipeline* cmsPipelineDup(const cmsPipeline* Orig)
     swift_unimplemented_fatal("cmsPipelineDup");
 }
 
-void cmsPipelineEval16(const cmsUInt16Number In[], cmsUInt16Number Out[], const cmsPipeline* lut)
-{
-    swift_unimplemented_fatal("cmsPipelineEval16");
-}
-
-void cmsPipelineEvalFloat(const cmsFloat32Number In[], cmsFloat32Number Out[], const cmsPipeline* lut)
-{
-    swift_unimplemented_fatal("cmsPipelineEvalFloat");
-}
-
 cmsBool cmsPipelineEvalReverseFloat(cmsFloat32Number Target[], cmsFloat32Number Result[], cmsFloat32Number Hint[], const cmsPipeline* lut)
 {
     swift_unimplemented_fatal("cmsPipelineEvalReverseFloat");
-}
-
-void cmsPipelineFree(cmsPipeline* lut)
-{
-    swift_unimplemented_fatal("cmsPipelineFree");
-}
-
-cmsStage* cmsPipelineGetPtrToFirstStage(const cmsPipeline* lut)
-{
-    swift_unimplemented_fatal("cmsPipelineGetPtrToFirstStage");
-}
-
-cmsStage* cmsPipelineGetPtrToLastStage(const cmsPipeline* lut)
-{
-    swift_unimplemented_fatal("cmsPipelineGetPtrToLastStage");
-}
-
-cmsUInt32Number cmsPipelineInputChannels(const cmsPipeline* lut)
-{
-    swift_unimplemented_fatal("cmsPipelineInputChannels");
-}
-
-cmsBool cmsPipelineInsertStage(cmsPipeline* lut, cmsStageLoc loc, cmsStage* mpe)
-{
-    swift_unimplemented_fatal("cmsPipelineInsertStage");
-}
-
-cmsUInt32Number cmsPipelineOutputChannels(const cmsPipeline* lut)
-{
-    swift_unimplemented_fatal("cmsPipelineOutputChannels");
-}
-
-cmsBool cmsPipelineSetSaveAs8bitsFlag(cmsPipeline* lut, cmsBool On)
-{
-    swift_unimplemented_fatal("cmsPipelineSetSaveAs8bitsFlag");
-}
-
-cmsUInt32Number cmsPipelineStageCount(const cmsPipeline* lut)
-{
-    swift_unimplemented_fatal("cmsPipelineStageCount");
-}
-
-void cmsPipelineUnlinkStage(cmsPipeline* lut, cmsStageLoc loc, cmsStage** mpe)
-{
-    swift_unimplemented_fatal("cmsPipelineUnlinkStage");
 }
 
 cmsBool cmsPlugin(void* Plugin)
@@ -1106,52 +1035,9 @@ cmsStage* cmsStageAllocCLutFloatGranular(cmsContext ContextID, const cmsUInt32Nu
     return (cmsStage*){0};
 }
 
-cmsStage* cmsStageAllocIdentity(cmsContext ContextID, cmsUInt32Number nChannels)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsStageAllocIdentity is not implemented");
-    return (cmsStage*){0};
-}
-
-cmsStage* cmsStageAllocMatrix(cmsContext ContextID, cmsUInt32Number Rows, cmsUInt32Number Cols, const cmsFloat64Number* Matrix, const cmsFloat64Number* Offset)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsStageAllocMatrix is not implemented");
-    return (cmsStage*){0};
-}
-
-cmsStage* cmsStageAllocToneCurves(cmsContext ContextID, cmsUInt32Number nChannels, cmsToneCurve* const Curves[])
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsStageAllocToneCurves is not implemented");
-    return (cmsStage*){0};
-}
-
-void* cmsStageData(const cmsStage* mpe)
-{
-    swift_unimplemented_fatal("cmsStageData");
-}
-
 cmsStage* cmsStageDup(cmsStage* mpe)
 {
     swift_unimplemented_fatal("cmsStageDup");
-}
-
-void cmsStageFree(cmsStage* mpe)
-{
-    swift_unimplemented_fatal("cmsStageFree");
-}
-
-cmsUInt32Number cmsStageInputChannels(const cmsStage* mpe)
-{
-    swift_unimplemented_fatal("cmsStageInputChannels");
-}
-
-cmsStage* cmsStageNext(const cmsStage* mpe)
-{
-    swift_unimplemented_fatal("cmsStageNext");
-}
-
-cmsUInt32Number cmsStageOutputChannels(const cmsStage* mpe)
-{
-    swift_unimplemented_fatal("cmsStageOutputChannels");
 }
 
 cmsBool cmsStageSampleCLut16bit(cmsStage* mpe, cmsSAMPLER16 Sampler, void* Cargo, cmsUInt32Number dwFlags)
@@ -1162,11 +1048,6 @@ cmsBool cmsStageSampleCLut16bit(cmsStage* mpe, cmsSAMPLER16 Sampler, void* Cargo
 cmsBool cmsStageSampleCLutFloat(cmsStage* mpe, cmsSAMPLERFLOAT Sampler, void* Cargo, cmsUInt32Number dwFlags)
 {
     swift_unimplemented_fatal("cmsStageSampleCLutFloat");
-}
-
-cmsStageSignature cmsStageType(const cmsStage* mpe)
-{
-    swift_unimplemented_fatal("cmsStageType");
 }
 
 cmsTagSignature cmsTagLinkedTo(cmsHPROFILE hProfile, cmsTagSignature sig)
