@@ -205,14 +205,12 @@ extension CIELab {
     }
 
     /// Version 4: L over 0…0xFFFF, a and b offset by 128 and scaled by 257.
-    @inlinable
     public init(encodedV4 channels: (UInt16, UInt16, UInt16)) {
         l = Double(channels.0) / 655.35
         a = Double(channels.1) / 257.0 - 128.0
         b = Double(channels.2) / 257.0 - 128.0
     }
 
-    @inlinable
     public var encodedV4: (UInt16, UInt16, UInt16) {
         (
             quickSaturateWord(CIELab.clampL(l) * 655.35),
@@ -222,14 +220,12 @@ extension CIELab {
     }
 
     /// Version 2: L scaled by 652.8, a and b by 256.
-    @inlinable
     public init(encodedV2 channels: (UInt16, UInt16, UInt16)) {
         l = Double(channels.0) / 652.800
         a = Double(channels.1) / 256.0 - 128.0
         b = Double(channels.2) / 256.0 - 128.0
     }
 
-    @inlinable
     public var encodedV2: (UInt16, UInt16, UInt16) {
         (
             quickSaturateWord(CIELab.clampL(l) * 652.8),
@@ -253,7 +249,6 @@ extension CIEXYZ {
     /// through 15.16 rather than dividing: the reference shifts the code
     /// left and reuses the fixed-point conversion, and the two are not
     /// the same expression even where they agree.
-    @inlinable
     public init(encoded channels: (UInt16, UInt16, UInt16)) {
         @inline(__always)
         func decode(_ code: UInt16) -> Double {
@@ -264,7 +259,6 @@ extension CIEXYZ {
         z = decode(channels.2)
     }
 
-    @inlinable
     public var encoded: (UInt16, UInt16, UInt16) {
         // A non-positive Y takes the whole colour to black, which the
         // reference does before clamping the channels individually.

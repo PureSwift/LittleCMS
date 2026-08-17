@@ -13,7 +13,6 @@ func radians(_ degrees: Double) -> Double { (degrees * Double.pi) / 180.0 }
 
 extension CIELab {
     /// CIE 1976: the plain Euclidean distance.
-    @inlinable
     public func deltaE(to other: CIELab) -> Double {
         let dL = abs(l - other.l)
         let da = abs(a - other.a)
@@ -22,7 +21,6 @@ extension CIELab {
     }
 
     /// CIE 1994.
-    @inlinable
     public func deltaE94(to other: CIELab) -> Double {
         let dL = abs(l - other.l)
 
@@ -43,7 +41,6 @@ extension CIELab {
     }
 
     /// BFD.
-    @inlinable
     public func deltaEBFD(to other: CIELab) -> Double {
         let lbfd1 = CIELab.computeLBFD(self)
         let lbfd2 = CIELab.computeLBFD(other)
@@ -92,7 +89,6 @@ extension CIELab {
         ).squareRoot()
     }
 
-    @inlinable
     static func computeLBFD(_ lab: CIELab) -> Double {
         let yt: Double
         if lab.l > 7.996969 {
@@ -104,7 +100,6 @@ extension CIELab {
     }
 
     /// CMC(l:c).
-    @inlinable
     public func deltaECMC(to other: CIELab, l lightness: Double, c chroma: Double) -> Double {
         if l == 0 && other.l == 0 { return 0 }
 
@@ -145,7 +140,6 @@ extension CIELab {
     }
 
     /// CIEDE2000.
-    @inlinable
     public func deltaE2000(to other: CIELab, kL: Double, kC: Double, kH: Double) -> Double {
         let l1 = l, a1 = a, b1 = b
         let c = (squared(a1) + squared(b1)).squareRoot()

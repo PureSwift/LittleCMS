@@ -12,6 +12,14 @@ One input, two formats:
               reference liblcms2.so.2 exports unversioned symbols — a named
               node would stamp versions that clients would then require.
 
+              The Swift patterns in the local list are not redundant with
+              the `*` beside them.  A `@inlinable` function that the
+              optimizer does not inline away is emitted as a shared
+              definition with default visibility, and those reached the
+              dynamic symbol table through `local: *` — five of them, on
+              Linux, where Mach-O's allowlist had refused them silently.
+              Naming the shapes catches them.
+
 Exact names rather than cms*/_cms* globs, so symbols.txt stays the single
 source of truth for the export list, the version script, and
 check_exports.sh alike.
@@ -39,9 +47,22 @@ def main() -> None:
 
     (out / "lcms2.exp").write_text("".join(f"_{name}\n" for name in names))
 
+    # Everything Swift emits, by shape: mangled names, the runtime's own
+    # symbols, and the metadata section markers.
+    internal = [
+        "$s*", "_$s*",
+        "$S*", "_$S*",
+        "swift_*", "_swift*", "__swift*",
+        "__start_swift*", "__stop_swift*",
+    ]
+
     script = ["{", "global:"]
     script += [f"    {name};" for name in names]
-    script += ["local:", "    *;", "};", ""]
+    script += ["local:"]
+    # Unquoted on purpose: a quoted name in a version script is matched
+    # literally, and these have to glob.
+    script += [f"    {pattern};" for pattern in internal]
+    script += ["    *;", "};", ""]
     (out / "lcms2.vers").write_text("\n".join(script))
 
     print(f"gen_symbols: {len(names)} names -> {out / 'lcms2.exp'}, {out / 'lcms2.vers'}")
