@@ -55,9 +55,24 @@ struct _cmsContext_struct {
     void* swift_ctx;                          /* retained Unmanaged<Context>, engine-owned */
 };
 
-/* Gains upstream's field prefix when the engine first allocates a curve;
- * see the note above. */
-struct _cms_curve_struct           { void* swift_ctx; };
+/* The field order through Table16 is the reference's, because its testbed
+ * dereferences these on curves this library allocated — see the note
+ * above.  swift_ctx is appended after, where nothing reaching in by that
+ * layout can see it. */
+struct _cms_curve_struct {
+    cmsInterpParams*  InterpParams;   /* the 16-bit table's interpolation */
+
+    cmsUInt32Number   nSegments;      /* zero for a purely table-based curve */
+    cmsCurveSegment*  Segments;
+    cmsInterpParams** SegInterp;      /* one per sampled segment, else null */
+
+    cmsParametricCurveEvaluator* Evals;   /* one per segment */
+
+    cmsUInt32Number   nEntries;
+    cmsUInt16Number*  Table16;
+
+    void* swift_ctx;                  /* unused for curves; the storage is C */
+};
 struct _cmsPipeline_struct         { void* swift_ctx; };
 struct _cmsStage_struct            { void* swift_ctx; };
 struct _cms_MLU_struct             { void* swift_ctx; };

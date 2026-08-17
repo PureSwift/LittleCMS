@@ -107,6 +107,10 @@ if(NOT APPLE)
 endif()
 add_test(NAME color_probe COMMAND colorprobe_ours)
 
+add_executable(curveprobe_ours curveprobe.c)
+target_link_libraries(curveprobe_ours PRIVATE lcms2)
+add_test(NAME curve_probe COMMAND curveprobe_ours)
+
 # The stubs' contract: the gap is reported through the error path and the
 # call fails cleanly rather than answering.
 add_test(NAME stub_behavior COMMAND stub_probe_ours)
@@ -183,6 +187,15 @@ if(SLCMS_REFERENCE_FOUND)
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
                 $<TARGET_FILE:colorprobe_ours>
                 $<TARGET_FILE:colorprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+
+    add_executable(curveprobe_reference curveprobe.c)
+    target_link_libraries(curveprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME curve_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:curveprobe_ours>
+                $<TARGET_FILE:curveprobe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
     add_test(NAME md5_differential

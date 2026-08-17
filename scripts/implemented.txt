@@ -129,3 +129,20 @@ cmsWhitePointFromTemp
 cmsTempFromWhitePoint
 cmsAdaptToIlluminant
 cmsDesaturateLab
+
+# Sources/LCMS2ABI/ToneCurveAPI.swift
+cmsBuildSegmentedToneCurve
+cmsBuildParametricToneCurve
+cmsBuildGamma
+cmsBuildTabulatedToneCurve16
+cmsBuildTabulatedToneCurveFloat
+cmsDupToneCurve
+cmsFreeToneCurve
+cmsFreeToneCurveTriple
+cmsEvalToneCurve16
+cmsEvalToneCurveFloat
+cmsGetToneCurveEstimatedTableEntries
+cmsGetToneCurveEstimatedTable
+cmsGetToneCurveSegment
+cmsGetToneCurveParametricType
+cmsIsToneCurveMultisegment

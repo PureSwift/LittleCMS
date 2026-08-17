@@ -187,36 +187,6 @@ cmsBool cmsAppendNamedColor(cmsNAMEDCOLORLIST* v, const char* Name, cmsUInt16Num
     swift_unimplemented_fatal("cmsAppendNamedColor");
 }
 
-cmsToneCurve* cmsBuildGamma(cmsContext ContextID, cmsFloat64Number Gamma)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsBuildGamma is not implemented");
-    return (cmsToneCurve*){0};
-}
-
-cmsToneCurve* cmsBuildParametricToneCurve(cmsContext ContextID, cmsInt32Number Type, const cmsFloat64Number Params[])
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsBuildParametricToneCurve is not implemented");
-    return (cmsToneCurve*){0};
-}
-
-cmsToneCurve* cmsBuildSegmentedToneCurve(cmsContext ContextID, cmsUInt32Number nSegments, const cmsCurveSegment Segments[])
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsBuildSegmentedToneCurve is not implemented");
-    return (cmsToneCurve*){0};
-}
-
-cmsToneCurve* cmsBuildTabulatedToneCurve16(cmsContext ContextID, cmsUInt32Number nEntries, const cmsUInt16Number values[])
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsBuildTabulatedToneCurve16 is not implemented");
-    return (cmsToneCurve*){0};
-}
-
-cmsToneCurve* cmsBuildTabulatedToneCurveFloat(cmsContext ContextID, cmsUInt32Number nEntries, const cmsFloat32Number values[])
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsBuildTabulatedToneCurveFloat is not implemented");
-    return (cmsToneCurve*){0};
-}
-
 void cmsCIECAM02Done(cmsHANDLE hModel)
 {
     swift_unimplemented_fatal("cmsCIECAM02Done");
@@ -511,24 +481,9 @@ cmsSEQ* cmsDupProfileSequenceDescription(const cmsSEQ* pseq)
     swift_unimplemented_fatal("cmsDupProfileSequenceDescription");
 }
 
-cmsToneCurve* cmsDupToneCurve(const cmsToneCurve* Src)
-{
-    swift_unimplemented_fatal("cmsDupToneCurve");
-}
-
 cmsFloat64Number cmsEstimateGamma(const cmsToneCurve* t, cmsFloat64Number Precision)
 {
     swift_unimplemented_fatal("cmsEstimateGamma");
-}
-
-cmsUInt16Number cmsEvalToneCurve16(const cmsToneCurve* Curve, cmsUInt16Number v)
-{
-    swift_unimplemented_fatal("cmsEvalToneCurve16");
-}
-
-cmsFloat32Number cmsEvalToneCurveFloat(const cmsToneCurve* Curve, cmsFloat32Number v)
-{
-    swift_unimplemented_fatal("cmsEvalToneCurveFloat");
 }
 
 cmsUInt32Number cmsFormatterForColorspaceOfProfile(cmsHPROFILE hProfile, cmsUInt32Number nBytes, cmsBool lIsFloat)
@@ -549,16 +504,6 @@ void cmsFreeNamedColorList(cmsNAMEDCOLORLIST* v)
 void cmsFreeProfileSequenceDescription(cmsSEQ* pseq)
 {
     swift_unimplemented_fatal("cmsFreeProfileSequenceDescription");
-}
-
-void cmsFreeToneCurve(cmsToneCurve* Curve)
-{
-    swift_unimplemented_fatal("cmsFreeToneCurve");
-}
-
-void cmsFreeToneCurveTriple(cmsToneCurve* Curve[3])
-{
-    swift_unimplemented_fatal("cmsFreeToneCurveTriple");
 }
 
 cmsHANDLE cmsGBDAlloc(cmsContext ContextID)
@@ -739,26 +684,6 @@ cmsBool cmsGetTagOffsetAndSize(cmsHPROFILE hProfile, cmsUInt32Number n, cmsUInt3
 cmsTagSignature cmsGetTagSignature(cmsHPROFILE hProfile, cmsUInt32Number n)
 {
     swift_unimplemented_fatal("cmsGetTagSignature");
-}
-
-const cmsUInt16Number* cmsGetToneCurveEstimatedTable(const cmsToneCurve* t)
-{
-    swift_unimplemented_fatal("cmsGetToneCurveEstimatedTable");
-}
-
-cmsUInt32Number cmsGetToneCurveEstimatedTableEntries(const cmsToneCurve* t)
-{
-    swift_unimplemented_fatal("cmsGetToneCurveEstimatedTableEntries");
-}
-
-cmsInt32Number cmsGetToneCurveParametricType(const cmsToneCurve* t)
-{
-    swift_unimplemented_fatal("cmsGetToneCurveParametricType");
-}
-
-const cmsCurveSegment* cmsGetToneCurveSegment(cmsInt32Number n, const cmsToneCurve* t)
-{
-    swift_unimplemented_fatal("cmsGetToneCurveSegment");
 }
 
 cmsContext cmsGetTransformContextID(cmsHTRANSFORM hTransform)
@@ -1017,11 +942,6 @@ cmsBool cmsIsToneCurveLinear(const cmsToneCurve* Curve)
 cmsBool cmsIsToneCurveMonotonic(const cmsToneCurve* t)
 {
     swift_unimplemented_fatal("cmsIsToneCurveMonotonic");
-}
-
-cmsBool cmsIsToneCurveMultisegment(const cmsToneCurve* InGamma)
-{
-    swift_unimplemented_fatal("cmsIsToneCurveMultisegment");
 }
 
 cmsToneCurve* cmsJoinToneCurve(cmsContext ContextID, const cmsToneCurve* X, const cmsToneCurve* Y, cmsUInt32Number nPoints)
