@@ -9,20 +9,10 @@
 
 #include "swift_internal.h"
 
-void _cmsDecodeDateTimeNumber(const cmsDateTimeNumber *Source, struct tm *Dest)
-{
-    swift_unimplemented_fatal("_cmsDecodeDateTimeNumber");
-}
-
 cmsPipeline* _cmsDefaultICCintents(cmsContext ContextID, cmsUInt32Number nProfiles, cmsUInt32Number Intents[], cmsHPROFILE hProfiles[], cmsBool BPC[], cmsFloat64Number AdaptationStates[], cmsUInt32Number dwFlags)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsDefaultICCintents is not implemented");
     return (cmsPipeline*){0};
-}
-
-void _cmsEncodeDateTimeNumber(cmsDateTimeNumber *Dest, const struct tm *Source)
-{
-    swift_unimplemented_fatal("_cmsEncodeDateTimeNumber");
 }
 
 cmsFormatter _cmsGetFormatter(cmsContext ContextID, cmsUInt32Number Type, cmsFormatterDirection Dir, cmsUInt32Number dwFlags)
@@ -190,16 +180,6 @@ cmsUInt32Number cmsChannelsOf(cmsColorSpaceSignature ColorSpace)
     swift_unimplemented_fatal("cmsChannelsOf");
 }
 
-cmsInt32Number cmsChannelsOfColorSpace(cmsColorSpaceSignature ColorSpace)
-{
-    swift_unimplemented_fatal("cmsChannelsOfColorSpace");
-}
-
-cmsBool cmsCloseProfile(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsCloseProfile");
-}
-
 cmsHPROFILE cmsCreateBCHSWabstractProfile(cmsUInt32Number nLUTPoints, cmsFloat64Number Bright, cmsFloat64Number Contrast, cmsFloat64Number Hue, cmsFloat64Number Saturation, cmsUInt32Number TempSrc, cmsUInt32Number TempDest)
 {
     swift_unimplemented_fatal("cmsCreateBCHSWabstractProfile");
@@ -302,12 +282,6 @@ cmsHPROFILE cmsCreateNULLProfile(void)
 cmsHPROFILE cmsCreateNULLProfileTHR(cmsContext ContextID)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateNULLProfileTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsCreateProfilePlaceholder(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateProfilePlaceholder is not implemented");
     return (cmsHPROFILE){0};
 }
 
@@ -448,74 +422,9 @@ cmsBool cmsGDBCompute(cmsHANDLE hGDB, cmsUInt32Number dwFlags)
     swift_unimplemented_fatal("cmsGDBCompute");
 }
 
-cmsColorSpaceSignature cmsGetColorSpace(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetColorSpace");
-}
-
-cmsProfileClassSignature cmsGetDeviceClass(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetDeviceClass");
-}
-
-cmsUInt32Number cmsGetEncodedICCversion(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetEncodedICCversion");
-}
-
-void cmsGetHeaderAttributes(cmsHPROFILE hProfile, cmsUInt64Number* Flags)
-{
-    swift_unimplemented_fatal("cmsGetHeaderAttributes");
-}
-
-cmsUInt32Number cmsGetHeaderCMM(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetHeaderCMM");
-}
-
-cmsBool cmsGetHeaderCreationDateTime(cmsHPROFILE hProfile, struct tm *Dest)
-{
-    swift_unimplemented_fatal("cmsGetHeaderCreationDateTime");
-}
-
-cmsUInt32Number cmsGetHeaderCreator(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetHeaderCreator");
-}
-
-cmsUInt32Number cmsGetHeaderFlags(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetHeaderFlags");
-}
-
-cmsUInt32Number cmsGetHeaderManufacturer(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetHeaderManufacturer");
-}
-
-cmsUInt32Number cmsGetHeaderModel(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetHeaderModel");
-}
-
-void cmsGetHeaderProfileID(cmsHPROFILE hProfile, cmsUInt8Number* ProfileID)
-{
-    swift_unimplemented_fatal("cmsGetHeaderProfileID");
-}
-
-cmsUInt32Number cmsGetHeaderRenderingIntent(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetHeaderRenderingIntent");
-}
-
 cmsNAMEDCOLORLIST* cmsGetNamedColorList(cmsHTRANSFORM xform)
 {
     swift_unimplemented_fatal("cmsGetNamedColorList");
-}
-
-cmsColorSpaceSignature cmsGetPCS(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetPCS");
 }
 
 cmsUInt32Number cmsGetPostScriptCRD(cmsContext ContextID, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags, void* Buffer, cmsUInt32Number dwBufferLen)
@@ -536,16 +445,6 @@ cmsUInt32Number cmsGetPostScriptColorResource(cmsContext ContextID, cmsPSResourc
     return (cmsUInt32Number){0};
 }
 
-cmsContext cmsGetProfileContextID(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetProfileContextID");
-}
-
-cmsIOHANDLER* cmsGetProfileIOhandler(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetProfileIOhandler");
-}
-
 cmsUInt32Number cmsGetProfileInfo(cmsHPROFILE hProfile, cmsInfoType Info, const char LanguageCode[3], const char CountryCode[3], wchar_t* Buffer, cmsUInt32Number BufferSize)
 {
     swift_unimplemented_fatal("cmsGetProfileInfo");
@@ -561,11 +460,6 @@ cmsUInt32Number cmsGetProfileInfoUTF8(cmsHPROFILE hProfile, cmsInfoType Info, co
     swift_unimplemented_fatal("cmsGetProfileInfoUTF8");
 }
 
-cmsFloat64Number cmsGetProfileVersion(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetProfileVersion");
-}
-
 cmsUInt32Number cmsGetSupportedIntents(cmsUInt32Number nMax, cmsUInt32Number* Codes, char** Descriptions)
 {
     swift_unimplemented_fatal("cmsGetSupportedIntents");
@@ -575,21 +469,6 @@ cmsUInt32Number cmsGetSupportedIntentsTHR(cmsContext ContextID, cmsUInt32Number 
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGetSupportedIntentsTHR is not implemented");
     return (cmsUInt32Number){0};
-}
-
-cmsInt32Number cmsGetTagCount(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsGetTagCount");
-}
-
-cmsBool cmsGetTagOffsetAndSize(cmsHPROFILE hProfile, cmsUInt32Number n, cmsUInt32Number* offset, cmsUInt32Number* size)
-{
-    swift_unimplemented_fatal("cmsGetTagOffsetAndSize");
-}
-
-cmsTagSignature cmsGetTagSignature(cmsHPROFILE hProfile, cmsUInt32Number n)
-{
-    swift_unimplemented_fatal("cmsGetTagSignature");
 }
 
 cmsContext cmsGetTransformContextID(cmsHTRANSFORM hTransform)
@@ -830,11 +709,6 @@ cmsBool cmsIsMatrixShaper(cmsHPROFILE hProfile)
     swift_unimplemented_fatal("cmsIsMatrixShaper");
 }
 
-cmsBool cmsIsTag(cmsHPROFILE hProfile, cmsTagSignature sig)
-{
-    swift_unimplemented_fatal("cmsIsTag");
-}
-
 cmsBool cmsLinkTag(cmsHPROFILE hProfile, cmsTagSignature sig, cmsTagSignature dest)
 {
     swift_unimplemented_fatal("cmsLinkTag");
@@ -843,51 +717,6 @@ cmsBool cmsLinkTag(cmsHPROFILE hProfile, cmsTagSignature sig, cmsTagSignature de
 cmsBool cmsMD5computeID(cmsHPROFILE hProfile)
 {
     swift_unimplemented_fatal("cmsMD5computeID");
-}
-
-cmsHPROFILE cmsOpenProfileFromFile(const char *ICCProfile, const char *sAccess)
-{
-    swift_unimplemented_fatal("cmsOpenProfileFromFile");
-}
-
-cmsHPROFILE cmsOpenProfileFromFileTHR(cmsContext ContextID, const char *ICCProfile, const char *sAccess)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsOpenProfileFromFileTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsOpenProfileFromIOhandler2THR(cmsContext ContextID, cmsIOHANDLER* io, cmsBool write)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsOpenProfileFromIOhandler2THR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsOpenProfileFromIOhandlerTHR(cmsContext ContextID, cmsIOHANDLER* io)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsOpenProfileFromIOhandlerTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsOpenProfileFromMem(const void * MemPtr, cmsUInt32Number dwSize)
-{
-    swift_unimplemented_fatal("cmsOpenProfileFromMem");
-}
-
-cmsHPROFILE cmsOpenProfileFromMemTHR(cmsContext ContextID, const void * MemPtr, cmsUInt32Number dwSize)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsOpenProfileFromMemTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsOpenProfileFromStream(FILE* ICCProfile, const char* sAccess)
-{
-    swift_unimplemented_fatal("cmsOpenProfileFromStream");
-}
-
-cmsHPROFILE cmsOpenProfileFromStreamTHR(cmsContext ContextID, FILE* ICCProfile, const char* sAccess)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsOpenProfileFromStreamTHR is not implemented");
-    return (cmsHPROFILE){0};
 }
 
 cmsBool cmsPlugin(void* Plugin)
@@ -899,11 +728,6 @@ cmsBool cmsPluginTHR(cmsContext ContextID, void* Plugin)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsPluginTHR is not implemented");
     return (cmsBool){0};
-}
-
-cmsUInt32Number cmsReadRawTag(cmsHPROFILE hProfile, cmsTagSignature sig, void* Buffer, cmsUInt32Number BufferSize)
-{
-    swift_unimplemented_fatal("cmsReadRawTag");
 }
 
 void* cmsReadTag(cmsHPROFILE hProfile, cmsTagSignature sig)
@@ -929,66 +753,6 @@ cmsBool cmsSaveProfileToMem(cmsHPROFILE hProfile, void *MemPtr, cmsUInt32Number*
 cmsBool cmsSaveProfileToStream(cmsHPROFILE hProfile, FILE* Stream)
 {
     swift_unimplemented_fatal("cmsSaveProfileToStream");
-}
-
-void cmsSetColorSpace(cmsHPROFILE hProfile, cmsColorSpaceSignature sig)
-{
-    swift_unimplemented_fatal("cmsSetColorSpace");
-}
-
-void cmsSetDeviceClass(cmsHPROFILE hProfile, cmsProfileClassSignature sig)
-{
-    swift_unimplemented_fatal("cmsSetDeviceClass");
-}
-
-void cmsSetEncodedICCversion(cmsHPROFILE hProfile, cmsUInt32Number Version)
-{
-    swift_unimplemented_fatal("cmsSetEncodedICCversion");
-}
-
-void cmsSetHeaderAttributes(cmsHPROFILE hProfile, cmsUInt64Number Flags)
-{
-    swift_unimplemented_fatal("cmsSetHeaderAttributes");
-}
-
-void cmsSetHeaderFlags(cmsHPROFILE hProfile, cmsUInt32Number Flags)
-{
-    swift_unimplemented_fatal("cmsSetHeaderFlags");
-}
-
-void cmsSetHeaderManufacturer(cmsHPROFILE hProfile, cmsUInt32Number manufacturer)
-{
-    swift_unimplemented_fatal("cmsSetHeaderManufacturer");
-}
-
-void cmsSetHeaderModel(cmsHPROFILE hProfile, cmsUInt32Number model)
-{
-    swift_unimplemented_fatal("cmsSetHeaderModel");
-}
-
-void cmsSetHeaderProfileID(cmsHPROFILE hProfile, cmsUInt8Number* ProfileID)
-{
-    swift_unimplemented_fatal("cmsSetHeaderProfileID");
-}
-
-void cmsSetHeaderRenderingIntent(cmsHPROFILE hProfile, cmsUInt32Number RenderingIntent)
-{
-    swift_unimplemented_fatal("cmsSetHeaderRenderingIntent");
-}
-
-void cmsSetPCS(cmsHPROFILE hProfile, cmsColorSpaceSignature pcs)
-{
-    swift_unimplemented_fatal("cmsSetPCS");
-}
-
-void cmsSetProfileVersion(cmsHPROFILE hProfile, cmsFloat64Number Version)
-{
-    swift_unimplemented_fatal("cmsSetProfileVersion");
-}
-
-cmsTagSignature cmsTagLinkedTo(cmsHPROFILE hProfile, cmsTagSignature sig)
-{
-    swift_unimplemented_fatal("cmsTagLinkedTo");
 }
 
 cmsHPROFILE cmsTransform2DeviceLink(cmsHTRANSFORM hTransform, cmsFloat64Number Version, cmsUInt32Number dwFlags)

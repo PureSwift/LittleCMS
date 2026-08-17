@@ -99,6 +99,34 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   ownership of the handler iff opened via `cmsOpenProfileFromIOhandler2THR`
   with... *(verify exact close policy against cmsio0.c in Phase 3)*.
 
+### Profile container + header (46) — `cmsOpenProfileFrom*`, `cmsCloseProfile`, `cmsCreateProfilePlaceholder`, `cmsGet/SetHeader*`, `cmsGetTagCount`, `cmsReadRawTag`, … — *implemented (reading; saving pending)*
+
+- **`_cmsICCPROFILE` carries no layout obligation.** It is declared only
+  in `lcms2_internal.h`, appears in neither shipped header, and the
+  upstream testbed never names it — so the profile is an ordinary Swift
+  object behind an opaque handle, unlike the stage data blocks.
+- **owner**: the profile owns its `cmsIOHANDLER` and closes it on
+  `cmsCloseProfile`; `cmsGetProfileIOhandler` lends it without transfer.
+- **errors**: `L` on open (bad signature / version / class / duplicate
+  tag all log); `0`/`-1` on the accessors, which never log.
+- A profile is trusted only as far as the file goes: a tag whose
+  offset+size falls outside the declared size is **skipped, not
+  refused**, and a declared size larger than the file is cut down to the
+  file. A *duplicate* tag signature, by contrast, refuses the profile.
+- Two tags over the same byte range are one tag under two names only if
+  their descriptors match exactly (element count and full type list) —
+  so `gXYZ` links to `rXYZ` but `cprt` sharing those bytes does not.
+- `cmsGetTagSignature`/`cmsGetTagOffsetAndSize` bound with `>` rather
+  than `>=`, so index == tag count reads the next table slot. Zero on a
+  freshly read profile. Reproduced rather than tightened.
+- The version field is **clamped into shape, not rejected**: major above
+  9 becomes 9, each nibble of the second byte clamps separately, and the
+  two reserved bytes are discarded. Done on the disk bytes before any
+  swap, which is why the answer does not depend on endianness.
+- `cmsCreateProfilePlaceholder` stamps the current time, so a new
+  profile's creation date is **not** differential-testable; a date read
+  out of a file is.
+
 ### Tag access (10) — `cmsReadTag`, `cmsWriteTag`, `cmsReadRawTag`, `cmsWriteRawTag`, `cmsLinkTag`, `cmsTagLinkedTo`, `cmsGetTagCount`, `cmsGetTagSignature`, …
 
 - **`cmsReadTag` is the load-bearing lifetime contract**: returns a pointer
