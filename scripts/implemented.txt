@@ -68,6 +68,8 @@ _cmsReadUInt64Number
 _cmsReadUInt8Number
 _cmsReadXYZNumber
 _cmsRealloc
+_cmsReasonableGridpointsByColorspace
+_cmsStageAllocIdentityCLut
 _cmsStageAllocIdentityCurves
 _cmsStageAllocLabV2ToV4
 _cmsStageAllocLabV4ToV2

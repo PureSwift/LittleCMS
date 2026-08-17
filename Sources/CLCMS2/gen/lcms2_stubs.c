@@ -76,20 +76,9 @@ cmsPipeline* _cmsReadOutputLUT(cmsHPROFILE hProfile, cmsUInt32Number Intent)
     swift_unimplemented_fatal("_cmsReadOutputLUT");
 }
 
-cmsUInt32Number _cmsReasonableGridpointsByColorspace(cmsColorSpaceSignature Colorspace, cmsUInt32Number dwFlags)
-{
-    swift_unimplemented_fatal("_cmsReasonableGridpointsByColorspace");
-}
-
 void _cmsSetTransformUserData(struct _cmstransform_struct *CMMcargo, void* ptr, _cmsFreeUserDataFn FreePrivateDataFn)
 {
     swift_unimplemented_fatal("_cmsSetTransformUserData");
-}
-
-cmsStage* _cmsStageAllocIdentityCLut(cmsContext ContextID, cmsUInt32Number nChan)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsStageAllocIdentityCLut is not implemented");
-    return (cmsStage*){0};
 }
 
 cmsStage* _cmsStageAllocLab2XYZ(cmsContext ContextID)

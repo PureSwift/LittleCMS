@@ -730,3 +730,36 @@ public func _cmsStageAllocLabV4ToV2(
     stage(mpe)?.implements = cmsSigLabV4toV2
     return mpe
 }
+
+/// A CLUT that changes nothing: two nodes on every axis, sampled with
+/// each node's own position.  Two is the fewest a grid can have and
+/// still interpolate, so this is the cheapest possible identity — and
+/// it exists because a device link has to carry a table even when the
+/// table does nothing.
+@c @implementation
+public func _cmsStageAllocIdentityCLut(
+    _ ContextID: cmsContext?,
+    _ nChan: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsStage>? {
+    var dimensions = [cmsUInt32Number](repeating: 2, count: Int(MAX_INPUT_DIMENSIONS))
+    guard let mpe = cmsStageAllocCLut16bitGranular(
+        ContextID, &dimensions, nChan, nChan, nil
+    ) else { return nil }
+
+    var channels = nChan
+    let sampled = withUnsafeMutablePointer(to: &channels) { cargo in
+        cmsStageSampleCLut16bit(mpe, { input, output, cargo in
+            guard let input, let output, let cargo else { return 0 }
+            let n = Int(cargo.assumingMemoryBound(to: cmsUInt32Number.self).pointee)
+            for i in 0..<n { output[i] = input[i] }
+            return 1
+        }, UnsafeMutableRawPointer(cargo), 0)
+    }
+    if sampled == 0 {
+        cmsStageFree(mpe)
+        return nil
+    }
+
+    stage(mpe)?.implements = cmsSigIdentityElemType
+    return mpe
+}

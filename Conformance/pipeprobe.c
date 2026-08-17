@@ -15,6 +15,10 @@ CMSAPI cmsStage* CMSEXPORT _cmsStageAllocIdentityCurves(cmsContext ContextID,
                                                         cmsUInt32Number nChannels);
 CMSAPI cmsStage* CMSEXPORT _cmsStageAllocLabV2ToV4(cmsContext ContextID);
 CMSAPI cmsStage* CMSEXPORT _cmsStageAllocLabV4ToV2(cmsContext ContextID);
+CMSAPI cmsStage* CMSEXPORT _cmsStageAllocIdentityCLut(cmsContext ContextID,
+                                                      cmsUInt32Number nChan);
+CMSAPI cmsUInt32Number CMSEXPORT _cmsReasonableGridpointsByColorspace(
+    cmsColorSpaceSignature Colorspace, cmsUInt32Number dwFlags);
 
 #include <stdint.h>
 #include <stdio.h>
@@ -293,6 +297,43 @@ int main(void)
         run(copy, "identity curves duplicated");
         cmsPipelineFree(copy);
         cmsPipelineFree(ident);
+    }
+
+    /* -- the identity CLUT and the grid heuristic ----------------------------- */
+    {
+        /* Two nodes on every axis is the fewest that still interpolate,
+         * so this is the cheapest table that changes nothing. */
+        for (int chans = 1; chans <= 4; chans++) {
+            cmsPipeline* lut = cmsPipelineAlloc(NULL, (cmsUInt32Number) chans,
+                                                (cmsUInt32Number) chans);
+            cmsStage* clut = _cmsStageAllocIdentityCLut(NULL, (cmsUInt32Number) chans);
+            printf("identity clut %d type %08x\n", chans,
+                   (unsigned) cmsStageType(clut));
+            cmsPipelineInsertStage(lut, cmsAT_END, clut);
+
+            char label[32];
+            snprintf(label, sizeof label, "identity clut %d", chans);
+            run(lut, label);
+            cmsPipelineFree(lut);
+        }
+
+        /* How fine a grid a transform is precalculated onto: a number in
+         * the flags wins outright, otherwise it depends on the channel
+         * count and which precision flag is set. */
+        static const cmsColorSpaceSignature spaces[] = {
+            cmsSigGrayData, cmsSigRgbData, cmsSigCmykData, cmsSigMCH6Data,
+            (cmsColorSpaceSignature) 0
+        };
+        static const cmsUInt32Number flagsets[] = {
+            0, cmsFLAGS_HIGHRESPRECALC, cmsFLAGS_LOWRESPRECALC,
+            cmsFLAGS_GRIDPOINTS(11), cmsFLAGS_GRIDPOINTS(255),
+            cmsFLAGS_GRIDPOINTS(31) | cmsFLAGS_HIGHRESPRECALC
+        };
+        for (size_t i = 0; i < sizeof spaces / sizeof spaces[0]; i++)
+            for (size_t j = 0; j < sizeof flagsets / sizeof flagsets[0]; j++)
+                printf("grid %08x flags %08x -> %u\n",
+                       (unsigned) spaces[i], (unsigned) flagsets[j],
+                       _cmsReasonableGridpointsByColorspace(spaces[i], flagsets[j]));
     }
 
     printf("pipeline probe OK\n");

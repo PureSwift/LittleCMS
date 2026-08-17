@@ -169,3 +169,39 @@ public func _cmsFreeInterpParams(_ p: UnsafeMutablePointer<cmsInterpParams>?) {
     guard let p else { return }
     _cmsFree(p.pointee.ContextID, UnsafeMutableRawPointer(p))
 }
+
+/// How fine a grid to precalculate a transform onto.
+///
+/// A caller may name the number outright by packing it into bits 16-23
+/// of the flags, and that wins over everything else.  Otherwise the
+/// answer is a table indexed by channel count and by which of the two
+/// precision flags is set — coarser for more channels, because the cost
+/// is the count raised to that power.
+@c @implementation
+public func _cmsReasonableGridpointsByColorspace(
+    _ Colorspace: cmsColorSpaceSignature,
+    _ dwFlags: cmsUInt32Number
+) -> cmsUInt32Number {
+    // A grid size given explicitly in the flags.
+    if dwFlags & 0x00FF_0000 != 0 {
+        return (dwFlags >> 16) & 0xFF
+    }
+
+    let channels = cmsChannelsOf(Colorspace)
+
+    if dwFlags & cmsUInt32Number(cmsFLAGS_HIGHRESPRECALC) != 0 {
+        if channels > 4 { return 7 }        // hifi
+        if channels == 4 { return 23 }      // CMYK
+        return 49                           // RGB and the rest
+    }
+
+    if dwFlags & cmsUInt32Number(cmsFLAGS_LOWRESPRECALC) != 0 {
+        if channels > 4 { return 6 }
+        if channels == 1 { return 33 }      // monochrome gets *more*
+        return 17
+    }
+
+    if channels > 4 { return 7 }
+    if channels == 4 { return 17 }
+    return 33
+}
