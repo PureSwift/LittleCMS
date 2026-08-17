@@ -1606,6 +1606,112 @@ int main(void)
         cmsCloseProfile(h);
     }
 
+    /* -- the last two types --------------------------------------------------- */
+    {
+        cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+        cmsSetProfileVersion(h, 4.3);
+
+        /* crdinfo files five counted strings in one container under a
+         * made-up language, using it as a five-slot record rather than
+         * as locales. */
+        cmsMLU* crd = cmsMLUalloc(NULL, 5);
+        cmsMLUsetASCII(crd, "PS", "nm", "a CRD name");
+        cmsMLUsetASCII(crd, "PS", "#0", "rendering zero");
+        cmsMLUsetASCII(crd, "PS", "#1", "rendering one");
+        cmsMLUsetASCII(crd, "PS", "#2", "rendering two");
+        cmsMLUsetASCII(crd, "PS", "#3", "rendering three");
+        printf("crdinfo write %d\n", cmsWriteTag(h, cmsSigCrdInfoTag, crd));
+        cmsMLUfree(crd);
+
+        /* MHC2 both ways: with a real matrix and with the identity,
+         * which is written as an absent one. */
+        for (int withMatrix = 1; withMatrix >= 0; withMatrix--) {
+            cmsHPROFILE m = cmsCreateProfilePlaceholder(NULL);
+            cmsSetProfileVersion(m, 4.3);
+
+            cmsMHC2Type mhc2;
+            memset(&mhc2, 0, sizeof mhc2);
+            mhc2.CurveEntries = 8;
+            cmsFloat64Number r[8], g[8], b[8];
+            for (int i = 0; i < 8; i++) {
+                r[i] = i / 7.0; g[i] = (i / 7.0) * 0.9; b[i] = (i / 7.0) * 0.8;
+            }
+            mhc2.RedCurve = r; mhc2.GreenCurve = g; mhc2.BlueCurve = b;
+            mhc2.MinLuminance = 0.005;
+            mhc2.PeakLuminance = 1000.0;
+            for (int i = 0; i < 3; i++)
+                for (int j = 0; j < 4; j++)
+                    mhc2.XYZ2XYZmatrix[i][j] = (i == j) ? 1.0 : 0.0;
+            if (withMatrix) mhc2.XYZ2XYZmatrix[0][1] = 0.05;
+
+            printf("mhc2 %s write %d\n", withMatrix ? "matrix" : "identity",
+                   cmsWriteTag(m, cmsSigMHC2Tag, &mhc2));
+
+            cmsUInt32Number mneed = 0;
+            cmsSaveProfileToMem(m, NULL, &mneed);
+            unsigned char* mout = (unsigned char*) calloc(1, mneed ? mneed : 1);
+            cmsUInt32Number mroom = mneed;
+            cmsSaveProfileToMem(m, mout, &mroom);
+            feed_saved(mout, mneed);
+            printf("  saved %u\n", mneed);
+
+            cmsHPROFILE mback = cmsOpenProfileFromMem(mout, mneed);
+            cmsMHC2Type* got = (cmsMHC2Type*) cmsReadTag(mback, cmsSigMHC2Tag);
+            printf("  read %d entries %u min %.6f peak %.6f\n", got != NULL,
+                   got ? got->CurveEntries : 0,
+                   got ? got->MinLuminance : 0.0, got ? got->PeakLuminance : 0.0);
+            if (got) {
+                printf("    matrix row0 %.6f %.6f %.6f %.6f\n",
+                       got->XYZ2XYZmatrix[0][0], got->XYZ2XYZmatrix[0][1],
+                       got->XYZ2XYZmatrix[0][2], got->XYZ2XYZmatrix[0][3]);
+                for (cmsUInt32Number i = 0; i < got->CurveEntries; i++) {
+                    feed(&got->RedCurve[i], sizeof got->RedCurve[i]);
+                    feed(&got->GreenCurve[i], sizeof got->GreenCurve[i]);
+                    feed(&got->BlueCurve[i], sizeof got->BlueCurve[i]);
+                }
+            }
+            report(withMatrix ? "mhc2 with matrix" : "mhc2 identity");
+
+            cmsUInt32Number magain = 0;
+            cmsSaveProfileToMem(mback, NULL, &magain);
+            unsigned char* mtwice = (unsigned char*) calloc(1, magain ? magain : 1);
+            cmsUInt32Number mroom2 = magain;
+            cmsSaveProfileToMem(mback, mtwice, &mroom2);
+            printf("  re-saved %u identical %d\n", magain,
+                   magain == mneed && memcmp(mout, mtwice, magain) == 0);
+
+            free(mtwice);
+            cmsCloseProfile(mback);
+            free(mout);
+            cmsCloseProfile(m);
+        }
+
+        cmsUInt32Number needed = 0;
+        cmsSaveProfileToMem(h, NULL, &needed);
+        unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+        cmsUInt32Number room = needed;
+        cmsSaveProfileToMem(h, out, &room);
+        feed_saved(out, needed);
+
+        cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+        cmsMLU* rcrd = (cmsMLU*) cmsReadTag(back, cmsSigCrdInfoTag);
+        printf("crdinfo read %d\n", rcrd != NULL);
+        if (rcrd) {
+            static const char* sections[5] = { "nm", "#0", "#1", "#2", "#3" };
+            for (int i = 0; i < 5; i++) {
+                char t[64];
+                memset(t, 0, sizeof t);
+                cmsMLUgetASCII(rcrd, "PS", sections[i], t, sizeof t);
+                printf("  %s '%s'\n", sections[i], t);
+            }
+        }
+        report("crdinfo");
+
+        cmsCloseProfile(back);
+        free(out);
+        cmsCloseProfile(h);
+    }
+
     printf("profile probe OK\n");
     return 0;
 }

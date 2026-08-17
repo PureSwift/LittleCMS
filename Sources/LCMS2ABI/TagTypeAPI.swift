@@ -493,6 +493,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     table[cmsSigProfileSequenceDescType] = profileSequenceTagType
     table[cmsSigProfileSequenceIdType] = profileSequenceIDTagType
     table.merge(printingTagTypes) { existing, _ in existing }
+    table.merge(remainingTagTypes) { existing, _ in existing }
 
     return table
 }()
@@ -3295,5 +3296,256 @@ let printingTagTypes: [cmsTagTypeSignature: TagTypeHandler] = [
             _cmsDupMem(context, pointer, cmsUInt32Number(MemoryLayout<cmsScreening>.size))
         },
         free: freePlainBlock
+    ),
+]
+
+// -- the PostScript rendering-dictionary names -----------------------------------
+
+/// `crdi`: five counted strings, filed in one container under a made-up
+/// language of `PS` and section codes for a country.  They are not
+/// locales at all — the multi-localized container is being used as a
+/// five-slot record.
+private let crdInfoSections = ["nm", "#0", "#1", "#2", "#3"]
+
+@Sendable private func readCrdInfo(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    guard let mlu = cmsMLUalloc(context, 5), let read = io.pointee.Read else { return nil }
+
+    func fail() -> UnsafeMutableRawPointer? {
+        cmsMLUfree(mlu)
+        return nil
+    }
+
+    var remaining = sizeOfTag
+    for section in crdInfoSections {
+        if remaining < 4 { return fail() }
+        var count: cmsUInt32Number = 0
+        if _cmsReadUInt32Number(io, &count) == 0 { return fail() }
+        if count > cmsUInt32Number.max - 4 { return fail() }
+        if remaining < count + 4 { return fail() }
+
+        guard let text = _cmsMalloc(context, count + 1) else { return fail() }
+        defer { _cmsFree(context, text) }
+
+        if count > 0, read(io, text, 1, count) != count { return fail() }
+        text.assumingMemoryBound(to: CChar.self)[Int(count)] = 0
+        _ = cmsMLUsetASCII(mlu, "PS", section, text.assumingMemoryBound(to: CChar.self))
+
+        remaining -= count + 4
+    }
+
+    items = 1
+    return UnsafeMutableRawPointer(mlu)
+}
+
+@Sendable private func writeCrdInfo(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number,
+    _ version: cmsUInt32Number
+) -> Bool {
+    guard let write = io.pointee.Write else { return false }
+    let mlu = object.assumingMemoryBound(to: cmsMLU.self)
+
+    for section in crdInfoSections {
+        let size = cmsMLUgetASCII(mlu, "PS", section, nil, 0)
+        guard let text = _cmsMalloc(context, size) else { return false }
+        defer { _cmsFree(context, text) }
+
+        if _cmsWriteUInt32Number(io, size) == 0 { return false }
+        if cmsMLUgetASCII(
+            mlu, "PS", section, text.assumingMemoryBound(to: CChar.self), size
+        ) == 0 { return false }
+        if write(io, size, text) == 0 { return false }
+    }
+    return true
+}
+
+// -- the HDR calibration type ------------------------------------------------------
+
+/// `MHC2`: three curves and a 3x4 matrix, each reached through an offset
+/// so the matrix can be omitted when it is the identity.  Each curve
+/// block is preceded by a type signature and a filler word that the
+/// reader steps over rather than checking.
+@Sendable private func readMHC2(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    guard let tell = io.pointee.Tell, let seek = io.pointee.Seek else { return nil }
+    let base = tell(io) - tagBaseSize
+
+    guard let raw = _cmsCalloc(context, 1, cmsUInt32Number(MemoryLayout<cmsMHC2Type>.size))
+    else { return nil }
+    let mhc2 = raw.assumingMemoryBound(to: cmsMHC2Type.self)
+
+    func fail() -> UnsafeMutableRawPointer? {
+        _cmsFree(context, mhc2.pointee.RedCurve)
+        _cmsFree(context, mhc2.pointee.GreenCurve)
+        _cmsFree(context, mhc2.pointee.BlueCurve)
+        _cmsFree(context, raw)
+        return nil
+    }
+
+    if _cmsReadUInt32Number(io, &mhc2.pointee.CurveEntries) == 0 { return fail() }
+    if mhc2.pointee.CurveEntries > 4096 { return fail() }
+
+    let entries = mhc2.pointee.CurveEntries
+    let width = cmsUInt32Number(MemoryLayout<cmsFloat64Number>.size)
+    mhc2.pointee.RedCurve = _cmsCalloc(context, entries, width)?
+        .assumingMemoryBound(to: cmsFloat64Number.self)
+    mhc2.pointee.GreenCurve = _cmsCalloc(context, entries, width)?
+        .assumingMemoryBound(to: cmsFloat64Number.self)
+    mhc2.pointee.BlueCurve = _cmsCalloc(context, entries, width)?
+        .assumingMemoryBound(to: cmsFloat64Number.self)
+    guard mhc2.pointee.RedCurve != nil, mhc2.pointee.GreenCurve != nil,
+          mhc2.pointee.BlueCurve != nil
+    else { return fail() }
+
+    if _cmsRead15Fixed16Number(io, &mhc2.pointee.MinLuminance) == 0 { return fail() }
+    if _cmsRead15Fixed16Number(io, &mhc2.pointee.PeakLuminance) == 0 { return fail() }
+
+    var matrixOffset: cmsUInt32Number = 0
+    var redOffset: cmsUInt32Number = 0
+    var greenOffset: cmsUInt32Number = 0
+    var blueOffset: cmsUInt32Number = 0
+    if _cmsReadUInt32Number(io, &matrixOffset) == 0 { return fail() }
+    if _cmsReadUInt32Number(io, &redOffset) == 0 { return fail() }
+    if _cmsReadUInt32Number(io, &greenOffset) == 0 { return fail() }
+    if _cmsReadUInt32Number(io, &blueOffset) == 0 { return fail() }
+
+    func readDoubles(
+        at position: cmsUInt32Number, _ count: Int, _ into: UnsafeMutablePointer<cmsFloat64Number>
+    ) -> Bool {
+        let here = tell(io)
+        if seek(io, position) == 0 { return false }
+        for i in 0..<count where _cmsRead15Fixed16Number(io, into + i) == 0 { return false }
+        return seek(io, here) != 0
+    }
+
+    let matrix = withUnsafeMutableBytes(of: &mhc2.pointee.XYZ2XYZmatrix) {
+        $0.baseAddress!.assumingMemoryBound(to: cmsFloat64Number.self)
+    }
+    if matrixOffset == 0 {
+        // Absent means the identity, which is written out as an
+        // augmented 3x4 with a zero translation column.
+        for i in 0..<12 { matrix[i] = 0 }
+        matrix[0] = 1.0
+        matrix[5] = 1.0
+        matrix[10] = 1.0
+    } else if !readDoubles(at: base + matrixOffset, 12, matrix) {
+        return fail()
+    }
+
+    // Each table is preceded by a type signature and a filler word.
+    if !readDoubles(at: base + redOffset + 8, Int(entries), mhc2.pointee.RedCurve!) {
+        return fail()
+    }
+    if !readDoubles(at: base + greenOffset + 8, Int(entries), mhc2.pointee.GreenCurve!) {
+        return fail()
+    }
+    if !readDoubles(at: base + blueOffset + 8, Int(entries), mhc2.pointee.BlueCurve!) {
+        return fail()
+    }
+
+    items = 1
+    return raw
+}
+
+@Sendable private func writeMHC2(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number,
+    _ version: cmsUInt32Number
+) -> Bool {
+    guard let tell = io.pointee.Tell, let seek = io.pointee.Seek else { return false }
+    let mhc2 = object.assumingMemoryBound(to: cmsMHC2Type.self)
+    let base = tell(io) - tagBaseSize
+
+    if _cmsWriteUInt32Number(io, mhc2.pointee.CurveEntries) == 0 { return false }
+    if _cmsWrite15Fixed16Number(io, mhc2.pointee.MinLuminance) == 0 { return false }
+    if _cmsWrite15Fixed16Number(io, mhc2.pointee.PeakLuminance) == 0 { return false }
+
+    let directory = tell(io)
+    for _ in 0..<4 where _cmsWriteUInt32Number(io, 0) == 0 { return false }
+
+    func writeDoubles(_ count: Int, _ from: UnsafePointer<cmsFloat64Number>) -> Bool {
+        for i in 0..<count where _cmsWrite15Fixed16Number(io, from[i]) == 0 { return false }
+        return true
+    }
+
+    var matrixOffset: cmsUInt32Number = 0
+    let identity = withUnsafeBytes(of: mhc2.pointee.XYZ2XYZmatrix) { raw -> Bool in
+        let m = raw.bindMemory(to: cmsFloat64Number.self)
+        for row in 0..<3 {
+            for column in 0..<4 {
+                let expected: cmsFloat64Number = row == column ? 1.0 : 0.0
+                if m[row * 4 + column] != expected { return false }
+            }
+        }
+        return true
+    }
+    if !identity {
+        matrixOffset = tell(io) - base
+        let ok = withUnsafeBytes(of: mhc2.pointee.XYZ2XYZmatrix) { raw in
+            writeDoubles(12, raw.bindMemory(to: cmsFloat64Number.self).baseAddress!)
+        }
+        if !ok { return false }
+    }
+
+    var offsets = [cmsUInt32Number](repeating: 0, count: 3)
+    let curves = [mhc2.pointee.RedCurve, mhc2.pointee.GreenCurve, mhc2.pointee.BlueCurve]
+    for (i, curve) in curves.enumerated() {
+        guard let curve else { return false }
+        offsets[i] = tell(io) - base
+        // The signature and filler the reader steps over.
+        if _cmsWriteUInt32Number(io, cmsSigS15Fixed16ArrayType.rawValue) == 0 { return false }
+        if _cmsWriteUInt32Number(io, 0) == 0 { return false }
+        if !writeDoubles(Int(mhc2.pointee.CurveEntries), curve) { return false }
+    }
+
+    let end = tell(io)
+    if seek(io, directory) == 0 { return false }
+    if _cmsWriteUInt32Number(io, matrixOffset) == 0 { return false }
+    for value in offsets where _cmsWriteUInt32Number(io, value) == 0 { return false }
+    return seek(io, end) != 0
+}
+
+let remainingTagTypes: [cmsTagTypeSignature: TagTypeHandler] = [
+    cmsSigCrdInfoType: TagTypeHandler(
+        signature: cmsSigCrdInfoType, read: readCrdInfo, write: writeCrdInfo,
+        duplicate: { _, pointer, _ in
+            UnsafeMutableRawPointer(cmsMLUdup(
+                UnsafeMutablePointer(mutating: pointer.assumingMemoryBound(to: cmsMLU.self))
+            ))
+        },
+        free: { _, object in cmsMLUfree(object.assumingMemoryBound(to: cmsMLU.self)) }
+    ),
+    cmsSigMHC2Type: TagTypeHandler(
+        signature: cmsSigMHC2Type, read: readMHC2, write: writeMHC2,
+        duplicate: { context, pointer, _ in
+            let source = pointer.assumingMemoryBound(to: cmsMHC2Type.self)
+            guard let raw = _cmsDupMem(
+                context, pointer, cmsUInt32Number(MemoryLayout<cmsMHC2Type>.size)
+            ) else { return nil }
+            let copy = raw.assumingMemoryBound(to: cmsMHC2Type.self)
+            let bytes = source.pointee.CurveEntries
+                * cmsUInt32Number(MemoryLayout<cmsFloat64Number>.size)
+            copy.pointee.RedCurve = _cmsDupMem(context, source.pointee.RedCurve, bytes)?
+                .assumingMemoryBound(to: cmsFloat64Number.self)
+            copy.pointee.GreenCurve = _cmsDupMem(context, source.pointee.GreenCurve, bytes)?
+                .assumingMemoryBound(to: cmsFloat64Number.self)
+            copy.pointee.BlueCurve = _cmsDupMem(context, source.pointee.BlueCurve, bytes)?
+                .assumingMemoryBound(to: cmsFloat64Number.self)
+            return raw
+        },
+        free: { context, object in
+            let value = object.assumingMemoryBound(to: cmsMHC2Type.self)
+            _cmsFree(context, value.pointee.RedCurve)
+            _cmsFree(context, value.pointee.GreenCurve)
+            _cmsFree(context, value.pointee.BlueCurve)
+            _cmsFree(context, object)
+        }
     ),
 ]

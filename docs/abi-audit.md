@@ -160,7 +160,7 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   back — so computing the identifier changes only the identifier, and
   the identifier does not depend on those three fields.
 
-### Tag access + tag types — `cmsReadTag`, `cmsWriteTag`, `cmsReadRawTag`, `cmsWriteRawTag`, `cmsLinkTag`, … — *machinery + fixed-size value types implemented*
+### Tag access + tag types — `cmsReadTag`, `cmsWriteTag`, `cmsReadRawTag`, `cmsWriteRawTag`, `cmsLinkTag`, … — *implemented, all types*
 
 - **`cmsReadTag`'s pointer belongs to the profile.** It is valid until
   `cmsCloseProfile`, repeated reads of one tag return the *same* pointer
@@ -309,6 +309,14 @@ Legend — **owner**: who frees a returned pointer, and with which function.
 - `scrn` **clamps** a channel count past the ceiling rather than
   refusing it, so a malformed tag reads back shorter than it claimed
   instead of failing.
+- `crdi` files five counted strings in one multi-localized container
+  under a made-up language of `PS` with section codes for a country.
+  They are not locales; the container is being used as a five-slot
+  record.
+- `MHC2` reaches its three curves and its 3x4 matrix through offsets, so
+  an identity matrix is written as **absent** rather than as ones and
+  zeroes — 300 bytes against 348. Each curve block is preceded by a type
+  signature and a filler word the reader steps over without checking.
 - Two reference leaks are **not** reproduced (`Type_Signature_Read` and
   `Type_DateTime_Read` drop their block on a failed read). A leak is not
   observable through the ABI.
