@@ -161,6 +161,10 @@ add_executable(clutprobe_ours clutprobe.c)
 target_link_libraries(clutprobe_ours PRIVATE lcms2)
 add_test(NAME clut_probe COMMAND clutprobe_ours)
 
+add_executable(fmtprobe_ours fmtprobe.c)
+target_link_libraries(fmtprobe_ours PRIVATE lcms2)
+add_test(NAME formatter_probe COMMAND fmtprobe_ours)
+
 add_executable(profileprobe_ours profileprobe.c)
 target_link_libraries(profileprobe_ours PRIVATE lcms2)
 slcms_probe_uses_math(profileprobe_ours)
@@ -302,6 +306,15 @@ if(SLCMS_REFERENCE_FOUND)
                 $<TARGET_FILE:clutprobe_ours>
                 $<TARGET_FILE:clutprobe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+
+    add_executable(fmtprobe_reference fmtprobe.c)
+    target_link_libraries(fmtprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME formatter_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:fmtprobe_ours>
+                $<TARGET_FILE:fmtprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences-formatter.txt)
 
     add_executable(profileprobe_reference profileprobe.c)
     target_link_libraries(profileprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)

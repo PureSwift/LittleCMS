@@ -42,6 +42,7 @@ _cmsEncodeDateTimeNumber
 _cmsFloat2Half
 _cmsFree
 _cmsFreeInterpParams
+_cmsGetFormatter
 _cmsHalf2Float
 _cmsIOPrintf
 _cmsLockMutex

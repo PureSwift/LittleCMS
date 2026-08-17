@@ -12,4 +12,5 @@
 # Markers are matched as fixed substrings, so no globbing; they may not
 # contain whitespace, since only the first field is read.
 #
+
 # (empty)

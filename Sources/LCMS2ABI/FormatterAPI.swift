@@ -141,92 +141,6 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
     return accum
 }
 
-/// Builds an interleaved byte unpacker for a fixed channel order.
-/// `order` maps buffer position to working-channel index, which is the
-/// whole of what distinguishes RGB from BGR from ARGB.
-private func byteUnpacker(
-    _ order: [Int], skip: Int = 0, invert: Bool = false
-) -> @Sendable (
-    OpaquePointer?,
-    UnsafeMutablePointer<cmsUInt16Number>?,
-    UnsafeMutablePointer<cmsUInt8Number>?,
-    cmsUInt32Number
-) -> UnsafeMutablePointer<cmsUInt8Number>? {
-    { _, wIn, accum, _ in
-        guard let wIn, var accum else { return accum }
-        accum += skip
-        for slot in order {
-            let raw = invert ? reversed(accum.pointee) : accum.pointee
-            wIn[slot] = widen(raw)
-            accum += 1
-        }
-        return accum
-    }
-}
-
-private func bytePacker(
-    _ order: [Int], skip: Int = 0, invert: Bool = false
-) -> @Sendable (
-    OpaquePointer?,
-    UnsafeMutablePointer<cmsUInt16Number>?,
-    UnsafeMutablePointer<cmsUInt8Number>?,
-    cmsUInt32Number
-) -> UnsafeMutablePointer<cmsUInt8Number>? {
-    { _, wOut, output, _ in
-        guard let wOut, var output else { return output }
-        output += skip
-        for slot in order {
-            let value = narrow(wOut[slot])
-            output.pointee = invert ? reversed(value) : value
-            output += 1
-        }
-        return output
-    }
-}
-
-/// The word formatters read and write in the host's byte order, not the
-/// file's — a 16-bit buffer belongs to the client, and the byte-swapped
-/// layouts are named separately for the cases where it does not.
-private func wordUnpacker(
-    _ order: [Int], skip: Int = 0
-) -> @Sendable (
-    OpaquePointer?,
-    UnsafeMutablePointer<cmsUInt16Number>?,
-    UnsafeMutablePointer<cmsUInt8Number>?,
-    cmsUInt32Number
-) -> UnsafeMutablePointer<cmsUInt8Number>? {
-    { _, wIn, accum, _ in
-        guard let wIn, var accum else { return accum }
-        accum += skip * 2
-        for slot in order {
-            wIn[slot] = UnsafeRawPointer(accum).loadUnaligned(as: cmsUInt16Number.self)
-            accum += 2
-        }
-        return accum
-    }
-}
-
-private func wordPacker(
-    _ order: [Int], skip: Int = 0
-) -> @Sendable (
-    OpaquePointer?,
-    UnsafeMutablePointer<cmsUInt16Number>?,
-    UnsafeMutablePointer<cmsUInt8Number>?,
-    cmsUInt32Number
-) -> UnsafeMutablePointer<cmsUInt8Number>? {
-    { _, wOut, output, _ in
-        guard let wOut, var output else { return output }
-        output += skip * 2
-        for slot in order {
-            UnsafeMutableRawPointer(output).storeBytes(
-                of: wOut[slot], as: cmsUInt16Number.self
-            )
-            output += 2
-        }
-        return output
-    }
-}
-
 @Sendable private func unroll1Word(
     _ info: OpaquePointer?,
     _ wIn: UnsafeMutablePointer<cmsUInt16Number>?,
@@ -240,4 +154,621 @@ private func wordPacker(
     wIn[2] = v
     accum += 2
     return accum
+}
+
+// -- the tables ----------------------------------------------------------------
+
+// What is present, and why leaving the rest out is safe.
+//
+// The reference's table opens with eight float and double entries before
+// the first integer one.  Those are not here yet, which is a gap in the
+// middle rather than at the end — so the earlier claim that only a
+// prefix is safe was too coarse.  The precise rule is:
+//
+//   omitting an entry is safe when no layout it would have caught
+//   matches any later entry that *is* present.
+//
+// For the float entries that holds by construction.  Every one of them
+// carries FLOAT_SH(1), and no integer entry masks the float bit away, so
+// a float layout cannot fall through into an integer entry: it matches
+// nothing and is reported unsupported.  Equally, an integer layout can
+// never have matched a float entry in the first place.  The two halves
+// of the table do not overlap, so they can be filled in independently.
+//
+// Within each half the ordering still matters and is the reference's.
+
+// One function per channel ordering, written out rather than built.
+//
+// A C function pointer cannot capture, so the order cannot be passed to
+// a shared builder -- it has to be in the function.  That is exactly why
+// the reference has a separate function per ordering too, and why there
+// are a hundred and twenty-four of them.
+
+@Sendable private func unrollBytes3(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[0] = widen(p.pointee)
+    p += 1
+    values[1] = widen(p.pointee)
+    p += 1
+    values[2] = widen(p.pointee)
+    p += 1
+    return p
+}
+
+@Sendable private func unrollBytes3Swap(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[2] = widen(p.pointee)
+    p += 1
+    values[1] = widen(p.pointee)
+    p += 1
+    values[0] = widen(p.pointee)
+    p += 1
+    return p
+}
+
+@Sendable private func unrollBytes3Skip1Swap(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p += 1
+    values[2] = widen(p.pointee)
+    p += 1
+    values[1] = widen(p.pointee)
+    p += 1
+    values[0] = widen(p.pointee)
+    p += 1
+    return p
+}
+
+@Sendable private func unrollBytes3Skip1SwapFirst(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p += 1
+    values[0] = widen(p.pointee)
+    p += 1
+    values[1] = widen(p.pointee)
+    p += 1
+    values[2] = widen(p.pointee)
+    p += 1
+    return p
+}
+
+@Sendable private func unrollBytes4(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[0] = widen(p.pointee)
+    p += 1
+    values[1] = widen(p.pointee)
+    p += 1
+    values[2] = widen(p.pointee)
+    p += 1
+    values[3] = widen(p.pointee)
+    p += 1
+    return p
+}
+
+@Sendable private func unrollBytes4Reverse(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[0] = widen(reversed(p.pointee))
+    p += 1
+    values[1] = widen(reversed(p.pointee))
+    p += 1
+    values[2] = widen(reversed(p.pointee))
+    p += 1
+    values[3] = widen(reversed(p.pointee))
+    p += 1
+    return p
+}
+
+@Sendable private func unrollBytes4SwapFirst(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[3] = widen(p.pointee)
+    p += 1
+    values[0] = widen(p.pointee)
+    p += 1
+    values[1] = widen(p.pointee)
+    p += 1
+    values[2] = widen(p.pointee)
+    p += 1
+    return p
+}
+
+@Sendable private func unrollBytes4Swap(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[3] = widen(p.pointee)
+    p += 1
+    values[2] = widen(p.pointee)
+    p += 1
+    values[1] = widen(p.pointee)
+    p += 1
+    values[0] = widen(p.pointee)
+    p += 1
+    return p
+}
+
+@Sendable private func unrollBytes4SwapSwapFirst(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[2] = widen(p.pointee)
+    p += 1
+    values[1] = widen(p.pointee)
+    p += 1
+    values[0] = widen(p.pointee)
+    p += 1
+    values[3] = widen(p.pointee)
+    p += 1
+    return p
+}
+
+@Sendable private func unrollWords2(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[0] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[1] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func unrollWords3(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[0] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[1] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[2] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func unrollWords3Swap(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[2] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[1] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[0] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func unrollWords4(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[0] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[1] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[2] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[3] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func unrollWords4Swap(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[3] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[2] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[1] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[0] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func unrollWords4SwapFirst(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[3] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[0] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[1] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[2] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func unrollWords4SwapSwapFirst(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[2] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[1] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[0] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    values[3] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func packBytes1(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p.pointee = narrow(values[0])
+    p += 1
+    return p
+}
+
+@Sendable private func packBytes3(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p.pointee = narrow(values[0])
+    p += 1
+    p.pointee = narrow(values[1])
+    p += 1
+    p.pointee = narrow(values[2])
+    p += 1
+    return p
+}
+
+@Sendable private func packBytes3Swap(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p.pointee = narrow(values[2])
+    p += 1
+    p.pointee = narrow(values[1])
+    p += 1
+    p.pointee = narrow(values[0])
+    p += 1
+    return p
+}
+
+@Sendable private func packBytes4(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p.pointee = narrow(values[0])
+    p += 1
+    p.pointee = narrow(values[1])
+    p += 1
+    p.pointee = narrow(values[2])
+    p += 1
+    p.pointee = narrow(values[3])
+    p += 1
+    return p
+}
+
+@Sendable private func packBytes4Reverse(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p.pointee = reversed(narrow(values[0]))
+    p += 1
+    p.pointee = reversed(narrow(values[1]))
+    p += 1
+    p.pointee = reversed(narrow(values[2]))
+    p += 1
+    p.pointee = reversed(narrow(values[3]))
+    p += 1
+    return p
+}
+
+@Sendable private func packBytes4Swap(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p.pointee = narrow(values[3])
+    p += 1
+    p.pointee = narrow(values[2])
+    p += 1
+    p.pointee = narrow(values[1])
+    p += 1
+    p.pointee = narrow(values[0])
+    p += 1
+    return p
+}
+
+@Sendable private func packBytes4SwapFirst(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p.pointee = narrow(values[3])
+    p += 1
+    p.pointee = narrow(values[0])
+    p += 1
+    p.pointee = narrow(values[1])
+    p += 1
+    p.pointee = narrow(values[2])
+    p += 1
+    return p
+}
+
+@Sendable private func packBytes4SwapSwapFirst(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p.pointee = narrow(values[2])
+    p += 1
+    p.pointee = narrow(values[1])
+    p += 1
+    p.pointee = narrow(values[0])
+    p += 1
+    p.pointee = narrow(values[3])
+    p += 1
+    return p
+}
+
+@Sendable private func packWords1(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    UnsafeMutableRawPointer(p).storeBytes(of: values[0], as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func packWords3(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    UnsafeMutableRawPointer(p).storeBytes(of: values[0], as: cmsUInt16Number.self)
+    p += 2
+    UnsafeMutableRawPointer(p).storeBytes(of: values[1], as: cmsUInt16Number.self)
+    p += 2
+    UnsafeMutableRawPointer(p).storeBytes(of: values[2], as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func packWords3Swap(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    UnsafeMutableRawPointer(p).storeBytes(of: values[2], as: cmsUInt16Number.self)
+    p += 2
+    UnsafeMutableRawPointer(p).storeBytes(of: values[1], as: cmsUInt16Number.self)
+    p += 2
+    UnsafeMutableRawPointer(p).storeBytes(of: values[0], as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func packWords4(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    UnsafeMutableRawPointer(p).storeBytes(of: values[0], as: cmsUInt16Number.self)
+    p += 2
+    UnsafeMutableRawPointer(p).storeBytes(of: values[1], as: cmsUInt16Number.self)
+    p += 2
+    UnsafeMutableRawPointer(p).storeBytes(of: values[2], as: cmsUInt16Number.self)
+    p += 2
+    UnsafeMutableRawPointer(p).storeBytes(of: values[3], as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func packWords4Swap(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    UnsafeMutableRawPointer(p).storeBytes(of: values[3], as: cmsUInt16Number.self)
+    p += 2
+    UnsafeMutableRawPointer(p).storeBytes(of: values[2], as: cmsUInt16Number.self)
+    p += 2
+    UnsafeMutableRawPointer(p).storeBytes(of: values[1], as: cmsUInt16Number.self)
+    p += 2
+    UnsafeMutableRawPointer(p).storeBytes(of: values[0], as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+/// The integer half of the input table, in the reference's order.
+let inputFormatters16: [FormatterEntry] = [
+    FormatterEntry(channelsSH(1) | bytesSH(1), Any_.space, unpack: unroll1Byte),
+    FormatterEntry(
+        channelsSH(1) | bytesSH(1) | flavorSH(1), Any_.space, unpack: unroll1ByteReversed
+    ),
+    FormatterEntry(channelsSH(3) | bytesSH(1), Any_.space, unpack: unrollBytes3),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(1) | doSwapSH(1), Any_.space, unpack: unrollBytes3Swap
+    ),
+    FormatterEntry(
+        channelsSH(3) | extraSH(1) | bytesSH(1) | doSwapSH(1), Any_.space,
+        unpack: unrollBytes3Skip1Swap
+    ),
+    FormatterEntry(
+        channelsSH(3) | extraSH(1) | bytesSH(1) | swapFirstSH(1), Any_.space,
+        unpack: unrollBytes3Skip1SwapFirst
+    ),
+    FormatterEntry(channelsSH(4) | bytesSH(1), Any_.space, unpack: unrollBytes4),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(1) | flavorSH(1), Any_.space, unpack: unrollBytes4Reverse
+    ),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(1) | swapFirstSH(1), Any_.space, unpack: unrollBytes4SwapFirst
+    ),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(1) | doSwapSH(1), Any_.space, unpack: unrollBytes4Swap
+    ),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(1) | doSwapSH(1) | swapFirstSH(1), Any_.space,
+        unpack: unrollBytes4SwapSwapFirst
+    ),
+    FormatterEntry(channelsSH(1) | bytesSH(2), Any_.space, unpack: unroll1Word),
+    FormatterEntry(channelsSH(2) | bytesSH(2), Any_.space, unpack: unrollWords2),
+    FormatterEntry(channelsSH(3) | bytesSH(2), Any_.space, unpack: unrollWords3),
+    FormatterEntry(channelsSH(4) | bytesSH(2), Any_.space, unpack: unrollWords4),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(2) | doSwapSH(1), Any_.space, unpack: unrollWords3Swap
+    ),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(2) | swapFirstSH(1), Any_.space, unpack: unrollWords4SwapFirst
+    ),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(2) | doSwapSH(1), Any_.space, unpack: unrollWords4Swap
+    ),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(2) | doSwapSH(1) | swapFirstSH(1), Any_.space,
+        unpack: unrollWords4SwapSwapFirst
+    ),
+]
+
+/// The integer half of the output table, in the reference's order.
+let outputFormatters16: [FormatterEntry] = [
+    FormatterEntry(channelsSH(1) | bytesSH(1), Any_.space, pack: packBytes1),
+    FormatterEntry(channelsSH(3) | bytesSH(1), Any_.space, pack: packBytes3),
+    FormatterEntry(channelsSH(3) | bytesSH(1) | doSwapSH(1), Any_.space, pack: packBytes3Swap),
+    FormatterEntry(channelsSH(4) | bytesSH(1), Any_.space, pack: packBytes4),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(1) | flavorSH(1), Any_.space, pack: packBytes4Reverse
+    ),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(1) | swapFirstSH(1), Any_.space, pack: packBytes4SwapFirst
+    ),
+    FormatterEntry(channelsSH(4) | bytesSH(1) | doSwapSH(1), Any_.space, pack: packBytes4Swap),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(1) | doSwapSH(1) | swapFirstSH(1), Any_.space,
+        pack: packBytes4SwapSwapFirst
+    ),
+    FormatterEntry(channelsSH(1) | bytesSH(2), Any_.space, pack: packWords1),
+    FormatterEntry(channelsSH(3) | bytesSH(2), Any_.space, pack: packWords3),
+    FormatterEntry(channelsSH(3) | bytesSH(2) | doSwapSH(1), Any_.space, pack: packWords3Swap),
+    FormatterEntry(channelsSH(4) | bytesSH(2), Any_.space, pack: packWords4),
+    FormatterEntry(channelsSH(4) | bytesSH(2) | doSwapSH(1), Any_.space, pack: packWords4Swap),
+]
+
+// -- the entry point -------------------------------------------------------------
+
+/// Picks a formatter for a layout.  A layout with no colour channels has
+/// no formatter by definition, and one the table does not cover returns
+/// an empty result rather than a wrong one.
+@c @implementation
+public func _cmsGetFormatter(
+    _ ContextID: cmsContext?,
+    _ Type: cmsUInt32Number,
+    _ Dir: cmsFormatterDirection,
+    _ dwFlags: cmsUInt32Number
+) -> cmsFormatter {
+    var result = cmsFormatter()
+
+    if PixelFormat(Type).channels == 0 { return result }
+    // Only the 16-bit half exists so far; a caller asking for the float
+    // path gets nothing, which is what an unsupported layout looks like.
+    if dwFlags != cmsUInt32Number(CMS_PACK_FLAGS_16BITS) { return result }
+
+    let table = Dir == cmsFormatterInput ? inputFormatters16 : outputFormatters16
+    guard let entry = selectFormatter(Type, from: table) else { return result }
+
+    result.Fmt16 = Dir == cmsFormatterInput ? entry.unpack : entry.pack
+    return result
 }

@@ -15,12 +15,6 @@ cmsPipeline* _cmsDefaultICCintents(cmsContext ContextID, cmsUInt32Number nProfil
     return (cmsPipeline*){0};
 }
 
-cmsFormatter _cmsGetFormatter(cmsContext ContextID, cmsUInt32Number Type, cmsFormatterDirection Dir, cmsUInt32Number dwFlags)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsGetFormatter is not implemented");
-    return (cmsFormatter){0};
-}
-
 cmsUInt32Number _cmsGetTransformFlags(struct _cmstransform_struct* CMMcargo)
 {
     swift_unimplemented_fatal("_cmsGetTransformFlags");
