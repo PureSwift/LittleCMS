@@ -6,11 +6,7 @@
 # live in a file every probe reads. Adding these to the shared file broke
 # the other fifteen differentials at once, exactly as designed.
 
-GRAY_8_REV -- no reversed one-byte packer yet
 RGBA_8 -- three channels plus one extra with no flags has no specific entry; it needs the generic formatters, which read the layout out of the transform
-ARGB_8 -- no three-byte-and-skip-one packer yet
-ABGR_8 -- no three-byte-and-skip-one packer yet
-BGRA_8 -- no three-byte-and-skip-one packer yet
 KCMY_16 -- the reference has no four-channel word packer with swap-first either, so it packs through the generic path
 RGB_8_PLANAR -- planar formatters not ported
 RGB_16_SE -- byte-swapped word formatters not ported

@@ -672,6 +672,109 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
     return p
 }
 
+/// Reversing here happens in sixteen bits and *then* narrows, while
+/// `packBytes4Reverse` narrows first and reverses in eight.  The
+/// reference is inconsistent between the two, and the two do not agree
+/// for every value, so each follows the one it mirrors.
+@Sendable private func pack1ByteReversed(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p.pointee = narrow(0xFFFF &- values[0])
+    p += 1
+    return p
+}
+
+@Sendable private func packBytes3Skip1(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p.pointee = narrow(values[0])
+    p += 1
+    p.pointee = narrow(values[1])
+    p += 1
+    p.pointee = narrow(values[2])
+    p += 1
+    p += 1
+    return p
+}
+
+@Sendable private func packBytes3Skip1SwapFirst(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p += 1
+    p.pointee = narrow(values[0])
+    p += 1
+    p.pointee = narrow(values[1])
+    p += 1
+    p.pointee = narrow(values[2])
+    p += 1
+    return p
+}
+
+@Sendable private func packBytes3Skip1SwapSwapFirst(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p.pointee = narrow(values[2])
+    p += 1
+    p.pointee = narrow(values[1])
+    p += 1
+    p.pointee = narrow(values[0])
+    p += 1
+    p += 1
+    return p
+}
+
+@Sendable private func packBytes3Skip1Swap(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p += 1
+    p.pointee = narrow(values[2])
+    p += 1
+    p.pointee = narrow(values[1])
+    p += 1
+    p.pointee = narrow(values[0])
+    p += 1
+    return p
+}
+
+@Sendable private func unrollBytes3Skip1SwapSwapFirst(
+    _ info: OpaquePointer?,
+    _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    values[2] = widen(p.pointee)
+    p += 1
+    values[1] = widen(p.pointee)
+    p += 1
+    values[0] = widen(p.pointee)
+    p += 1
+    // The extra channel is stepped over last, not first, despite the
+    // name saying swap-first: that names the *colour* order.
+    p += 1
+    return p
+}
+
 /// The integer half of the input table, in the reference's order.
 let inputFormatters16: [FormatterEntry] = [
     FormatterEntry(channelsSH(1) | bytesSH(1), Any_.space, unpack: unroll1Byte),
@@ -689,6 +792,10 @@ let inputFormatters16: [FormatterEntry] = [
     FormatterEntry(
         channelsSH(3) | extraSH(1) | bytesSH(1) | swapFirstSH(1), Any_.space,
         unpack: unrollBytes3Skip1SwapFirst
+    ),
+    FormatterEntry(
+        channelsSH(3) | extraSH(1) | bytesSH(1) | doSwapSH(1) | swapFirstSH(1), Any_.space,
+        unpack: unrollBytes3Skip1SwapSwapFirst
     ),
     FormatterEntry(channelsSH(4) | bytesSH(1), Any_.space, unpack: unrollBytes4),
     FormatterEntry(
@@ -726,7 +833,25 @@ let inputFormatters16: [FormatterEntry] = [
 /// The integer half of the output table, in the reference's order.
 let outputFormatters16: [FormatterEntry] = [
     FormatterEntry(channelsSH(1) | bytesSH(1), Any_.space, pack: packBytes1),
+    FormatterEntry(
+        channelsSH(1) | bytesSH(1) | flavorSH(1), Any_.space, pack: pack1ByteReversed
+    ),
     FormatterEntry(channelsSH(3) | bytesSH(1), Any_.space, pack: packBytes3),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(1) | extraSH(1), Any_.space, pack: packBytes3Skip1
+    ),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(1) | extraSH(1) | swapFirstSH(1), Any_.space,
+        pack: packBytes3Skip1SwapFirst
+    ),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(1) | extraSH(1) | doSwapSH(1) | swapFirstSH(1), Any_.space,
+        pack: packBytes3Skip1SwapSwapFirst
+    ),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(1) | doSwapSH(1) | extraSH(1), Any_.space,
+        pack: packBytes3Skip1Swap
+    ),
     FormatterEntry(channelsSH(3) | bytesSH(1) | doSwapSH(1), Any_.space, pack: packBytes3Swap),
     FormatterEntry(channelsSH(4) | bytesSH(1), Any_.space, pack: packBytes4),
     FormatterEntry(
