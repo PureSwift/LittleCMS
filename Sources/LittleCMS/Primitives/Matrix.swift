@@ -8,6 +8,12 @@
 // construct them, so the field order is contract.  LCMS2ABI asserts their
 // size and stride against the imported C types.
 
+/// The reference's MATRIX_DET_TOLERANCE.  Named for what it is rather
+/// than where it started: the same constant decides when a matrix is
+/// singular, when a curve parameter counts as zero, and when a smoothing
+/// factor is too small to bother with.
+public let smallestMeaningfulValue = 0.0001
+
 /// `cmsVEC3` — three doubles, indexed X, Y, Z.
 @frozen
 public struct Vector3: Equatable, Sendable {
@@ -144,10 +150,9 @@ public struct Matrix3: Equatable, Sendable {
         )
     }
 
-    /// A determinant smaller than this counts as singular, as in the
-    /// reference's MATRIX_DET_TOLERANCE.
+    /// A determinant smaller than this counts as singular.
     @usableFromInline
-    static let determinantTolerance = 0.0001
+    static let determinantTolerance = smallestMeaningfulValue
 
     /// The inverse, or nil when the matrix is singular.  Each cofactor is
     /// spelled the way the reference spells it.

@@ -146,3 +146,13 @@ cmsGetToneCurveEstimatedTable
 cmsGetToneCurveSegment
 cmsGetToneCurveParametricType
 cmsIsToneCurveMultisegment
+
+# Sources/LCMS2ABI/ToneCurveOpsAPI.swift
+cmsIsToneCurveDescending
+cmsIsToneCurveLinear
+cmsIsToneCurveMonotonic
+cmsReverseToneCurve
+cmsReverseToneCurveEx
+cmsJoinToneCurve
+cmsEstimateGamma
+cmsSmoothToneCurve

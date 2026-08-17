@@ -14,8 +14,7 @@
 @usableFromInline let curvePlusInfinity = Double(Float(1e22))
 
 /// The threshold below which the reference treats a parameter as zero.
-/// Shared with the matrix code, which is where the name comes from.
-@usableFromInline let parameterTolerance = Matrix3.determinantTolerance
+@usableFromInline let parameterTolerance = smallestMeaningfulValue
 
 public enum ParametricCurve {
     /// The types the reference can evaluate.  A curve of any other type

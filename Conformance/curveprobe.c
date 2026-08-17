@@ -198,6 +198,98 @@ int main(void)
         report("segments and duplication");
     }
 
+    /* -- what a curve is -------------------------------------------------- */
+    {
+        cmsUInt16Number table[64];
+
+        /* A linear ramp, a ramp with ripple inside the tolerance, one
+         * with ripple past it, and a descending ramp. */
+        for (int i = 0; i < 64; i++) table[i] = (cmsUInt16Number) (i * 65535 / 63);
+        cmsToneCurve* linear = cmsBuildTabulatedToneCurve16(NULL, 64, table);
+
+        for (int i = 0; i < 64; i++)
+            table[i] = (cmsUInt16Number) (i * 65535 / 63 + ((i % 2) ? 1 : 0));
+        cmsToneCurve* rippled = cmsBuildTabulatedToneCurve16(NULL, 64, table);
+
+        for (int i = 0; i < 64; i++)
+            table[i] = (cmsUInt16Number) ((i % 8) * 8000);
+        cmsToneCurve* sawtooth = cmsBuildTabulatedToneCurve16(NULL, 64, table);
+
+        for (int i = 0; i < 64; i++) table[i] = (cmsUInt16Number) (65535 - i * 65535 / 63);
+        cmsToneCurve* descending = cmsBuildTabulatedToneCurve16(NULL, 64, table);
+
+        cmsToneCurve* gamma = cmsBuildGamma(NULL, 2.2);
+
+        cmsToneCurve* all[] = { linear, rippled, sawtooth, descending, gamma };
+        static const char* names[] = { "linear", "rippled", "sawtooth", "descending", "gamma" };
+        for (int i = 0; i < 5; i++) {
+            printf("%-11s linear %d monotonic %d descending %d\n", names[i],
+                   cmsIsToneCurveLinear(all[i]),
+                   cmsIsToneCurveMonotonic(all[i]),
+                   cmsIsToneCurveDescending(all[i]));
+        }
+
+        /* -- reversing ---------------------------------------------------- */
+        for (int i = 0; i < 5; i++) {
+            cmsToneCurve* r = cmsReverseToneCurve(all[i]);
+            feed_curve(r);
+            cmsFreeToneCurve(r);
+            /* An explicit sample count takes the resampling path even for
+             * a curve that could have been inverted analytically. */
+            r = cmsReverseToneCurveEx(37, all[i]);
+            feed_curve(r);
+            cmsFreeToneCurve(r);
+        }
+        report("reversed curves");
+
+        /* -- joining ------------------------------------------------------ */
+        for (int i = 0; i < 5; i++) {
+            cmsToneCurve* j = cmsJoinToneCurve(NULL, all[i], gamma, 128);
+            feed_curve(j);
+            cmsFreeToneCurve(j);
+        }
+        report("joined curves");
+
+        /* -- estimating --------------------------------------------------- */
+        for (int i = 0; i < 5; i++)
+            feed_double(cmsEstimateGamma(all[i], 0.01));
+        for (double precision = 0.001; precision < 10.0; precision *= 10.0) {
+            feed_double(cmsEstimateGamma(gamma, precision));
+            feed_double(cmsEstimateGamma(sawtooth, precision));
+        }
+        report("estimated gamma");
+
+        /* -- smoothing ---------------------------------------------------- */
+        {
+            /* Smoothing mutates the curve, so each case gets its own. */
+            static const double lambdas[] = { 0.0, 0.5, 1.0, 10.0, 100.0, -1.0, -100.0 };
+            for (size_t k = 0; k < sizeof lambdas / sizeof *lambdas; k++) {
+                cmsUInt16Number noisy[64];
+                for (int i = 0; i < 64; i++)
+                    noisy[i] = (cmsUInt16Number) (i * 65535 / 63 + ((i % 3) - 1) * 700);
+
+                cmsToneCurve* c = cmsBuildTabulatedToneCurve16(NULL, 64, noisy);
+                cmsBool ok = cmsSmoothToneCurve(c, lambdas[k]);
+                feed_double((double) ok);
+                feed_curve(c);
+                cmsFreeToneCurve(c);
+            }
+
+            /* A linear curve needs no smoothing and says so. */
+            cmsToneCurve* l = cmsBuildTabulatedToneCurve16(NULL, 64, table);
+            for (int i = 0; i < 64; i++) table[i] = (cmsUInt16Number) (i * 65535 / 63);
+            feed_double((double) cmsSmoothToneCurve(l, 1.0));
+            cmsFreeToneCurve(l);
+            report("smoothed curves");
+        }
+
+        cmsFreeToneCurve(linear);
+        cmsFreeToneCurve(rippled);
+        cmsFreeToneCurve(sawtooth);
+        cmsFreeToneCurve(descending);
+        cmsFreeToneCurve(gamma);
+    }
+
     /* -- refusals --------------------------------------------------------- */
     {
         printf("65531 entries -> %s\n",

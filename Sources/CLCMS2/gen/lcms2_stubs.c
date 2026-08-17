@@ -481,11 +481,6 @@ cmsSEQ* cmsDupProfileSequenceDescription(const cmsSEQ* pseq)
     swift_unimplemented_fatal("cmsDupProfileSequenceDescription");
 }
 
-cmsFloat64Number cmsEstimateGamma(const cmsToneCurve* t, cmsFloat64Number Precision)
-{
-    swift_unimplemented_fatal("cmsEstimateGamma");
-}
-
 cmsUInt32Number cmsFormatterForColorspaceOfProfile(cmsHPROFILE hProfile, cmsUInt32Number nBytes, cmsBool lIsFloat)
 {
     swift_unimplemented_fatal("cmsFormatterForColorspaceOfProfile");
@@ -929,27 +924,6 @@ cmsBool cmsIsTag(cmsHPROFILE hProfile, cmsTagSignature sig)
     swift_unimplemented_fatal("cmsIsTag");
 }
 
-cmsBool cmsIsToneCurveDescending(const cmsToneCurve* t)
-{
-    swift_unimplemented_fatal("cmsIsToneCurveDescending");
-}
-
-cmsBool cmsIsToneCurveLinear(const cmsToneCurve* Curve)
-{
-    swift_unimplemented_fatal("cmsIsToneCurveLinear");
-}
-
-cmsBool cmsIsToneCurveMonotonic(const cmsToneCurve* t)
-{
-    swift_unimplemented_fatal("cmsIsToneCurveMonotonic");
-}
-
-cmsToneCurve* cmsJoinToneCurve(cmsContext ContextID, const cmsToneCurve* X, const cmsToneCurve* Y, cmsUInt32Number nPoints)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsJoinToneCurve is not implemented");
-    return (cmsToneCurve*){0};
-}
-
 cmsBool cmsLinkTag(cmsHPROFILE hProfile, cmsTagSignature sig, cmsTagSignature dest)
 {
     swift_unimplemented_fatal("cmsLinkTag");
@@ -1178,16 +1152,6 @@ void* cmsReadTag(cmsHPROFILE hProfile, cmsTagSignature sig)
     swift_unimplemented_fatal("cmsReadTag");
 }
 
-cmsToneCurve* cmsReverseToneCurve(const cmsToneCurve* InGamma)
-{
-    swift_unimplemented_fatal("cmsReverseToneCurve");
-}
-
-cmsToneCurve* cmsReverseToneCurveEx(cmsUInt32Number nResultSamples, const cmsToneCurve* InGamma)
-{
-    swift_unimplemented_fatal("cmsReverseToneCurveEx");
-}
-
 cmsBool cmsSaveProfileToFile(cmsHPROFILE hProfile, const char* FileName)
 {
     swift_unimplemented_fatal("cmsSaveProfileToFile");
@@ -1271,11 +1235,6 @@ cmsBool cmsSliceSpace16(cmsUInt32Number nInputs, const cmsUInt32Number clutPoint
 cmsBool cmsSliceSpaceFloat(cmsUInt32Number nInputs, const cmsUInt32Number clutPoints[], cmsSAMPLERFLOAT Sampler, void * Cargo)
 {
     swift_unimplemented_fatal("cmsSliceSpaceFloat");
-}
-
-cmsBool cmsSmoothToneCurve(cmsToneCurve* Tab, cmsFloat64Number lambda)
-{
-    swift_unimplemented_fatal("cmsSmoothToneCurve");
 }
 
 cmsStage* cmsStageAllocCLut16bit(cmsContext ContextID, cmsUInt32Number nGridPoints, cmsUInt32Number inputChan, cmsUInt32Number outputChan, const cmsUInt16Number* Table)
