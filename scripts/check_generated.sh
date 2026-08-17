@@ -34,4 +34,7 @@ if [ "$status" -eq 0 ]; then
     echo "generated files are current"
 fi
 
+python3 "$(dirname "$0")/gen_pixel_types.py" --check || status=1
+
 exit "$status"
+

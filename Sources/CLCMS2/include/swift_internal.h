@@ -19,6 +19,10 @@
 
 #include "lcms2.h"
 #include "lcms2_plugin.h"
+
+/* The TYPE_* constants as values, since Swift cannot import a macro
+ * expression.  Generated; see scripts/gen_pixel_types.py. */
+#include "lcms2_pixel_types.h"
 #include "lcms2_unshipped.h"
 #include "cmsstruct_abi.h"
 
