@@ -170,12 +170,6 @@ cmsStage* _cmsStageAllocXYZ2Lab(cmsContext ContextID)
     return (cmsStage*){0};
 }
 
-cmsSEQ* cmsAllocProfileSequenceDescription(cmsContext ContextID, cmsUInt32Number n)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsAllocProfileSequenceDescription is not implemented");
-    return (cmsSEQ*){0};
-}
-
 void cmsCIECAM02Done(cmsHANDLE hModel)
 {
     swift_unimplemented_fatal("cmsCIECAM02Done");
@@ -414,37 +408,6 @@ cmsFloat64Number cmsDetectTAC(cmsHPROFILE hProfile)
     swift_unimplemented_fatal("cmsDetectTAC");
 }
 
-cmsBool cmsDictAddEntry(cmsHANDLE hDict, const wchar_t* Name, const wchar_t* Value, const cmsMLU *DisplayName, const cmsMLU *DisplayValue)
-{
-    swift_unimplemented_fatal("cmsDictAddEntry");
-}
-
-cmsHANDLE cmsDictAlloc(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsDictAlloc is not implemented");
-    return (cmsHANDLE){0};
-}
-
-cmsHANDLE cmsDictDup(cmsHANDLE hDict)
-{
-    swift_unimplemented_fatal("cmsDictDup");
-}
-
-void cmsDictFree(cmsHANDLE hDict)
-{
-    swift_unimplemented_fatal("cmsDictFree");
-}
-
-const cmsDICTentry* cmsDictGetEntryList(cmsHANDLE hDict)
-{
-    swift_unimplemented_fatal("cmsDictGetEntryList");
-}
-
-const cmsDICTentry* cmsDictNextEntry(const cmsDICTentry* e)
-{
-    swift_unimplemented_fatal("cmsDictNextEntry");
-}
-
 void cmsDoTransform(cmsHTRANSFORM Transform, const void * InputBuffer, void * OutputBuffer, cmsUInt32Number Size)
 {
     swift_unimplemented_fatal("cmsDoTransform");
@@ -460,11 +423,6 @@ void cmsDoTransformStride(cmsHTRANSFORM Transform, const void * InputBuffer, voi
     swift_unimplemented_fatal("cmsDoTransformStride");
 }
 
-cmsSEQ* cmsDupProfileSequenceDescription(const cmsSEQ* pseq)
-{
-    swift_unimplemented_fatal("cmsDupProfileSequenceDescription");
-}
-
 cmsUInt32Number cmsFormatterForColorspaceOfProfile(cmsHPROFILE hProfile, cmsUInt32Number nBytes, cmsBool lIsFloat)
 {
     swift_unimplemented_fatal("cmsFormatterForColorspaceOfProfile");
@@ -473,11 +431,6 @@ cmsUInt32Number cmsFormatterForColorspaceOfProfile(cmsHPROFILE hProfile, cmsUInt
 cmsUInt32Number cmsFormatterForPCSOfProfile(cmsHPROFILE hProfile, cmsUInt32Number nBytes, cmsBool lIsFloat)
 {
     swift_unimplemented_fatal("cmsFormatterForPCSOfProfile");
-}
-
-void cmsFreeProfileSequenceDescription(cmsSEQ* pseq)
-{
-    swift_unimplemented_fatal("cmsFreeProfileSequenceDescription");
 }
 
 cmsHANDLE cmsGBDAlloc(cmsContext ContextID)

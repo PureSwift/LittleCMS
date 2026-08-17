@@ -180,3 +180,14 @@ cmsNamedColorCount
 cmsNamedColorIndex
 cmsNamedColorInfo
 cmsstrcasecmp
+
+# Sources/LCMS2ABI/DictionaryAPI.swift
+cmsAllocProfileSequenceDescription
+cmsFreeProfileSequenceDescription
+cmsDupProfileSequenceDescription
+cmsDictAlloc
+cmsDictFree
+cmsDictDup
+cmsDictAddEntry
+cmsDictGetEntryList
+cmsDictNextEntry

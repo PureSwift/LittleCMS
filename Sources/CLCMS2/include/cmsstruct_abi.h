@@ -74,6 +74,14 @@ struct _cms_curve_struct {
     void* swift_ctx;                  /* unused for curves; the storage is C */
 };
 struct _cmsPipeline_struct         { void* swift_ctx; };
+
+/* The dictionary behind a cmsHANDLE.  Its own layout is private — only
+ * the entries it hands out are published — but it is C memory because
+ * those entries are, and the list has to hang off something. */
+struct _cms_dict_struct {
+    cmsContext    ContextID;
+    cmsDICTentry* head;
+};
 struct _cmsStage_struct            { void* swift_ctx; };
 struct _cms_MLU_struct             { void* swift_ctx; };
 struct _cms_NAMEDCOLORLIST_struct  { void* swift_ctx; };

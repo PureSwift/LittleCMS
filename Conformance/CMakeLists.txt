@@ -119,6 +119,10 @@ add_executable(namedprobe_ours namedprobe.c)
 target_link_libraries(namedprobe_ours PRIVATE lcms2)
 add_test(NAME named_probe COMMAND namedprobe_ours)
 
+add_executable(dictprobe_ours dictprobe.c)
+target_link_libraries(dictprobe_ours PRIVATE lcms2)
+add_test(NAME dict_probe COMMAND dictprobe_ours)
+
 # The stubs' contract: the gap is reported through the error path and the
 # call fails cleanly rather than answering.
 add_test(NAME stub_behavior COMMAND stub_probe_ours)
@@ -222,6 +226,15 @@ if(SLCMS_REFERENCE_FOUND)
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
                 $<TARGET_FILE:namedprobe_ours>
                 $<TARGET_FILE:namedprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+
+    add_executable(dictprobe_reference dictprobe.c)
+    target_link_libraries(dictprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME dict_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:dictprobe_ours>
+                $<TARGET_FILE:dictprobe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
     add_test(NAME md5_differential
