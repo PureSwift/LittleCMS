@@ -243,6 +243,11 @@ Legend — **owner**: who frees a returned pointer, and with which function.
 
 - **owner**: pipeline owns inserted stages (`cmsPipelineInsertStage`
   transfers ownership); `cmsStageDup` gives the caller a copy.
+- **`cmsStageAllocToneCurves` copies the curves it is given.** The
+  caller keeps what it passed and may free it the moment the call
+  returns — which the reference's own 8-bit LUT reader does. A stage
+  holding the caller's pointers instead looks identical until someone
+  frees them, so the probe frees them and *then* evaluates.
 - **errors**: `L` on alloc; `B` on eval (void).
 - `cmsStageData` returns the **live** stage payload (`_cmsStage*Data`,
   public layouts lcms2_plugin.h:516–542); clients read and, via the

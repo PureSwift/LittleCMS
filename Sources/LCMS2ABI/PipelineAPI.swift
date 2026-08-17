@@ -160,14 +160,24 @@ public func cmsStageAllocToneCurves(
     }
     let curves = curveArray.assumingMemoryBound(to: UnsafeMutablePointer<cmsToneCurve>?.self)
 
+    // The stage takes a copy of each curve: the caller keeps what it
+    // passed and may free it the moment this returns.  Storing the
+    // caller's pointers instead would look identical until someone did.
+    //
     // No curves given means an identity ramp per channel, which the
     // reference builds rather than special-casing later.
     for i in 0..<count {
         if let Curves, let given = Curves[i] {
-            curves[i] = given
+            curves[i] = cmsDupToneCurve(given)
         } else {
             var gamma = 1.0
             curves[i] = cmsBuildParametricToneCurve(ContextID, 1, &gamma)
+        }
+        if curves[i] == nil {
+            for j in 0..<i { cmsFreeToneCurve(curves[j]) }
+            _cmsFree(ContextID, curveArray)
+            _cmsFree(ContextID, raw)
+            return nil
         }
     }
 
@@ -189,21 +199,13 @@ public func cmsStageAllocToneCurves(
     }
     box.data = raw
     box.duplicate = { source in
-        // The copy needs its own curves: the stage frees whatever it
-        // holds, so sharing them would free them twice.
+        // Handing the originals over is enough — the allocator copies
+        // them, so copying here first would make two copies and leak
+        // one.
         guard let data = source.data?.assumingMemoryBound(to: _cmsStageToneCurvesData.self),
               let list = data.pointee.TheCurves
         else { return nil }
-        let n = Int(data.pointee.nCurves)
-        var copies = [UnsafeMutablePointer<cmsToneCurve>?](repeating: nil, count: max(n, 1))
-        for i in 0..<n {
-            guard let copy = cmsDupToneCurve(list[i]) else {
-                for j in 0..<i { cmsFreeToneCurve(copies[j]) }
-                return nil
-            }
-            copies[i] = copy
-        }
-        return cmsStageAllocToneCurves(source.context, cmsUInt32Number(n), &copies)
+        return cmsStageAllocToneCurves(source.context, data.pointee.nCurves, list)
     }
     return handle(box)
 }

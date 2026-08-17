@@ -150,9 +150,17 @@ int main(void)
             report("curves through stage data");
         }
 
+        /* The stage takes a *copy* of each curve, so the caller still
+         * owns what it passed and may free it immediately.  Freeing
+         * here and evaluating afterwards is the whole point: a stage
+         * that had kept the caller's pointers would read freed memory,
+         * and nothing else in this probe would notice. */
+        cmsFreeToneCurve(curves[0]);
+        cmsFreeToneCurve(curves[1]);
+        cmsFreeToneCurve(curves[2]);
+        run(lut, "gamma curves after caller freed");
+
         cmsPipelineFree(lut);
-        /* The pipeline owns the curves once the stage is inserted, so
-         * they are not freed here. */
     }
 
     /* -- the chain ------------------------------------------------------------ */
