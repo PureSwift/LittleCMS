@@ -26,11 +26,16 @@ struct TagTypeHandler: Sendable {
         _ items: inout cmsUInt32Number,
         _ sizeOfTag: cmsUInt32Number
     ) -> UnsafeMutableRawPointer?
+    /// `version` is the profile's encoded ICC version.  Only the types
+    /// that embed another type need it — a profile sequence writes its
+    /// descriptions in whichever text form the version calls for — but
+    /// it has to be threaded to all of them to reach those.
     let write: @Sendable (
         _ context: cmsContext?,
         _ io: UnsafeMutablePointer<cmsIOHANDLER>,
         _ object: UnsafeMutableRawPointer,
-        _ items: cmsUInt32Number
+        _ items: cmsUInt32Number,
+        _ version: cmsUInt32Number
     ) -> Bool
     let duplicate: @Sendable (cmsContext?, UnsafeRawPointer, cmsUInt32Number)
         -> UnsafeMutableRawPointer?
@@ -105,7 +110,7 @@ struct TagTypeHandler: Sendable {
 
 @Sendable private func writeChromaticity(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let chrm = object.assumingMemoryBound(to: cmsCIExyYTRIPLE.self)
     if _cmsWriteUInt16Number(io, 3) == 0 { return false }    // channels
@@ -191,7 +196,7 @@ private func readFixedArray(
 
 @Sendable private func writeDateTime(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     guard let write = io.pointee.Write else { return false }
     var timestamp = cmsDateTimeNumber()
@@ -229,7 +234,7 @@ private func readFixedArray(
 
 @Sendable private func writeColorantOrder(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     guard let write = io.pointee.Write else { return false }
     let order = object.assumingMemoryBound(to: cmsUInt8Number.self)
@@ -277,7 +282,7 @@ private func readFixedArray(
 
 @Sendable private func writeData(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     guard let write = io.pointee.Write else { return false }
     let block = object.assumingMemoryBound(to: cmsICCData.self)
@@ -321,7 +326,7 @@ private func readFixedArray(
 
 @Sendable private func writeText(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     guard let write = io.pointee.Write else { return false }
     let mlu = object.assumingMemoryBound(to: cmsMLU.self)
@@ -353,7 +358,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
         ) -> UnsafeMutableRawPointer?,
         write: @escaping @Sendable (
             cmsContext?, UnsafeMutablePointer<cmsIOHANDLER>, UnsafeMutableRawPointer,
-            cmsUInt32Number
+            cmsUInt32Number, cmsUInt32Number
         ) -> Bool,
         duplicate: @escaping @Sendable (cmsContext?, UnsafeRawPointer, cmsUInt32Number)
             -> UnsafeMutableRawPointer?,
@@ -383,7 +388,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
 
     add(
         cmsSigXYZType, read: readXYZ,
-        write: { _, io, object, _ in
+        write: { _, io, object, _, _ in
             _cmsWriteXYZNumber(io, object.assumingMemoryBound(to: cmsCIEXYZ.self)) != 0
         },
         duplicate: dupFixed(cmsCIEXYZ.self)
@@ -400,7 +405,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     add(
         cmsSigS15Fixed16ArrayType,
         read: readFixedArray { io, slot in _cmsRead15Fixed16Number(io, slot) != 0 },
-        write: { _, io, object, n in
+        write: { _, io, object, n, _ in
             let values = object.assumingMemoryBound(to: cmsFloat64Number.self)
             for i in 0..<Int(n) where _cmsWrite15Fixed16Number(io, values[i]) == 0 {
                 return false
@@ -418,7 +423,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
             slot.pointee = cmsFloat64Number(v) / 65536.0
             return true
         },
-        write: { _, io, object, n in
+        write: { _, io, object, n, _ in
             let values = object.assumingMemoryBound(to: cmsFloat64Number.self)
             for i in 0..<Int(n) {
                 let v = cmsUInt32Number((values[i] * 65536.0 + 0.5).rounded(.down))
@@ -431,7 +436,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
 
     add(
         cmsSigSignatureType, read: readSignature,
-        write: { _, io, object, _ in
+        write: { _, io, object, _, _ in
             _cmsWriteUInt32Number(io, object.assumingMemoryBound(to: cmsUInt32Number.self).pointee) != 0
         },
         duplicate: dupArray(cmsSignature.self)
@@ -485,6 +490,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     table[cmsSigNamedColor2Type] = namedColorTagType
     table[cmsSigVcgtType] = vcgtTagType
     table[cmsSigDictType] = dictionaryTagType
+    table[cmsSigProfileSequenceDescType] = profileSequenceTagType
 
     return table
 }()
@@ -558,7 +564,7 @@ func typeToWrite(
 
 @Sendable private func writeCurve(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let curve = object.assumingMemoryBound(to: cmsToneCurve.self)
 
@@ -614,7 +620,7 @@ private let parametricParameterCounts = [1, 3, 4, 5, 7]
 
 @Sendable private func writeParametricCurve(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let curve = object.assumingMemoryBound(to: cmsToneCurve.self)
     guard let segments = curve.pointee.Segments else { return false }
@@ -776,7 +782,7 @@ let curveTagTypes: [cmsTagTypeSignature: TagTypeHandler] = {
 
 @Sendable private func writeMLU(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let translations = mluBox(object.assumingMemoryBound(to: cmsMLU.self)).mlu.translations
 
@@ -918,7 +924,7 @@ let mluTagType = TagTypeHandler(
 
 @Sendable private func writeTextDescription(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     guard let write = io.pointee.Write else { return false }
     let mlu = object.assumingMemoryBound(to: cmsMLU.self)
@@ -1246,7 +1252,7 @@ private func uniformGridPoints(
 
 @Sendable private func writeLUT8(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let lut = object.assumingMemoryBound(to: cmsPipeline.self)
     guard let parts = disassemble(lut, context, as: "LUT8"),
@@ -1399,7 +1405,7 @@ private func read16BitTables(
 
 @Sendable private func writeLUT16(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let lut = object.assumingMemoryBound(to: cmsPipeline.self)
     guard let parts = disassemble(lut, context, as: "LUT16"),
@@ -1754,8 +1760,8 @@ private func writeSetOfCurves(
         if _cmsWriteTypeBase(io, type) == 0 { return false }
         let object = UnsafeMutableRawPointer(curve)
         let ok = type == cmsSigCurveType
-            ? writeCurve(context, io, object, 1)
-            : writeParametricCurve(context, io, object, 1)
+            ? writeCurve(context, io, object, 1, 0)
+            : writeParametricCurve(context, io, object, 1, 0)
         if !ok { return false }
         if _cmsWriteAlignment(io) == 0 { return false }
     }
@@ -1982,7 +1988,7 @@ private func matchShapes(
 
 @Sendable private func writeLUTAtoB(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let lut = object.assumingMemoryBound(to: cmsPipeline.self)
     guard let parts = matchShapes(lut, forwards: true) else {
@@ -1999,7 +2005,7 @@ private func matchShapes(
 
 @Sendable private func writeLUTBtoA(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let lut = object.assumingMemoryBound(to: cmsPipeline.self)
     guard let parts = matchShapes(lut, forwards: false) else {
@@ -2053,7 +2059,7 @@ let lutBtoATagType = TagTypeHandler(
 
 @Sendable private func writeMeasurement(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let mc = object.assumingMemoryBound(to: cmsICCMeasurementConditions.self)
     if _cmsWriteUInt32Number(io, mc.pointee.Observer) == 0 { return false }
@@ -2086,7 +2092,7 @@ let lutBtoATagType = TagTypeHandler(
 
 @Sendable private func writeViewingConditions(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let vc = object.assumingMemoryBound(to: cmsICCViewingConditions.self)
     if _cmsWriteXYZNumber(io, &vc.pointee.IlluminantXYZ) == 0 { return false }
@@ -2121,7 +2127,7 @@ let lutBtoATagType = TagTypeHandler(
 
 @Sendable private func writeVideoSignal(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let cicp = object.assumingMemoryBound(to: cmsVideoSignalType.self)
     if _cmsWriteUInt8Number(io, cicp.pointee.ColourPrimaries) == 0 { return false }
@@ -2173,7 +2179,7 @@ let lutBtoATagType = TagTypeHandler(
 
 @Sendable private func writeColorantTable(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     guard let write = io.pointee.Write else { return false }
     let list = object.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self)
@@ -2309,7 +2315,7 @@ let structuralTagTypes: [cmsTagTypeSignature: TagTypeHandler] = [
 
 @Sendable private func writeNamedColor(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     guard let write = io.pointee.Write else { return false }
     let list = object.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self)
@@ -2470,7 +2476,7 @@ private let vcgtFormulaFlavour: cmsUInt32Number = 1
 
 @Sendable private func writeVCGT(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     let curves = object.assumingMemoryBound(to: UnsafeMutablePointer<cmsToneCurve>?.self)
 
@@ -2720,7 +2726,7 @@ private func readOneMLU(
 
 @Sendable private func writeDictionary(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> Bool {
     guard let tell = io.pointee.Tell, let seek = io.pointee.Seek else { return false }
     let dict = cmsHANDLE(object)
@@ -2805,7 +2811,7 @@ private func readOneMLU(
         }
         let before = tell(io)
         column.offsets[i] = before - base
-        if !writeMLU(context, io, UnsafeMutableRawPointer(mlu), 1) { return false }
+        if !writeMLU(context, io, UnsafeMutableRawPointer(mlu), 1, 0) { return false }
         column.sizes[i] = tell(io) - before
         return true
     }
@@ -2837,4 +2843,160 @@ let dictionaryTagType = TagTypeHandler(
         UnsafeMutableRawPointer(cmsDictDup(cmsHANDLE(mutating: pointer)))
     },
     free: { _, object in cmsDictFree(cmsHANDLE(object)) }
+)
+
+// -- the profile sequence type --------------------------------------------------
+
+/// A description embedded inside another type, which may be any of the
+/// three text forms — so a sequence written by an older tool and one
+/// written by a newer one both read.
+private func readEmbeddedText(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ into: inout UnsafeMutablePointer<cmsMLU>?, _ sizeOfTag: cmsUInt32Number
+) -> Bool {
+    let base = _cmsReadTypeBase(io)
+    var items: cmsUInt32Number = 0
+
+    let read: UnsafeMutableRawPointer?
+    switch base {
+    case cmsSigTextType:
+        read = readText(context, io, &items, sizeOfTag)
+    case cmsSigTextDescriptionType:
+        read = readTextDescription(context, io, &items, sizeOfTag)
+    case cmsSigMultiLocalizedUnicodeType:
+        read = readMLU(context, io, &items, sizeOfTag)
+    default:
+        return false
+    }
+
+    guard let read else { return false }
+    // The allocator gives every slot an empty container, so whatever is
+    // already there is replaced rather than leaked.
+    cmsMLUfree(into)
+    into = read.assumingMemoryBound(to: cmsMLU.self)
+    return true
+}
+
+/// Written as the flat description before version 4 and as the
+/// multi-localized form from 4 on — so the same sequence changes shape
+/// with the profile it is stored in.
+private func saveDescription(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ version: cmsUInt32Number, _ description: UnsafeMutablePointer<cmsMLU>?
+) -> Bool {
+    // A slot with no description is written as an empty one rather than
+    // refused: cmsAllocProfileSequenceDescription leaves all three null,
+    // so a sequence that nobody filled in is the normal case.  An empty
+    // container produces the same bytes either writer would for null.
+    var temporary: UnsafeMutablePointer<cmsMLU>?
+    defer { cmsMLUfree(temporary) }
+
+    let text: UnsafeMutablePointer<cmsMLU>
+    if let description {
+        text = description
+    } else {
+        guard let empty = cmsMLUalloc(context, 0) else { return false }
+        temporary = empty
+        text = empty
+    }
+
+    if version < 0x0400_0000 {
+        if _cmsWriteTypeBase(io, cmsSigTextDescriptionType) == 0 { return false }
+        return writeTextDescription(context, io, UnsafeMutableRawPointer(text), 1, version)
+    }
+    if _cmsWriteTypeBase(io, cmsSigMultiLocalizedUnicodeType) == 0 { return false }
+    return writeMLU(context, io, UnsafeMutableRawPointer(text), 1, version)
+}
+
+@Sendable private func readProfileSequence(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    var remaining = sizeOfTag
+
+    var count: cmsUInt32Number = 0
+    if _cmsReadUInt32Number(io, &count) == 0 { return nil }
+    if remaining < 4 { return nil }
+    remaining -= 4
+
+    guard let sequence = cmsAllocProfileSequenceDescription(context, count) else { return nil }
+    sequence.pointee.n = count
+
+    func fail() -> UnsafeMutableRawPointer? {
+        cmsFreeProfileSequenceDescription(sequence)
+        return nil
+    }
+
+    guard let entries = withUnsafeMutablePointer(to: &sequence.pointee.seq, { $0 }).pointee
+    else { return fail() }
+
+    for i in 0..<Int(count) {
+        let entry = entries + i
+        if _cmsReadUInt32Number(io, &entry.pointee.deviceMfg) == 0 { return fail() }
+        if remaining < 4 { return fail() }
+        remaining -= 4
+
+        if _cmsReadUInt32Number(io, &entry.pointee.deviceModel) == 0 { return fail() }
+        if remaining < 4 { return fail() }
+        remaining -= 4
+
+        if _cmsReadUInt64Number(io, &entry.pointee.attributes) == 0 { return fail() }
+        if remaining < 8 { return fail() }
+        remaining -= 8
+
+        let technology = withUnsafeMutablePointer(to: &entry.pointee.technology) {
+            UnsafeMutableRawPointer($0).assumingMemoryBound(to: cmsUInt32Number.self)
+        }
+        if _cmsReadUInt32Number(io, technology) == 0 { return fail() }
+        if remaining < 4 { return fail() }
+        remaining -= 4
+
+        if !readEmbeddedText(context, io, &entry.pointee.Manufacturer, remaining) {
+            return fail()
+        }
+        if !readEmbeddedText(context, io, &entry.pointee.Model, remaining) {
+            return fail()
+        }
+    }
+
+    items = 1
+    return UnsafeMutableRawPointer(sequence)
+}
+
+@Sendable private func writeProfileSequence(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number, _ version: cmsUInt32Number
+) -> Bool {
+    let sequence = object.assumingMemoryBound(to: cmsSEQ.self)
+    guard let entries = sequence.pointee.seq else { return false }
+
+    // The version the profile is being written as decides the form the
+    // embedded descriptions take.
+    if _cmsWriteUInt32Number(io, sequence.pointee.n) == 0 { return false }
+
+    for i in 0..<Int(sequence.pointee.n) {
+        let entry = entries + i
+        if _cmsWriteUInt32Number(io, entry.pointee.deviceMfg) == 0 { return false }
+        if _cmsWriteUInt32Number(io, entry.pointee.deviceModel) == 0 { return false }
+        if _cmsWriteUInt64Number(io, &entry.pointee.attributes) == 0 { return false }
+        if _cmsWriteUInt32Number(io, entry.pointee.technology.rawValue) == 0 { return false }
+
+        if !saveDescription(context, io, version, entry.pointee.Manufacturer) { return false }
+        if !saveDescription(context, io, version, entry.pointee.Model) { return false }
+    }
+    return true
+}
+
+let profileSequenceTagType = TagTypeHandler(
+    signature: cmsSigProfileSequenceDescType,
+    read: readProfileSequence, write: writeProfileSequence,
+    duplicate: { _, pointer, _ in
+        UnsafeMutableRawPointer(cmsDupProfileSequenceDescription(
+            UnsafeMutablePointer(mutating: pointer.assumingMemoryBound(to: cmsSEQ.self))
+        ))
+    },
+    free: { _, object in
+        cmsFreeProfileSequenceDescription(object.assumingMemoryBound(to: cmsSEQ.self))
+    }
 )

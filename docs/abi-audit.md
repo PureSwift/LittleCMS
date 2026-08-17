@@ -288,6 +288,16 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   prepended as they are read, so reading reverses their order and
   writing them back lays the same content out differently. Same size,
   different bytes — and the reference does exactly the same.
+- `cmsAllocProfileSequenceDescription` leaves all three descriptions
+  **null**; a caller that wants text must allocate the containers
+  itself. `pseq` writes a null description as an empty one rather than
+  refusing, since an unfilled sequence is the normal case.
+- Each `pseq` entry embeds two descriptions in whichever text type the
+  profile's version calls for, so the same sequence is different bytes
+  in a v2 and a v4 profile. **The v2 form does not survive a round
+  trip**: the reference writes it and then fails to read it back, its
+  size accounting having run out against the larger `desc` records. Ours
+  fails identically.
 - Two reference leaks are **not** reproduced (`Type_Signature_Read` and
   `Type_DateTime_Read` drop their block on a failed read). A leak is not
   observable through the ABI.

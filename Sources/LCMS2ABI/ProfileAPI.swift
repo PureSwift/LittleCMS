@@ -740,7 +740,7 @@ public func cmsReadRawTag(
     }
 
     guard _cmsWriteTypeBase(sink, handler.signature) != 0,
-          handler.write(box.context, sink, object, descriptor.elementCount)
+          handler.write(box.context, sink, object, descriptor.elementCount, box.version)
     else {
         _ = cmsCloseIOhandler(sink)
         return 0
@@ -1088,7 +1088,7 @@ private func saveTags(
 
                 if _cmsWriteTypeBase(destination, handler.signature) == 0 { return false }
                 if !handler.write(
-                    box.context, destination, object, descriptor.elementCount
+                    box.context, destination, object, descriptor.elementCount, box.version
                 ) {
                     report(
                         cmsUInt32Number(cmsERROR_WRITE),

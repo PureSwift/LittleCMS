@@ -1398,6 +1398,80 @@ int main(void)
         }
     }
 
+    /* -- the profile sequence type ------------------------------------------ */
+    {
+        /* Each entry embeds two descriptions, and which text type those
+         * take follows the profile's version -- so the same sequence
+         * written to a v2 and a v4 profile is different bytes. */
+        static const double versions[2] = { 2.4, 4.3 };
+        for (int v = 0; v < 2; v++) {
+            cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+            cmsSetProfileVersion(h, versions[v]);
+            cmsSetDeviceClass(h, cmsSigLinkClass);
+
+            cmsSEQ* seq = cmsAllocProfileSequenceDescription(NULL, 3);
+            for (int i = 0; i < 3; i++) {
+                seq->seq[i].deviceMfg = 0x41414100u + (unsigned) i;
+                seq->seq[i].deviceModel = 0x42424200u + (unsigned) i;
+                seq->seq[i].attributes = (cmsUInt64Number) (i + 1);
+                seq->seq[i].technology = cmsSigCRTDisplay;
+                /* The allocator leaves all three descriptions null --
+                 * a sequence nobody fills in is the normal case -- so
+                 * the containers have to be made here.  The sequence
+                 * frees them with itself. */
+                seq->seq[i].Manufacturer = cmsMLUalloc(NULL, 1);
+                seq->seq[i].Model = cmsMLUalloc(NULL, 1);
+                cmsMLUsetASCII(seq->seq[i].Manufacturer, "en", "US",
+                               i == 0 ? "Acme" : (i == 1 ? "Globex" : "Initech"));
+                cmsMLUsetASCII(seq->seq[i].Model, "en", "US",
+                               i == 0 ? "Model One" : (i == 1 ? "Model Two" : "Model Three"));
+            }
+            printf("v%.1f seq write %d\n", versions[v],
+                   cmsWriteTag(h, cmsSigProfileSequenceDescTag, seq));
+            cmsFreeProfileSequenceDescription(seq);
+
+            cmsUInt32Number needed = 0;
+            cmsSaveProfileToMem(h, NULL, &needed);
+            unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+            cmsUInt32Number room = needed;
+            cmsSaveProfileToMem(h, out, &room);
+            feed_saved(out, needed);
+            printf("  saved %u\n", needed);
+
+            cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+            cmsSEQ* got = (cmsSEQ*) cmsReadTag(back, cmsSigProfileSequenceDescTag);
+            printf("  read %d n %u\n", got != NULL, got ? got->n : 0);
+            if (got) {
+                for (cmsUInt32Number i = 0; i < got->n; i++) {
+                    char mfg[64], mdl[64];
+                    memset(mfg, 0, sizeof mfg);
+                    memset(mdl, 0, sizeof mdl);
+                    cmsMLUgetASCII(got->seq[i].Manufacturer, "en", "US", mfg, sizeof mfg);
+                    cmsMLUgetASCII(got->seq[i].Model, "en", "US", mdl, sizeof mdl);
+                    printf("    %u mfg %08x model %08x tech %08x attr %llu '%s' / '%s'\n",
+                           i, (unsigned) got->seq[i].deviceMfg,
+                           (unsigned) got->seq[i].deviceModel,
+                           (unsigned) got->seq[i].technology,
+                           (unsigned long long) got->seq[i].attributes, mfg, mdl);
+                }
+            }
+            report(versions[v] < 4.0 ? "v2 sequence" : "v4 sequence");
+
+            cmsUInt32Number again = 0;
+            cmsSaveProfileToMem(back, NULL, &again);
+            unsigned char* twice = (unsigned char*) calloc(1, again ? again : 1);
+            cmsUInt32Number room2 = again;
+            cmsSaveProfileToMem(back, twice, &room2);
+            printf("  re-saved %u identical %d\n", again,
+                   again == needed && memcmp(out, twice, again) == 0);
+
+            free(twice);
+            cmsCloseProfile(back);
+            free(out);
+            cmsCloseProfile(h);
+        }
+    }
+
     printf("profile probe OK\n");
     return 0;
 }
