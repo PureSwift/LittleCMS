@@ -279,6 +279,15 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   any other length is resampled and does not survive a save at its
   original resolution. It also carries a fixup for a depth Adobe once
   wrote wrongly, recognised by the tag's own length.
+- `meta` is a directory of fixed-width records then the data they point
+  at. The record length — 16, 24 or 32 — is decided by what **any** one
+  entry carries, so a single display name widens every record in the
+  tag. An offset of zero means the string is *absent*, not at the start
+  of the tag, which is how a key with no value is encoded.
+- **A dictionary does not round-trip byte-identically.** Entries are
+  prepended as they are read, so reading reverses their order and
+  writing them back lays the same content out differently. Same size,
+  different bytes — and the reference does exactly the same.
 - Two reference leaks are **not** reproduced (`Type_Signature_Read` and
   `Type_DateTime_Read` drop their block on a failed read). A leak is not
   observable through the ABI.

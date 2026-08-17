@@ -1317,6 +1317,87 @@ int main(void)
         }
     }
 
+    /* -- the dictionary type ------------------------------------------------ */
+    {
+        /* The record length is decided by what any one entry carries, so
+         * three dictionaries are written: names and values only, plus a
+         * display name, plus a display value. */
+        for (int columns = 0; columns < 3; columns++) {
+            cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+            cmsSetProfileVersion(h, 4.3);
+
+            cmsHANDLE dict = cmsDictAlloc(NULL);
+            cmsMLU* dn = cmsMLUalloc(NULL, 1);
+            cmsMLUsetASCII(dn, "en", "US", "a display name");
+            cmsMLU* dv = cmsMLUalloc(NULL, 1);
+            cmsMLUsetASCII(dv, "en", "US", "a display value");
+
+            cmsDictAddEntry(dict, L"first", L"one", NULL, NULL);
+            cmsDictAddEntry(dict, L"second", L"two",
+                            columns >= 1 ? dn : NULL, NULL);
+            cmsDictAddEntry(dict, L"third", L"three", NULL,
+                            columns >= 2 ? dv : NULL);
+            /* A key whose value is absent, which the offset of zero is
+             * there to encode. */
+            cmsDictAddEntry(dict, L"empty", L"", NULL, NULL);
+            cmsMLUfree(dn);
+            cmsMLUfree(dv);
+
+            printf("dict %d write %d\n", columns,
+                   cmsWriteTag(h, cmsSigMetaTag, dict));
+            cmsDictFree(dict);
+
+            cmsUInt32Number needed = 0;
+            cmsSaveProfileToMem(h, NULL, &needed);
+            unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+            cmsUInt32Number room = needed;
+            cmsSaveProfileToMem(h, out, &room);
+            feed_saved(out, needed);
+            printf("  saved %u\n", needed);
+
+            cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+            cmsHANDLE got = (cmsHANDLE) cmsReadTag(back, cmsSigMetaTag);
+            printf("  read %d\n", got != NULL);
+            if (got) {
+                int n = 0;
+                for (const cmsDICTentry* p = cmsDictGetEntryList(got);
+                     p != NULL; p = cmsDictNextEntry(p)) {
+                    char name[64], value[64];
+                    memset(name, 0, sizeof name);
+                    memset(value, 0, sizeof value);
+                    if (p->Name)
+                        for (int k = 0; k < 63 && p->Name[k]; k++)
+                            name[k] = (char) p->Name[k];
+                    if (p->Value)
+                        for (int k = 0; k < 63 && p->Value[k]; k++)
+                            value[k] = (char) p->Value[k];
+                    printf("    %d '%s' = '%s' dn %d dv %d\n", n++, name, value,
+                           p->DisplayName != NULL, p->DisplayValue != NULL);
+                    if (p->DisplayName) {
+                        char b[64];
+                        memset(b, 0, sizeof b);
+                        cmsMLUgetASCII(p->DisplayName, "en", "US", b, sizeof b);
+                        printf("      dn '%s'\n", b);
+                    }
+                }
+            }
+            report("dictionary");
+
+            cmsUInt32Number again = 0;
+            cmsSaveProfileToMem(back, NULL, &again);
+            unsigned char* twice = (unsigned char*) calloc(1, again ? again : 1);
+            cmsUInt32Number room2 = again;
+            cmsSaveProfileToMem(back, twice, &room2);
+            printf("  re-saved %u identical %d\n", again,
+                   again == needed && memcmp(out, twice, again) == 0);
+
+            free(twice);
+            cmsCloseProfile(back);
+            free(out);
+            cmsCloseProfile(h);
+        }
+    }
+
     printf("profile probe OK\n");
     return 0;
 }

@@ -484,6 +484,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     table.merge(structuralTagTypes) { existing, _ in existing }
     table[cmsSigNamedColor2Type] = namedColorTagType
     table[cmsSigVcgtType] = vcgtTagType
+    table[cmsSigDictType] = dictionaryTagType
 
     return table
 }()
@@ -2536,4 +2537,304 @@ let vcgtTagType = TagTypeHandler(
         for i in 0..<3 { cmsFreeToneCurve(curves[i]) }
         _cmsFree(context, object)
     }
+)
+
+// -- the dictionary type ------------------------------------------------------
+
+// `meta` is a directory of fixed-width records followed by the data they
+// point at.  A record is always a name and a value, and optionally a
+// display name and a display value, so the record length says which of
+// the four columns are present: 16, 24 or 32 bytes.
+//
+// An offset of zero does not mean "the start of the tag" — it means the
+// string is absent, which the ICC proposal that introduced this type
+// spells out.  So a dictionary can carry a key with no value.
+//
+// Strings on disk are UTF-16; `wchar_t` is four bytes on the platforms
+// this builds for, so both directions convert rather than copy.
+
+private struct DictionaryColumn {
+    var offsets: [cmsUInt32Number]
+    var sizes: [cmsUInt32Number]
+
+    init(count: Int) {
+        offsets = [cmsUInt32Number](repeating: 0, count: count)
+        sizes = [cmsUInt32Number](repeating: 0, count: count)
+    }
+}
+
+private func readOneElement(
+    _ io: UnsafeMutablePointer<cmsIOHANDLER>, _ column: inout DictionaryColumn,
+    _ i: Int, _ base: cmsUInt32Number
+) -> Bool {
+    var offset: cmsUInt32Number = 0
+    var size: cmsUInt32Number = 0
+    if _cmsReadUInt32Number(io, &offset) == 0 { return false }
+    if _cmsReadUInt32Number(io, &size) == 0 { return false }
+    // Zero stays zero: it is the marker, not a position.
+    column.offsets[i] = offset == 0 ? 0 : offset + base
+    column.sizes[i] = size
+    return true
+}
+
+private func readOneWideString(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ column: DictionaryColumn, _ i: Int
+) -> UnsafeMutablePointer<wchar_t>?? {
+    if column.offsets[i] == 0 { return .some(nil) }   // absent, and that is not a failure
+    guard let seek = io.pointee.Seek, seek(io, column.offsets[i]) != 0 else { return nil }
+
+    let characters = Int(column.sizes[i]) / 2
+    if characters > 0x7FFFF { return nil }
+
+    guard let raw = _cmsMallocZero(
+        context, cmsUInt32Number((characters + 1) * MemoryLayout<wchar_t>.stride)
+    ) else { return nil }
+    let string = raw.assumingMemoryBound(to: wchar_t.self)
+
+    for k in 0..<characters {
+        var unit: cmsUInt16Number = 0
+        if _cmsReadUInt16Number(io, &unit) == 0 {
+            _cmsFree(context, raw)
+            return nil
+        }
+        string[k] = wchar_t(unit)
+    }
+    string[characters] = 0
+    return .some(string)
+}
+
+private func readOneMLU(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ column: DictionaryColumn, _ i: Int
+) -> UnsafeMutablePointer<cmsMLU>?? {
+    if column.offsets[i] == 0 || column.sizes[i] == 0 { return .some(nil) }
+    guard let seek = io.pointee.Seek, seek(io, column.offsets[i]) != 0 else { return nil }
+
+    var items: cmsUInt32Number = 0
+    guard let raw = readMLU(context, io, &items, column.sizes[i]) else { return nil }
+    return .some(raw.assumingMemoryBound(to: cmsMLU.self))
+}
+
+@Sendable private func readDictionary(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    guard let tell = io.pointee.Tell else { return nil }
+    let base = tell(io) - tagBaseSize
+
+    // Tracked as a signed count so that a claim larger than the tag is
+    // caught rather than wrapping into a very large unsigned number.
+    var remaining = cmsInt32Number(bitPattern: sizeOfTag)
+
+    var count: cmsUInt32Number = 0
+    var length: cmsUInt32Number = 0
+    remaining -= 4
+    if remaining < 0 { return nil }
+    if _cmsReadUInt32Number(io, &count) == 0 { return nil }
+    remaining -= 4
+    if remaining < 0 { return nil }
+    if _cmsReadUInt32Number(io, &length) == 0 { return nil }
+
+    if length != 16 && length != 24 && length != 32 {
+        report(
+            cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
+            "Unknown record length in dictionary '\(length)'", to: context
+        )
+        return nil
+    }
+
+    guard let dict = cmsDictAlloc(context) else { return nil }
+    func fail() -> UnsafeMutableRawPointer? {
+        cmsDictFree(dict)
+        return nil
+    }
+
+    let n = Int(count)
+    var names = DictionaryColumn(count: n)
+    var values = DictionaryColumn(count: n)
+    var displayNames = DictionaryColumn(count: n)
+    var displayValues = DictionaryColumn(count: n)
+
+    for i in 0..<n {
+        remaining -= 16
+        if remaining < 0 { return fail() }
+        if !readOneElement(io, &names, i, base) { return fail() }
+        if !readOneElement(io, &values, i, base) { return fail() }
+
+        if length > 16 {
+            remaining -= 8
+            if remaining < 0 { return fail() }
+            if !readOneElement(io, &displayNames, i, base) { return fail() }
+        }
+        if length > 24 {
+            remaining -= 8
+            if remaining < 0 { return fail() }
+            if !readOneElement(io, &displayValues, i, base) { return fail() }
+        }
+    }
+
+    for i in 0..<n {
+        guard let name = readOneWideString(context, io, names, i),
+              let value = readOneWideString(context, io, values, i)
+        else { return fail() }
+        defer {
+            if let name { _cmsFree(context, name) }
+            if let value { _cmsFree(context, value) }
+        }
+
+        var displayName: UnsafeMutablePointer<cmsMLU>?
+        var displayValue: UnsafeMutablePointer<cmsMLU>?
+        if length > 16 {
+            guard let read = readOneMLU(context, io, displayNames, i) else { return fail() }
+            displayName = read
+        }
+        if length > 24 {
+            guard let read = readOneMLU(context, io, displayValues, i) else { return fail() }
+            displayValue = read
+        }
+        defer {
+            cmsMLUfree(displayName)
+            cmsMLUfree(displayValue)
+        }
+
+        // A record with no name or no value at all is corruption, not
+        // the absent-string case the offsets encode.
+        guard let name, let value else {
+            report(
+                cmsUInt32Number(cmsERROR_CORRUPTION_DETECTED),
+                "Bad dictionary Name/Value", to: context
+            )
+            return fail()
+        }
+
+        if cmsDictAddEntry(dict, name, value, displayName, displayValue) == 0 {
+            return fail()
+        }
+    }
+
+    items = 1
+    return UnsafeMutableRawPointer(dict)
+}
+
+@Sendable private func writeDictionary(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+) -> Bool {
+    guard let tell = io.pointee.Tell, let seek = io.pointee.Seek else { return false }
+    let dict = cmsHANDLE(object)
+    let base = tell(io) - tagBaseSize
+
+    // The record length is decided by what any entry carries, so one
+    // entry with a display name widens every record in the tag.
+    var count = 0
+    var anyDisplayName = false
+    var anyDisplayValue = false
+    var entry = cmsDictGetEntryList(dict)
+    while let e = entry {
+        if e.pointee.DisplayName != nil { anyDisplayName = true }
+        if e.pointee.DisplayValue != nil { anyDisplayValue = true }
+        count += 1
+        entry = cmsDictNextEntry(e)
+    }
+
+    var length: cmsUInt32Number = 16
+    if anyDisplayName { length += 8 }
+    if anyDisplayValue { length += 8 }
+
+    if _cmsWriteUInt32Number(io, cmsUInt32Number(count)) == 0 { return false }
+    if _cmsWriteUInt32Number(io, length) == 0 { return false }
+
+    let directory = tell(io)
+    var names = DictionaryColumn(count: count)
+    var values = DictionaryColumn(count: count)
+    var displayNames = DictionaryColumn(count: count)
+    var displayValues = DictionaryColumn(count: count)
+
+    func writeDirectory() -> Bool {
+        for i in 0..<count {
+            if _cmsWriteUInt32Number(io, names.offsets[i]) == 0 { return false }
+            if _cmsWriteUInt32Number(io, names.sizes[i]) == 0 { return false }
+            if _cmsWriteUInt32Number(io, values.offsets[i]) == 0 { return false }
+            if _cmsWriteUInt32Number(io, values.sizes[i]) == 0 { return false }
+            if length > 16 {
+                if _cmsWriteUInt32Number(io, displayNames.offsets[i]) == 0 { return false }
+                if _cmsWriteUInt32Number(io, displayNames.sizes[i]) == 0 { return false }
+            }
+            if length > 24 {
+                if _cmsWriteUInt32Number(io, displayValues.offsets[i]) == 0 { return false }
+                if _cmsWriteUInt32Number(io, displayValues.sizes[i]) == 0 { return false }
+            }
+        }
+        return true
+    }
+
+    // A placeholder, so the data that follows lands where the real
+    // offsets will say it does.
+    if !writeDirectory() { return false }
+
+    func writeWideString(
+        _ column: inout DictionaryColumn, _ i: Int, _ string: UnsafeMutablePointer<wchar_t>?
+    ) -> Bool {
+        let before = tell(io)
+        guard let string else {
+            column.offsets[i] = 0
+            column.sizes[i] = 0
+            return true
+        }
+        column.offsets[i] = before - base
+
+        var k = 0
+        while string[k] != 0 { k += 1 }
+        for j in 0..<k {
+            let unit = cmsUInt16Number(truncatingIfNeeded: string[j])
+            if _cmsWriteUInt16Number(io, unit) == 0 { return false }
+        }
+        column.sizes[i] = tell(io) - before
+        return true
+    }
+
+    func writeDisplay(
+        _ column: inout DictionaryColumn, _ i: Int, _ mlu: UnsafeMutablePointer<cmsMLU>?
+    ) -> Bool {
+        guard let mlu else {
+            column.offsets[i] = 0
+            column.sizes[i] = 0
+            return true
+        }
+        let before = tell(io)
+        column.offsets[i] = before - base
+        if !writeMLU(context, io, UnsafeMutableRawPointer(mlu), 1) { return false }
+        column.sizes[i] = tell(io) - before
+        return true
+    }
+
+    entry = cmsDictGetEntryList(dict)
+    for i in 0..<count {
+        guard let e = entry else { return false }
+        if !writeWideString(&names, i, e.pointee.Name) { return false }
+        if !writeWideString(&values, i, e.pointee.Value) { return false }
+        if e.pointee.DisplayName != nil {
+            if !writeDisplay(&displayNames, i, e.pointee.DisplayName) { return false }
+        }
+        if e.pointee.DisplayValue != nil {
+            if !writeDisplay(&displayValues, i, e.pointee.DisplayValue) { return false }
+        }
+        entry = cmsDictNextEntry(e)
+    }
+
+    let end = tell(io)
+    if seek(io, directory) == 0 { return false }
+    if !writeDirectory() { return false }
+    return seek(io, end) != 0
+}
+
+let dictionaryTagType = TagTypeHandler(
+    signature: cmsSigDictType,
+    read: readDictionary, write: writeDictionary,
+    duplicate: { _, pointer, _ in
+        UnsafeMutableRawPointer(cmsDictDup(cmsHANDLE(mutating: pointer)))
+    },
+    free: { _, object in cmsDictFree(cmsHANDLE(object)) }
 )
