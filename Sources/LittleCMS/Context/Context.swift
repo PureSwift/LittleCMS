@@ -1,8 +1,11 @@
-// Embedded Swift ships a Synchronization module that vends atomics but no
-// Mutex, so the condition has to name the feature rather than the module:
-// `canImport` succeeds there and the type is still missing.
-#if !hasFeature(Embedded) && canImport(Synchronization)
-import Synchronization
+#if !hasFeature(Embedded)
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#endif
 #endif
 
 // The context: a set of settings a caller can vary independently of every
@@ -75,21 +78,36 @@ public final class Context: @unchecked Sendable {
 /// single-threaded stay unsynchronized, and the few that are genuinely
 /// shared — a context, a profile's tag directory, a transform's cache —
 /// each hold one of these.
+// A class rather than a struct: the lock has an address the platform
+// keeps, so the cell must not be copyable.
+//
+// The primitive is the platform's own, not the standard library's Mutex,
+// for a reason particular to what this library is.  Mutex lives in a
+// separate runtime library, and pulling it in would make the shipped
+// liblcms2.so depend on a shared object the reference does not need —
+// a new runtime dependency for every program that substitutes this
+// library.  pthreads it already has: the reference's own pkg-config
+// declares -lpthread.
 final class LockedCell<Value: Sendable>: @unchecked Sendable {
-    // The condition names the feature, not the module: Embedded Swift
-    // ships a Synchronization that vends atomics without a Mutex, so
-    // `canImport` alone succeeds there and the type is still missing.
-    #if !hasFeature(Embedded) && canImport(Synchronization)
-    // A class, because a mutex cannot be copied and so cannot be a
-    // stored property of a struct that can be.
-    private let mutex: Mutex<Value>
+    #if !hasFeature(Embedded)
+    private var value: Value
+    private let mutex: UnsafeMutablePointer<pthread_mutex_t>
 
     init(_ value: Value) {
-        mutex = Mutex(value)
+        self.value = value
+        mutex = UnsafeMutablePointer<pthread_mutex_t>.allocate(capacity: 1)
+        pthread_mutex_init(mutex, nil)
+    }
+
+    deinit {
+        pthread_mutex_destroy(mutex)
+        mutex.deallocate()
     }
 
     func withLock<Result: Sendable>(_ body: (inout Value) -> Result) -> Result {
-        mutex.withLock { value in body(&value) }
+        pthread_mutex_lock(mutex)
+        defer { pthread_mutex_unlock(mutex) }
+        return body(&value)
     }
     #else
     // Freestanding targets without the synchronization library are

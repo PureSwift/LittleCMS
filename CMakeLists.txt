@@ -163,7 +163,13 @@ else()
     set_target_properties(lcms2 PROPERTIES
         VERSION ${SLCMS_ELF_VERSION})
 
+    # A shared object is allowed to carry unresolved symbols, and every
+    # client discovers them instead: the library links, and linking a
+    # program against it fails.  For a library whose whole purpose is to
+    # be substituted into someone else's build, that is the worst place
+    # to find out, so the link refuses here rather than deferring it.
     target_link_options(lcms2 PRIVATE
+        "LINKER:--no-undefined"
         "LINKER:--version-script=${SLCMS_VERSION_SCRIPT}")
 
     # The published entry points live in the boundary archive and nothing
@@ -189,6 +195,11 @@ else()
     # the version script with them.
     set_property(TARGET lcms2 APPEND PROPERTY LINK_DEPENDS
         $<TARGET_FILE:LCMS2ABI> $<TARGET_FILE:LittleCMS> ${SLCMS_VERSION_SCRIPT})
+
+    # What the reference's own pkg-config declares as private
+    # dependencies, named explicitly because --no-undefined means they
+    # can no longer be left to whatever the driver happens to add.
+    target_link_libraries(lcms2 PRIVATE m pthread)
 
     if(SLCMS_STATIC_STDLIB)
         target_link_options(lcms2 PRIVATE -static-stdlib)
