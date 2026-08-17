@@ -95,9 +95,13 @@ Legend — **owner**: who frees a returned pointer, and with which function.
 - **errors**: `L`.
 - `cmsOpenProfileFromMem` copies the buffer (caller may free immediately).
   `cmsOpenProfileFromFile` keeps the `FILE`/descriptor open until close.
-- Custom `cmsIOHANDLER` (public layout, lcms2_plugin.h:118): profile takes
-  ownership of the handler iff opened via `cmsOpenProfileFromIOhandler2THR`
-  with... *(verify exact close policy against cmsio0.c in Phase 3)*.
+- Custom `cmsIOHANDLER` (public layout, lcms2_plugin.h:118): **the
+  profile takes ownership unconditionally.** `cmsCloseProfile` closes
+  whatever handler the profile holds, however it was opened — there is
+  no borrow-mode entry point, so a caller who passes a handler to
+  `cmsOpenProfileFromIOhandler(2)THR` must not close it themselves.
+  *(Resolved against cmsio0.c; superseded by the container section
+  below, which is the current record for this family.)*
 
 ### Profile container + header (46) — `cmsOpenProfileFrom*`, `cmsCloseProfile`, `cmsCreateProfilePlaceholder`, `cmsGet/SetHeader*`, `cmsGetTagCount`, `cmsReadRawTag`, … — *implemented*
 
