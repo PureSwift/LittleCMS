@@ -934,67 +934,6 @@ cmsBool cmsMD5computeID(cmsHPROFILE hProfile)
     swift_unimplemented_fatal("cmsMD5computeID");
 }
 
-cmsMLU* cmsMLUalloc(cmsContext ContextID, cmsUInt32Number nItems)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsMLUalloc is not implemented");
-    return (cmsMLU*){0};
-}
-
-cmsMLU* cmsMLUdup(const cmsMLU* mlu)
-{
-    swift_unimplemented_fatal("cmsMLUdup");
-}
-
-void cmsMLUfree(cmsMLU* mlu)
-{
-    swift_unimplemented_fatal("cmsMLUfree");
-}
-
-cmsUInt32Number cmsMLUgetASCII(const cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], char* Buffer, cmsUInt32Number BufferSize)
-{
-    swift_unimplemented_fatal("cmsMLUgetASCII");
-}
-
-cmsBool cmsMLUgetTranslation(const cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], char ObtainedLanguage[3], char ObtainedCountry[3])
-{
-    swift_unimplemented_fatal("cmsMLUgetTranslation");
-}
-
-cmsUInt32Number cmsMLUgetUTF8(const cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], char* Buffer, cmsUInt32Number BufferSize)
-{
-    swift_unimplemented_fatal("cmsMLUgetUTF8");
-}
-
-cmsUInt32Number cmsMLUgetWide(const cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], wchar_t* Buffer, cmsUInt32Number BufferSize)
-{
-    swift_unimplemented_fatal("cmsMLUgetWide");
-}
-
-cmsBool cmsMLUsetASCII(cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], const char* ASCIIString)
-{
-    swift_unimplemented_fatal("cmsMLUsetASCII");
-}
-
-cmsBool cmsMLUsetUTF8(cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], const char* UTF8String)
-{
-    swift_unimplemented_fatal("cmsMLUsetUTF8");
-}
-
-cmsBool cmsMLUsetWide(cmsMLU* mlu, const char LanguageCode[3], const char CountryCode[3], const wchar_t* WideString)
-{
-    swift_unimplemented_fatal("cmsMLUsetWide");
-}
-
-cmsBool cmsMLUtranslationsCodes(const cmsMLU* mlu, cmsUInt32Number idx, char LanguageCode[3], char CountryCode[3])
-{
-    swift_unimplemented_fatal("cmsMLUtranslationsCodes");
-}
-
-cmsUInt32Number cmsMLUtranslationsCount(const cmsMLU* mlu)
-{
-    swift_unimplemented_fatal("cmsMLUtranslationsCount");
-}
-
 cmsUInt32Number cmsNamedColorCount(const cmsNAMEDCOLORLIST* v)
 {
     swift_unimplemented_fatal("cmsNamedColorCount");

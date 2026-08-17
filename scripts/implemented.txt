@@ -156,3 +156,17 @@ cmsReverseToneCurveEx
 cmsJoinToneCurve
 cmsEstimateGamma
 cmsSmoothToneCurve
+
+# Sources/LCMS2ABI/MLUAPI.swift
+cmsMLUalloc
+cmsMLUfree
+cmsMLUdup
+cmsMLUsetASCII
+cmsMLUsetWide
+cmsMLUsetUTF8
+cmsMLUgetASCII
+cmsMLUgetWide
+cmsMLUgetUTF8
+cmsMLUtranslationsCount
+cmsMLUtranslationsCodes
+cmsMLUgetTranslation
