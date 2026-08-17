@@ -324,6 +324,31 @@ Legend — **owner**: who frees a returned pointer, and with which function.
 *(each section is filled in the phase that implements it; the section must
 be complete before the family's stubs are retired)*
 
+## What the differential can and cannot see
+
+Comparing two builds is only evidence when the question was answered.
+Three ways it silently was not, each found the hard way and each now
+closed in `scripts/run_conformance.sh`:
+
+- **Both crashed.** Two probes killed by a signal print the same
+  truncated output and compare equal. Any exit status at or above 128
+  now fails outright.
+- **`diff` went binary.** A probe printed a NUL byte, `diff` decided the
+  files were binary, and binary mode emits no `+`/`-` lines — so nothing
+  was extracted and nothing looked like agreement. `cmp` is now the
+  authority and `--text` stops the case arising; bytes differing with
+  nothing extracted is now itself a failure.
+- **The probe was not deterministic.** Output that depends on the clock,
+  uninitialized memory, an address or an iteration order passes or fails
+  by luck, and the failure surfaces later on another machine looking
+  like a real divergence. Each probe now runs twice, a second apart, and
+  must answer identically both times. The wait is what makes a
+  seconds-resolution clock a certain catch rather than a coin flip.
+
+A related discipline for probes themselves: a lifetime test that frees
+the caller's copy only at the end cannot tell a copy from a kept
+pointer. Free first, then read.
+
 ## Floating point: what "agreement" means
 
 Swift's arithmetic is IEEE-strict: it never contracts `a*b + c*d` into a

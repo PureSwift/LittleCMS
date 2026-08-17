@@ -43,6 +43,38 @@ if [ "$crashed" -eq 1 ]; then
     exit 1
 fi
 
+# A probe must answer the same way twice.  Comparing two builds says
+# nothing if either one's output depends on something other than the
+# library: the clock, uninitialized memory, an address, an iteration
+# order.  Such a probe passes or fails by luck, and the failure arrives
+# later, on another machine, looking like a real divergence.
+#
+# One extra run of each is cheap next to the hours that costs.  Both are
+# checked, because a reference that is not deterministic makes the
+# comparison meaningless in exactly the same way.
+#
+# The second pass waits out a second first.  Without that, a probe that
+# prints the wall clock -- the failure this check exists for, and one
+# that has bitten three times -- is only caught when the two runs happen
+# to straddle a second boundary, which is a coin flip.  A second per
+# differential is a fair price for turning that into a certainty.
+sleep 1.1 2>/dev/null || sleep 2
+
+"$ours" "$@" > "$work/ours.again" 2>&1
+echo "exit $?" >> "$work/ours.again"
+"$reference" "$@" > "$work/reference.again" 2>&1
+echo "exit $?" >> "$work/reference.again"
+
+for build in ours reference; do
+    if ! cmp -s "$work/$build.out" "$work/$build.again"; then
+        echo "the $build probe is not deterministic: two runs disagree." >&2
+        echo "something outside the library is reaching its output --" >&2
+        echo "the clock, uninitialized memory, an address, an ordering." >&2
+        diff -u --text "$work/$build.out" "$work/$build.again" | head -n 20 >&2
+        exit 1
+    fi
+done
+
 # Byte equality is the question; the diff only exists to say where.
 #
 # `--text` is not optional: a probe that prints a NUL byte makes diff

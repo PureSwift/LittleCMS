@@ -14,6 +14,8 @@
 #include "lcms2.h"
 #include "lcms2_plugin.h"   /* the date-time coders live here */
 
+#include <unistd.h>
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -406,7 +408,11 @@ int main(void)
     {
         size_t size = 0;
         unsigned char* bytes = build_profile(&size, 3, 0);
-        const char* path = "profileprobe.tmp.icc";
+        /* Named after the process, so that two probes running at once
+         * -- ctest -j, or the determinism re-run -- cannot collide over
+         * a shared file. */
+        char path[64];
+        snprintf(path, sizeof path, "profileprobe.%ld.tmp.icc", (long) getpid());
         FILE* f = fopen(path, "wb");
         if (f != NULL) {
             fwrite(bytes, 1, size, f);
@@ -514,7 +520,8 @@ int main(void)
         unsigned char* bytes = build_profile(&size, 3, 0);
         cmsHPROFILE h = cmsOpenProfileFromMem(bytes, (cmsUInt32Number) size);
 
-        const char* path = "profileprobe.save.icc";
+        char path[64];
+        snprintf(path, sizeof path, "profileprobe.%ld.save.icc", (long) getpid());
         printf("save to file %d\n", cmsSaveProfileToFile(h, path));
 
         cmsHPROFILE back = cmsOpenProfileFromFile(path, "r");

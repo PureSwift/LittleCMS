@@ -71,4 +71,7 @@ jobs:
         run: cmake --build build/ci
 
       - name: Test (CTest)
-        run: ctest --test-dir build/ci --output-on-failure
+        # Parallel because each differential now runs its probes twice,
+        # a second apart, to prove they are deterministic. Serially that
+        # is a minute of sleeping; in parallel the waits overlap.
+        run: ctest --test-dir build/ci --output-on-failure -j 4
