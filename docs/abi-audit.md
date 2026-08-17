@@ -148,6 +148,44 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   back — so computing the identifier changes only the identifier, and
   the identifier does not depend on those three fields.
 
+### Tag access + tag types — `cmsReadTag`, `cmsWriteTag`, `cmsReadRawTag`, `cmsWriteRawTag`, `cmsLinkTag`, … — *machinery + fixed-size value types implemented*
+
+- **`cmsReadTag`'s pointer belongs to the profile.** It is valid until
+  `cmsCloseProfile`, repeated reads of one tag return the *same* pointer
+  (not equal copies), and a caller who frees it has broken the profile.
+  The profile therefore caches one materialized object per tag slot.
+- `cmsWriteTag` **copies** what it is given, so the caller's struct
+  stays the caller's; mutating it afterwards does not change the tag.
+- **A failed `cmsWriteTag` still consumes a directory slot.** `_cmsNewTag`
+  bumps the tag count before anything can fail, so a refused write
+  leaves a slot whose name is zero. Such slots are skipped when saving.
+- Deleting a tag (`cmsWriteTag(…, NULL)`) keeps the slot and zeroes its
+  name — the same hole. Deleting a tag that is not there returns FALSE.
+- **The "already saved as RAW" error in `cmsWriteTag` is unreachable.**
+  `_cmsNewTag` runs first, and freeing the previous value is what clears
+  the raw flag — so a cooked write over a raw tag always succeeds and
+  the tag simply stops being raw.
+- **Reading a raw-stored tag as cooked destroys it.** The refusal path
+  frees the stored bytes but leaves the slot marked raw, so a following
+  `cmsReadRawTag` falls through to the on-disk path; on a profile with
+  no IO handler (one built by `cmsCreateProfilePlaceholder`) the
+  reference dereferences NULL there. Ours returns 0. A crash is not a
+  behaviour to reproduce.
+- `cmsReadRawTag` has three paths: bytes still in the file (seek and
+  read), bytes stored raw (copy them out), and an object held in memory
+  (serialize it into a memory handler — a null buffer counts instead of
+  storing, giving the size). It drops the profile lock across its
+  internal `cmsReadTag`, which takes the same non-recursive lock.
+- Type quirks reproduced: the chromaticity type recovers from an early
+  lcms1 bug that wrote a leading zero count (recognised by the tag being
+  32 bytes); colorant order is a full-width array with `0xFF` marking
+  absent entries, and its stored length counts every entry that is not
+  the marker, wherever it sits; plain text is handed back as a
+  multi-localized container so all three text types read alike.
+- Two reference leaks are **not** reproduced (`Type_Signature_Read` and
+  `Type_DateTime_Read` drop their block on a failed read). A leak is not
+  observable through the ABI.
+
 ### Tag access (10) — `cmsReadTag`, `cmsWriteTag`, `cmsReadRawTag`, `cmsWriteRawTag`, `cmsLinkTag`, `cmsTagLinkedTo`, `cmsGetTagCount`, `cmsGetTagSignature`, …
 
 - **`cmsReadTag` is the load-bearing lifetime contract**: returns a pointer

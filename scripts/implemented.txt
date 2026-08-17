@@ -165,6 +165,7 @@ cmsLab2LCh
 cmsLab2XYZ
 cmsLabEncoded2Float
 cmsLabEncoded2FloatV2
+cmsLinkTag
 cmsMD5add
 cmsMD5alloc
 cmsMD5computeID
@@ -213,6 +214,7 @@ cmsPipelineSetSaveAs8bitsFlag
 cmsPipelineStageCount
 cmsPipelineUnlinkStage
 cmsReadRawTag
+cmsReadTag
 cmsReverseToneCurve
 cmsReverseToneCurveEx
 cmsSaveProfileToFile
@@ -259,6 +261,8 @@ cmsStageType
 cmsTagLinkedTo
 cmsTempFromWhitePoint
 cmsWhitePointFromTemp
+cmsWriteRawTag
+cmsWriteTag
 cmsXYZ2Lab
 cmsXYZ2xyY
 cmsXYZEncoded2Float

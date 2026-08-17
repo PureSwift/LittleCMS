@@ -30,6 +30,21 @@ static void feed(const void* bytes, size_t length)
     }
 }
 
+/* Hashes a saved profile with the creation date masked out.
+ *
+ * A profile made by cmsCreateProfilePlaceholder stamps the clock, so its
+ * saved bytes differ between two processes that ran in different
+ * seconds -- which is a flaky test, not a conformance failure.  Only the
+ * twelve date bytes at offset 24 are skipped; everything else, header
+ * and tags alike, is still compared. */
+static void feed_saved(const unsigned char* bytes, size_t length)
+{
+    for (size_t i = 0; i < length; i++) {
+        if (i >= 24 && i < 36) continue;
+        feed(&bytes[i], 1);
+    }
+}
+
 static void report(const char* name)
 {
     printf("%-34s %016llx\n", name, (unsigned long long) hash_state);
@@ -479,6 +494,200 @@ int main(void)
         cmsCloseProfile(h);
         remove(path);
         free(bytes);
+    }
+
+    /* -- cooked tags: reading a payload, not a byte range ------------------ */
+    {
+        size_t size = 0;
+        unsigned char* bytes = build_profile(&size, 4, 0);
+        cmsHPROFILE h = cmsOpenProfileFromMem(bytes, (cmsUInt32Number) size);
+
+        /* rXYZ carries an XYZ, which the tag layer turns into a struct.
+         * The pointer belongs to the profile: reading twice must give
+         * the same pointer, not two copies. */
+        cmsCIEXYZ* first = (cmsCIEXYZ*) cmsReadTag(h, cmsSigRedColorantTag);
+        cmsCIEXYZ* again = (cmsCIEXYZ*) cmsReadTag(h, cmsSigRedColorantTag);
+        printf("read %d cached %d\n", first != NULL, first == again);
+        if (first != NULL) {
+            printf("  XYZ %.8f %.8f %.8f\n", first->X, first->Y, first->Z);
+            feed(first, sizeof *first);
+        }
+
+        /* A linked tag reads through to what it links to, and lands on
+         * the same object. */
+        cmsCIEXYZ* linked = (cmsCIEXYZ*) cmsReadTag(h, cmsSigGreenColorantTag);
+        printf("linked reads same object %d\n", linked == first);
+
+        /* cprt is text over the same bytes, and its descriptor does not
+         * allow XYZ — so it must refuse rather than reinterpret. */
+        void* text = cmsReadTag(h, cmsSigCopyrightTag);
+        printf("mismatched type -> %s\n", text ? "read" : "refused");
+
+        /* A tag the profile does not have. */
+        printf("absent tag -> %s\n",
+               cmsReadTag(h, cmsSigLuminanceTag) ? "read" : "refused");
+
+        report("cooked reads");
+        cmsCloseProfile(h);
+        free(bytes);
+    }
+
+    /* -- writing tags, and what comes back --------------------------------- */
+    {
+        cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+        cmsSetColorSpace(h, cmsSigRgbData);
+        cmsSetPCS(h, cmsSigXYZData);
+
+        cmsCIEXYZ white = { 0.9642, 1.0, 0.8249 };
+        printf("write XYZ %d\n", cmsWriteTag(h, cmsSigMediaWhitePointTag, &white));
+
+        /* The profile keeps a copy: changing the caller's struct
+         * afterwards must not change the tag. */
+        white.X = 42.0;
+        cmsCIEXYZ* stored = (cmsCIEXYZ*) cmsReadTag(h, cmsSigMediaWhitePointTag);
+        printf("copied not aliased %d\n", stored && stored->X != 42.0);
+        if (stored) feed(stored, sizeof *stored);
+
+        /* A chromatic adaptation matrix: nine numbers, so the element
+         * count in the descriptor is what decides how many are kept. */
+        cmsFloat64Number chad[9] = {
+            1.0, 0.1, 0.2, 0.3, 1.1, 0.4, 0.5, 0.6, 1.2
+        };
+        printf("write chad %d\n", cmsWriteTag(h, cmsSigChromaticAdaptationTag, chad));
+
+        /* Text, through the multi-localized container the tag layer
+         * hands back whichever text type was used. */
+        cmsMLU* mlu = cmsMLUalloc(NULL, 1);
+        cmsMLUsetASCII(mlu, cmsNoLanguage, cmsNoCountry, "a copyright notice");
+        printf("write text %d\n", cmsWriteTag(h, cmsSigCharTargetTag, mlu));
+        cmsMLUfree(mlu);
+
+        /* A date. */
+        struct tm when;
+        memset(&when, 0, sizeof when);
+        when.tm_year = 2026 - 1900; when.tm_mon = 7; when.tm_mday = 17;
+        when.tm_hour = 9; when.tm_min = 30; when.tm_sec = 15;
+        printf("write date %d\n", cmsWriteTag(h, cmsSigCalibrationDateTimeTag, &when));
+
+        /* A signature. */
+        cmsSignature technology = cmsSigCRTDisplay;
+        printf("write signature %d\n", cmsWriteTag(h, cmsSigTechnologyTag, &technology));
+
+        /* A tag the library does not know refuses. */
+        printf("unknown tag -> %d\n",
+               cmsWriteTag(h, (cmsTagSignature) 0x7A7A7A7A, &white));
+
+        printf("tags now %d\n", (int) cmsGetTagCount(h));
+
+        /* Save it, reopen it, and read everything back — which only
+         * works if what was written is what the readers expect. */
+        cmsUInt32Number needed = 0;
+        cmsSaveProfileToMem(h, NULL, &needed);
+        unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+        cmsUInt32Number room = needed;
+        printf("saved %d bytes %u\n", cmsSaveProfileToMem(h, out, &room), needed);
+        feed_saved(out, needed);
+        report("written profile bytes");
+
+        cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+        printf("reopened %d tags %d\n", back != NULL, (int) cmsGetTagCount(back));
+
+        cmsCIEXYZ* wp = (cmsCIEXYZ*) cmsReadTag(back, cmsSigMediaWhitePointTag);
+        if (wp) printf("  white %.8f %.8f %.8f\n", wp->X, wp->Y, wp->Z);
+
+        cmsFloat64Number* m = (cmsFloat64Number*) cmsReadTag(back, cmsSigChromaticAdaptationTag);
+        if (m) { for (int i = 0; i < 9; i++) feed(&m[i], sizeof m[i]); }
+
+        cmsMLU* got = (cmsMLU*) cmsReadTag(back, cmsSigCharTargetTag);
+        if (got) {
+            char buffer[64];
+            memset(buffer, 0, sizeof buffer);
+            cmsMLUgetASCII(got, cmsNoLanguage, cmsNoCountry, buffer, sizeof buffer);
+            printf("  text '%s'\n", buffer);
+        }
+
+        struct tm* date = (struct tm*) cmsReadTag(back, cmsSigCalibrationDateTimeTag);
+        if (date)
+            printf("  date %04d-%02d-%02d %02d:%02d:%02d\n",
+                   date->tm_year + 1900, date->tm_mon + 1, date->tm_mday,
+                   date->tm_hour, date->tm_min, date->tm_sec);
+
+        cmsSignature* tech = (cmsSignature*) cmsReadTag(back, cmsSigTechnologyTag);
+        if (tech) printf("  technology %08x\n", (unsigned) *tech);
+
+        report("round-tripped tags");
+        cmsCloseProfile(back);
+        free(out);
+        cmsCloseProfile(h);
+    }
+
+    /* -- deleting, relinking, and raw storage ------------------------------- */
+    {
+        cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+        cmsCIEXYZ v = { 0.5, 0.6, 0.7 };
+        cmsWriteTag(h, cmsSigMediaWhitePointTag, &v);
+        cmsWriteTag(h, cmsSigLuminanceTag, &v);
+        printf("two tags %d\n", (int) cmsGetTagCount(h));
+
+        /* Deleting keeps the slot but zeroes its name. */
+        printf("delete %d, count %d, present %d\n",
+               cmsWriteTag(h, cmsSigLuminanceTag, NULL),
+               (int) cmsGetTagCount(h), cmsIsTag(h, cmsSigLuminanceTag));
+        printf("delete absent -> %d\n", cmsWriteTag(h, cmsSigGamutTag, NULL));
+
+        /* Linking, then reading through the link. */
+        printf("link %d\n", cmsLinkTag(h, cmsSigMediaBlackPointTag, cmsSigMediaWhitePointTag));
+        printf("linked to %08x reads %d\n",
+               (unsigned) cmsTagLinkedTo(h, cmsSigMediaBlackPointTag),
+               cmsReadTag(h, cmsSigMediaBlackPointTag) != NULL);
+
+        /* Raw bytes: stored as given, and written out untouched. */
+        unsigned char blob[24];
+        for (int i = 0; i < 24; i++) blob[i] = (unsigned char) (i * 11);
+        memcpy(blob, "XYZ ", 4);
+        printf("write raw %d\n", cmsWriteRawTag(h, cmsSigGamutTag, blob, sizeof blob));
+
+        unsigned char readback[32];
+        memset(readback, 0, sizeof readback);
+        printf("raw back %u\n", cmsReadRawTag(h, cmsSigGamutTag, readback, sizeof readback));
+        feed(readback, sizeof readback);
+
+        /* Writing a cooked tag over a raw one.  cmsWriteTag guards
+         * against this with an "already saved as RAW" error -- but the
+         * guard is unreachable: _cmsNewTag runs first, and freeing the
+         * old value is what clears the raw flag.  So this succeeds, and
+         * the tag stops being raw. */
+        unsigned char lum[24];
+        memcpy(lum, "XYZ \0\0\0\0", 8);
+        for (int i = 8; i < 24; i++) lum[i] = (unsigned char) i;
+        cmsWriteRawTag(h, cmsSigLuminanceTag, lum, sizeof lum);
+        printf("cooked over raw -> %d\n", cmsWriteTag(h, cmsSigLuminanceTag, &v));
+        printf("  now reads cooked %d\n",
+               cmsReadTag(h, cmsSigLuminanceTag) != NULL);
+
+        cmsUInt32Number needed = 0;
+        cmsSaveProfileToMem(h, NULL, &needed);
+        unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+        cmsUInt32Number room = needed;
+        cmsSaveProfileToMem(h, out, &room);
+        feed_saved(out, needed);
+        printf("saved with a hole, %u bytes\n", needed);
+        report("deleted, linked and raw");
+
+        /* Left until last, deliberately.  Asking for a raw-stored tag
+         * as a cooked one is refused -- but the refusal path in the
+         * reference frees the stored bytes while leaving the slot
+         * marked raw, so a later cmsReadRawTag falls through to the
+         * on-disk path and dereferences an IO handler this profile has
+         * never had.  Ours returns zero there.  A crash is not a
+         * behaviour to reproduce, so the probe asks the question after
+         * everything that would be poisoned by the answer.  Recorded in
+         * docs/abi-audit.md. */
+        printf("raw as cooked -> %s\n",
+               cmsReadTag(h, cmsSigGamutTag) ? "read" : "refused");
+
+        free(out);
+        cmsCloseProfile(h);
     }
 
     printf("profile probe OK\n");

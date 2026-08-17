@@ -128,6 +128,11 @@ private let tagDescriptors: [cmsTagSignature: TagDescriptor] = {
     return table
 }()
 
+/// What a tag may hold, or nil for a tag the library does not know.
+func tagDescriptor(for sig: cmsTagSignature) -> TagDescriptor? {
+    tagDescriptors[sig]
+}
+
 /// `CompatibleTypes`: two tags that occupy the same bytes are the same
 /// tag under two names only if they could have been serialized the same
 /// way.  An unknown tag matches nothing, including another unknown one.
@@ -170,7 +175,50 @@ final class ProfileBox: HandleBox {
     var tagOffsets = [cmsUInt32Number](repeating: 0, count: maximumTagTableEntries)
     var tagSizes = [cmsUInt32Number](repeating: 0, count: maximumTagTableEntries)
 
+    // What cmsReadTag has materialized, per slot.  The pointer belongs
+    // to the profile and lives until it is closed, so a second read of
+    // the same tag hands back the first read's answer.
+    var tagObjects = [UnsafeMutableRawPointer?](repeating: nil, count: maximumTagTableEntries)
+    var tagTypes = [cmsTagTypeSignature](
+        repeating: cmsTagTypeSignature(0), count: maximumTagTableEntries
+    )
+    var tagSaveAsRaw = [Bool](repeating: false, count: maximumTagTableEntries)
+
     var mutex: UnsafeMutableRawPointer?
+
+    /// `freeOneTag`.  A slot written as raw holds a plain block; a
+    /// cooked one is whatever its type handler made.
+    func releaseTag(_ i: Int) {
+        guard let object = tagObjects[i] else { return }
+        if tagSaveAsRaw[i] {
+            _cmsFree(context, object)
+        } else if let handler = tagTypeHandler(for: tagTypes[i]) {
+            handler.free(context, object)
+        } else {
+            _cmsFree(context, object)
+        }
+        tagObjects[i] = nil
+    }
+
+    /// `_cmsNewTag`: reuse the slot a tag already has, emptying it
+    /// first, or take the next free one.
+    func newTag(_ sig: cmsTagSignature) -> Int? {
+        if let i = search(sig, followLinks: false) {
+            releaseTag(i)
+            tagSaveAsRaw[i] = false
+            return i
+        }
+        if tagCount >= maximumTagTableEntries {
+            report(
+                cmsUInt32Number(cmsERROR_RANGE),
+                "Too many tags (\(maximumTagTableEntries))", to: context
+            )
+            return nil
+        }
+        let i = tagCount
+        tagCount += 1
+        return i
+    }
 
     init(context: cmsContext?) {
         self.context = context
@@ -238,6 +286,8 @@ public func cmsCloseProfile(_ hProfile: cmsHPROFILE?) -> cmsBool {
             )
         }
     }
+
+    for i in 0..<box.tagCount { box.releaseTag(i) }
 
     if let io = box.io {
         result &= cmsCloseIOhandler(io)
@@ -584,16 +634,62 @@ public func cmsReadRawTag(
 
     guard let i = box.search(sig, followLinks: true) else { return 0 }
 
-    guard let data else { return box.tagSizes[i] }
+    // Never materialized: the bytes are still in the file.
+    if box.tagObjects[i] == nil {
+        guard let data else { return box.tagSizes[i] }
+        guard let io = box.io, let seek = io.pointee.Seek, let read = io.pointee.Read
+        else { return 0 }
 
-    guard let io = box.io, let seek = io.pointee.Seek, let read = io.pointee.Read
-    else { return 0 }
+        var size = box.tagSizes[i]
+        if BufferSize < size { size = BufferSize }
+        if seek(io, box.tagOffsets[i]) == 0 { return 0 }
+        if read(io, data, 1, size) == 0 { return 0 }
+        return size
+    }
 
-    var size = box.tagSizes[i]
-    if BufferSize < size { size = BufferSize }
-    if seek(io, box.tagOffsets[i]) == 0 { return 0 }
-    if read(io, data, 1, size) == 0 { return 0 }
-    return size
+    // Stored as raw: the bytes are already the answer.
+    if box.tagSaveAsRaw[i] {
+        guard let data else { return box.tagSizes[i] }
+        var size = box.tagSizes[i]
+        if BufferSize < size { size = BufferSize }
+        if let object = box.tagObjects[i] {
+            data.copyMemory(from: object, byteCount: Int(size))
+        }
+        return size
+    }
+
+    // Held as an object, so raw bytes only exist once it is serialized.
+    // cmsReadTag takes the same lock, which is not recursive, so it is
+    // dropped across the call exactly as the reference does.
+    _cmsUnlockMutex(box.context, box.mutex)
+    let object = cmsReadTag(hProfile, sig)
+    if _cmsLockMutex(box.context, box.mutex) == 0 { return 0 }
+    guard let object else { return 0 }
+
+    // Written into a handler that counts when there is nowhere to put
+    // it, so the size can be asked for without a buffer.
+    let sink = data == nil
+        ? cmsOpenIOhandlerFromNULL(box.context)
+        : cmsOpenIOhandlerFromMem(box.context, data, BufferSize, "w")
+    guard let sink else { return 0 }
+
+    guard let descriptor = tagDescriptor(for: sig),
+          let handler = tagTypeHandler(for: box.tagTypes[i])
+    else {
+        _ = cmsCloseIOhandler(sink)
+        return 0
+    }
+
+    guard _cmsWriteTypeBase(sink, handler.signature) != 0,
+          handler.write(box.context, sink, object, descriptor.elementCount)
+    else {
+        _ = cmsCloseIOhandler(sink)
+        return 0
+    }
+
+    let written = sink.pointee.Tell.map { $0(sink) } ?? 0
+    _ = cmsCloseIOhandler(sink)
+    return written
 }
 
 // -- header accessors --------------------------------------------------------
@@ -904,20 +1000,51 @@ private func saveTags(
         let begin = destination.pointee.UsedSpace
         box.tagOffsets[i] = begin
 
-        // The reference guards on the offset it has just assigned, so a
-        // tag landing at zero would be skipped.  It never can: the
-        // header and directory are always written first.
-        guard box.tagOffsets[i] != 0, let original,
-              let seek = original.pointee.Seek, let read = original.pointee.Read
-        else { continue }
+        if let object = box.tagObjects[i] {
+            if box.tagSaveAsRaw[i] {
+                // Raw bytes go out untouched, at the size fixed when
+                // they were handed over.
+                if write(destination, box.tagSizes[i], object) == 0 { return false }
+            } else {
+                // Cooked: the type signature, then whatever the handler
+                // makes of the object.  A tag whose type the library
+                // does not know is passed over rather than failing the
+                // whole save.
+                guard let descriptor = tagDescriptor(for: box.tagNames[i]),
+                      let handler = tagTypeHandler(for: box.tagTypes[i])
+                else { continue }
 
-        let size = originalSizes[i]
-        if seek(original, originalOffsets[i]) == 0 { return false }
-        guard let block = _cmsMalloc(box.context, size) else { return false }
-        defer { _cmsFree(box.context, block) }
+                if _cmsWriteTypeBase(destination, handler.signature) == 0 { return false }
+                if !handler.write(
+                    box.context, destination, object, descriptor.elementCount
+                ) {
+                    report(
+                        cmsUInt32Number(cmsERROR_WRITE),
+                        "Couldn't write type '\(signatureText(handler.signature.rawValue))'",
+                        to: box.context
+                    )
+                    return false
+                }
+            }
+        } else {
+            // Never read and never written: the bytes are still in the
+            // file this profile came from, and are copied across blind.
+            //
+            // The reference guards on the offset it has just assigned,
+            // so a tag landing at zero would be skipped.  It never can:
+            // the header and directory are always written first.
+            guard box.tagOffsets[i] != 0, let original,
+                  let seek = original.pointee.Seek, let read = original.pointee.Read
+            else { continue }
 
-        if read(original, block, size, 1) != 1 { return false }
-        if write(destination, size, block) == 0 { return false }
+            let size = originalSizes[i]
+            if seek(original, originalOffsets[i]) == 0 { return false }
+            guard let block = _cmsMalloc(box.context, size) else { return false }
+            defer { _cmsFree(box.context, block) }
+
+            if read(original, block, size, 1) != 1 { return false }
+            if write(destination, size, block) == 0 { return false }
+        }
 
         box.tagSizes[i] = destination.pointee.UsedSpace - begin
         if _cmsWriteAlignment(destination) == 0 { return false }
@@ -1098,4 +1225,228 @@ public func cmsMD5computeID(_ hProfile: cmsHPROFILE?) -> cmsBool {
     restore()
     cmsMD5finish(&box.profileID, md5)
     return 1
+}
+
+// -- reading and writing tags ------------------------------------------------
+
+/// Materializes a tag, or hands back the object a previous call already
+/// made.  The pointer belongs to the profile: it stays valid until the
+/// profile is closed, and a caller who frees it has broken the profile.
+@c @implementation
+public func cmsReadTag(
+    _ hProfile: cmsHPROFILE?,
+    _ sig: cmsTagSignature
+) -> UnsafeMutableRawPointer? {
+    guard let hProfile, let box = profile(hProfile) else { return nil }
+    if _cmsLockMutex(box.context, box.mutex) == 0 { return nil }
+    defer { _cmsUnlockMutex(box.context, box.mutex) }
+
+    guard let n = box.search(sig, followLinks: true) else { return nil }
+
+    func fail() -> UnsafeMutableRawPointer? {
+        box.releaseTag(n)
+        return nil
+    }
+
+    // Already read: check it is still the kind of thing this tag may
+    // hold, then hand back the same pointer.
+    if let object = box.tagObjects[n] {
+        if box.tagTypes[n] == cmsTagTypeSignature(0) { return fail() }
+        if !isTypeSupported(sig, box.tagTypes[n]) { return fail() }
+        // A tag stored for raw output is bytes, not an object.
+        if box.tagSaveAsRaw[n] { return fail() }
+        return object
+    }
+
+    var size = box.tagSizes[n]
+    // Eight bytes is the type signature and its reserved word; a tag
+    // shorter than that has no room for a payload.
+    if size < 8 { return fail() }
+
+    guard let io = box.io else {
+        report(
+            cmsUInt32Number(cmsERROR_CORRUPTION_DETECTED),
+            "Corrupted built-in profile.", to: box.context
+        )
+        return fail()
+    }
+    guard let seek = io.pointee.Seek, seek(io, box.tagOffsets[n]) != 0 else { return fail() }
+
+    guard let descriptor = tagDescriptor(for: sig) else {
+        report(
+            cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
+            "Unknown tag type '\(signatureText(sig.rawValue))' found.", to: box.context
+        )
+        return fail()
+    }
+
+    let baseType = _cmsReadTypeBase(io)
+    if baseType == cmsTagTypeSignature(0) { return fail() }
+    if !isTypeSupported(sig, baseType) { return fail() }
+    size -= 8   // consumed by the type base
+
+    guard let handler = tagTypeHandler(for: baseType) else { return fail() }
+    box.tagTypes[n] = baseType
+
+    var elements: cmsUInt32Number = 0
+    guard let object = handler.read(box.context, io, &elements, size) else {
+        report(
+            cmsUInt32Number(cmsERROR_CORRUPTION_DETECTED),
+            "Corrupted tag '\(signatureText(sig.rawValue))'", to: box.context
+        )
+        return fail()
+    }
+    box.tagObjects[n] = object
+
+    // Fewer elements than the tag is defined to carry is a symptom of
+    // something worse, so it is refused rather than padded.
+    if elements < descriptor.elementCount {
+        report(
+            cmsUInt32Number(cmsERROR_CORRUPTION_DETECTED),
+            "'\(signatureText(sig.rawValue))' Inconsistent number of items: expected "
+                + "\(descriptor.elementCount), got \(elements)",
+            to: box.context
+        )
+        return fail()
+    }
+
+    return object
+}
+
+/// Stores an object under a tag, replacing whatever was there.  Passing
+/// no data deletes the tag instead — the slot is kept but its name is
+/// zeroed, which is what marks it a hole in the directory.
+@c @implementation
+public func cmsWriteTag(
+    _ hProfile: cmsHPROFILE?,
+    _ sig: cmsTagSignature,
+    _ data: UnsafeRawPointer?
+) -> cmsBool {
+    guard let hProfile, let box = profile(hProfile) else { return 0 }
+    if _cmsLockMutex(box.context, box.mutex) == 0 { return 0 }
+    defer { _cmsUnlockMutex(box.context, box.mutex) }
+
+    guard let data else {
+        guard let i = box.search(sig, followLinks: false) else { return 0 }
+        box.releaseTag(i)
+        box.tagSaveAsRaw[i] = false
+        box.tagNames[i] = cmsTagSignature(0)
+        return 1
+    }
+
+    guard let i = box.newTag(sig) else { return 0 }
+
+    if box.tagSaveAsRaw[i] {
+        report(
+            cmsUInt32Number(cmsERROR_ALREADY_DEFINED),
+            "Tag  '\(String(sig.rawValue, radix: 16))' was already saved as RAW",
+            to: box.context
+        )
+        return 0
+    }
+
+    // Storing an object replaces a link.
+    box.tagLinked[i] = cmsTagSignature(0)
+
+    guard let descriptor = tagDescriptor(for: sig) else {
+        report(
+            cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
+            "Unsupported tag '\(String(sig.rawValue, radix: 16))'", to: box.context
+        )
+        return 0
+    }
+
+    guard let type = typeToWrite(for: sig), isTypeSupported(sig, type),
+          let handler = tagTypeHandler(for: type)
+    else {
+        report(
+            cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
+            "Unsupported type for tag '\(signatureText(sig.rawValue))'", to: box.context
+        )
+        return 0
+    }
+
+    box.tagTypes[i] = type
+    box.tagNames[i] = sig
+    box.tagSizes[i] = 0
+    box.tagOffsets[i] = 0
+
+    // The profile keeps its own copy, so the caller's object stays the
+    // caller's to free.
+    guard let copy = handler.duplicate(box.context, data, descriptor.elementCount) else {
+        report(
+            cmsUInt32Number(cmsERROR_CORRUPTION_DETECTED),
+            "Malformed struct in type '\(signatureText(type.rawValue))' for tag "
+                + "'\(signatureText(sig.rawValue))'",
+            to: box.context
+        )
+        return 0
+    }
+    box.tagObjects[i] = copy
+    return 1
+}
+
+/// Stores bytes to be written out untouched.  Nothing cooks them on the
+/// way out, so their size is fixed now rather than at save time.
+@c @implementation
+public func cmsWriteRawTag(
+    _ hProfile: cmsHPROFILE?,
+    _ sig: cmsTagSignature,
+    _ data: UnsafeRawPointer?,
+    _ Size: cmsUInt32Number
+) -> cmsBool {
+    guard let hProfile, let box = profile(hProfile) else { return 0 }
+    if _cmsLockMutex(box.context, box.mutex) == 0 { return 0 }
+
+    guard let i = box.newTag(sig) else {
+        _cmsUnlockMutex(box.context, box.mutex)
+        return 0
+    }
+
+    box.tagSaveAsRaw[i] = true
+    box.tagNames[i] = sig
+    box.tagLinked[i] = cmsTagSignature(0)
+    box.tagObjects[i] = _cmsDupMem(box.context, data, Size)
+    box.tagSizes[i] = Size
+
+    _cmsUnlockMutex(box.context, box.mutex)
+
+    // The slot is surrendered rather than left holding nothing.
+    if box.tagObjects[i] == nil {
+        box.tagNames[i] = cmsTagSignature(0)
+        return 0
+    }
+    return 1
+}
+
+/// Points one tag at another's contents.  The link is resolved when the
+/// profile is saved, and followed when a tag is read.
+@c @implementation
+public func cmsLinkTag(
+    _ hProfile: cmsHPROFILE?,
+    _ sig: cmsTagSignature,
+    _ dest: cmsTagSignature
+) -> cmsBool {
+    guard let hProfile, let box = profile(hProfile) else { return 0 }
+    if _cmsLockMutex(box.context, box.mutex) == 0 { return 0 }
+    defer { _cmsUnlockMutex(box.context, box.mutex) }
+
+    guard let i = box.newTag(sig) else { return 0 }
+
+    box.tagSaveAsRaw[i] = false
+    box.tagNames[i] = sig
+    box.tagLinked[i] = dest
+    box.tagObjects[i] = nil
+    box.tagSizes[i] = 0
+    box.tagOffsets[i] = 0
+    return 1
+}
+
+/// A four-character signature as text, for the messages that quote one.
+func signatureText(_ value: cmsUInt32Number) -> String {
+    let bytes = [
+        UInt8(truncatingIfNeeded: value >> 24), UInt8(truncatingIfNeeded: value >> 16),
+        UInt8(truncatingIfNeeded: value >> 8), UInt8(truncatingIfNeeded: value),
+    ]
+    return String(decoding: bytes, as: UTF8.self)
 }

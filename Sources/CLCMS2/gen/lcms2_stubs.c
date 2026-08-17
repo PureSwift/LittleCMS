@@ -709,11 +709,6 @@ cmsBool cmsIsMatrixShaper(cmsHPROFILE hProfile)
     swift_unimplemented_fatal("cmsIsMatrixShaper");
 }
 
-cmsBool cmsLinkTag(cmsHPROFILE hProfile, cmsTagSignature sig, cmsTagSignature dest)
-{
-    swift_unimplemented_fatal("cmsLinkTag");
-}
-
 cmsBool cmsPlugin(void* Plugin)
 {
     swift_unimplemented_fatal("cmsPlugin");
@@ -723,11 +718,6 @@ cmsBool cmsPluginTHR(cmsContext ContextID, void* Plugin)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsPluginTHR is not implemented");
     return (cmsBool){0};
-}
-
-void* cmsReadTag(cmsHPROFILE hProfile, cmsTagSignature sig)
-{
-    swift_unimplemented_fatal("cmsReadTag");
 }
 
 cmsHPROFILE cmsTransform2DeviceLink(cmsHTRANSFORM hTransform, cmsFloat64Number Version, cmsUInt32Number dwFlags)
@@ -743,14 +733,4 @@ void cmsUnregisterPlugins(void)
 void cmsUnregisterPluginsTHR(cmsContext ContextID)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsUnregisterPluginsTHR is not implemented");
-}
-
-cmsBool cmsWriteRawTag(cmsHPROFILE hProfile, cmsTagSignature sig, const void* data, cmsUInt32Number Size)
-{
-    swift_unimplemented_fatal("cmsWriteRawTag");
-}
-
-cmsBool cmsWriteTag(cmsHPROFILE hProfile, cmsTagSignature sig, const void* data)
-{
-    swift_unimplemented_fatal("cmsWriteTag");
 }
