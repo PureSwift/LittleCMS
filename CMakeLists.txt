@@ -21,6 +21,10 @@ include(GNUInstallDirs)
 option(SLCMS_STATIC_STDLIB
     "Link the Swift runtime statically, so the library needs no toolchain at run time" OFF)
 option(SLCMS_BUILD_TESTS "Build the conformance programs" ON)
+# CI turns this on: without it a missing reference only warns, and the
+# suite goes green having skipped every differential.
+option(SLCMS_REQUIRE_REFERENCE
+    "Fail configuration if no reference lcms2 is found to compare against" OFF)
 set(SLCMS_UPSTREAM_DIR "" CACHE PATH
     "A Little-CMS source checkout at tag lcms2.19, enabling the upstream testbed suite")
 

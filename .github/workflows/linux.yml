@@ -76,6 +76,7 @@ jobs:
       - name: Configure (CMake)
         run: >
           cmake -G Ninja -B build/ci -DCMAKE_BUILD_TYPE=Release
+          -DSLCMS_REQUIRE_REFERENCE=ON
           -DSLCMS_UPSTREAM_DIR="$GITHUB_WORKSPACE/upstream"
 
       - name: Build (CMake)

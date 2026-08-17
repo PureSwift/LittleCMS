@@ -19,22 +19,42 @@ if(PkgConfig_FOUND)
 endif()
 
 # A reference that is actually us is worse than no reference: the suite
-# would compare this library against itself and report agreement.  Once
-# this library is installed somewhere pkg-config looks, that is exactly
-# what happens, so the discovered library is rejected when it resolves
-# inside our own install prefix.
+# would compare this library against itself and report agreement.
+#
+# The question to ask is whether the library found IS this one, and the
+# direct form of it is what the library links: ours needs the Swift
+# runtime and the reference never does.  Asking about paths instead —
+# whether it sits inside our install prefix — gets the wrong answer where
+# it matters most, because /usr/local is both CMake's default prefix and
+# the sensible place for CI to put a reference built from source.  That
+# guess cost a whole CI run: the suite went green having skipped every
+# differential.
 if(SLCMS_REFERENCE_FOUND)
-    foreach(dir ${SLCMS_REFERENCE_LIBRARY_DIRS})
-        cmake_path(IS_PREFIX CMAKE_INSTALL_PREFIX "${dir}" NORMALIZE is_ours)
-        if(is_ours)
+    find_library(SLCMS_REFERENCE_LIBRARY
+        NAMES lcms2
+        HINTS ${SLCMS_REFERENCE_LIBRARY_DIRS}
+        NO_DEFAULT_PATH)
+
+    if(SLCMS_REFERENCE_LIBRARY)
+        if(APPLE)
+            execute_process(COMMAND otool -L "${SLCMS_REFERENCE_LIBRARY}"
+                OUTPUT_VARIABLE SLCMS_REFERENCE_DEPENDENCIES
+                ERROR_QUIET)
+        else()
+            execute_process(COMMAND readelf -d "${SLCMS_REFERENCE_LIBRARY}"
+                OUTPUT_VARIABLE SLCMS_REFERENCE_DEPENDENCIES
+                ERROR_QUIET)
+        endif()
+
+        if(SLCMS_REFERENCE_DEPENDENCIES MATCHES "swift")
             message(WARNING
-                "The lcms2 pkg-config found (${dir}) is inside this project's "
-                "install prefix, so it is probably this library rather than the "
+                "The lcms2 found by pkg-config (${SLCMS_REFERENCE_LIBRARY}) links "
+                "the Swift runtime, so it is this library rather than the "
                 "reference.  The differential suites are disabled; point "
-                "PKG_CONFIG_PATH at a reference build of 2.19.")
+                "PKG_CONFIG_PATH at a reference built by scripts/build_reference.sh.")
             set(SLCMS_REFERENCE_FOUND FALSE)
         endif()
-    endforeach()
+    endif()
 endif()
 
 # -- ABI invariants ----------------------------------------------------------
@@ -146,6 +166,13 @@ if(SLCMS_REFERENCE_FOUND)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/corpus)
     add_test(NAME corpus
         COMMAND make_corpus ${CMAKE_CURRENT_BINARY_DIR}/corpus)
+elseif(SLCMS_REQUIRE_REFERENCE)
+    message(FATAL_ERROR
+        "No reference lcms2 found via pkg-config, and SLCMS_REQUIRE_REFERENCE "
+        "is on.  A warning here is not enough: the suite would go green having "
+        "skipped every differential, which is how a run reports success while "
+        "measuring nothing.  Build one with scripts/build_reference.sh and "
+        "point PKG_CONFIG_PATH at it.")
 else()
     message(WARNING
         "No reference lcms2 found via pkg-config: the differential half of "
