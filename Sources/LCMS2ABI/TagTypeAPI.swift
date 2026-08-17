@@ -482,6 +482,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     table[cmsSigLutAtoBType] = lutAtoBTagType
     table[cmsSigLutBtoAType] = lutBtoATagType
     table.merge(structuralTagTypes) { existing, _ in existing }
+    table[cmsSigNamedColor2Type] = namedColorTagType
 
     return table
 }()
@@ -2236,3 +2237,121 @@ let structuralTagTypes: [cmsTagTypeSignature: TagTypeHandler] = [
         }
     ),
 ]
+
+// -- the named-colour type --------------------------------------------------------
+
+/// `ncl2`: a list-wide prefix and suffix, then one entry per colour with
+/// a 32-byte root name, its PCS coordinates and its device colorants.
+///
+/// The name a client sees is prefix + root + suffix, but only the root
+/// is stored per entry — which is why every colour in a list shares the
+/// other two.  All three are cut to 32 bytes.
+@Sendable private func readNamedColor(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    var vendorFlag: cmsUInt32Number = 0
+    var count: cmsUInt32Number = 0
+    var coordinates: cmsUInt32Number = 0
+    if _cmsReadUInt32Number(io, &vendorFlag) == 0 { return nil }
+    if _cmsReadUInt32Number(io, &count) == 0 { return nil }
+    if _cmsReadUInt32Number(io, &coordinates) == 0 { return nil }
+
+    guard let read = io.pointee.Read else { return nil }
+    var prefix = [CChar](repeating: 0, count: 33)
+    var suffix = [CChar](repeating: 0, count: 33)
+    let gotPrefix = prefix.withUnsafeMutableBufferPointer { read(io, $0.baseAddress, 32, 1) }
+    if gotPrefix != 1 { return nil }
+    let gotSuffix = suffix.withUnsafeMutableBufferPointer { read(io, $0.baseAddress, 32, 1) }
+    if gotSuffix != 1 { return nil }
+    prefix[31] = 0
+    suffix[31] = 0
+
+    guard let list = cmsAllocNamedColorList(context, count, coordinates, &prefix, &suffix)
+    else {
+        report(cmsUInt32Number(cmsERROR_RANGE), "Too many named colors '\(count)'", to: context)
+        return nil
+    }
+
+    func fail() -> UnsafeMutableRawPointer? {
+        cmsFreeNamedColorList(list)
+        return nil
+    }
+
+    if coordinates > cmsUInt32Number(cmsMAXCHANNELS) {
+        report(
+            cmsUInt32Number(cmsERROR_RANGE),
+            "Too many device coordinates '\(coordinates)'", to: context
+        )
+        return fail()
+    }
+
+    var root = [CChar](repeating: 0, count: 33)
+    var pcs = [cmsUInt16Number](repeating: 0, count: 3)
+    var colorant = [cmsUInt16Number](repeating: 0, count: Int(cmsMAXCHANNELS))
+    for _ in 0..<Int(count) {
+        for i in 0..<colorant.count { colorant[i] = 0 }
+        let got = root.withUnsafeMutableBufferPointer { read(io, $0.baseAddress, 32, 1) }
+        if got != 1 { return fail() }
+        root[32] = 0   // a name that fills the field is still terminated
+
+        if _cmsReadUInt16Array(io, 3, &pcs) == 0 { return fail() }
+        if coordinates > 0, _cmsReadUInt16Array(io, coordinates, &colorant) == 0 { return fail() }
+        if cmsAppendNamedColor(list, &root, &pcs, &colorant) == 0 { return fail() }
+    }
+
+    items = 1
+    return UnsafeMutableRawPointer(list)
+}
+
+@Sendable private func writeNamedColor(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+) -> Bool {
+    guard let write = io.pointee.Write else { return false }
+    let list = object.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self)
+    let box = namedColorBox(list)
+    let count = cmsNamedColorCount(list)
+    let coordinates = cmsUInt32Number(box.list.colorantCount)
+
+    // The vendor flag is always written as zero: nothing sets it.
+    if _cmsWriteUInt32Number(io, 0) == 0 { return false }
+    if _cmsWriteUInt32Number(io, count) == 0 { return false }
+    if _cmsWriteUInt32Number(io, coordinates) == 0 { return false }
+
+    func writeFixed(_ bytes: [UInt8]) -> Bool {
+        var field = [UInt8](repeating: 0, count: 32)
+        for i in 0..<min(32, bytes.count) { field[i] = bytes[i] }
+        return field.withUnsafeBufferPointer { write(io, 32, $0.baseAddress) } != 0
+    }
+    if !writeFixed(box.list.prefix) { return false }
+    if !writeFixed(box.list.suffix) { return false }
+
+    for i in 0..<count {
+        var root = [CChar](repeating: 0, count: Int(cmsMAX_PATH))
+        var pcs = [cmsUInt16Number](repeating: 0, count: 3)
+        var colorant = [cmsUInt16Number](repeating: 0, count: Int(cmsMAXCHANNELS))
+        if cmsNamedColorInfo(list, i, &root, nil, nil, &pcs, &colorant) == 0 { return false }
+        root[32] = 0
+
+        let wrote = root.withUnsafeBufferPointer { write(io, 32, $0.baseAddress) }
+        if wrote == 0 { return false }
+        if _cmsWriteUInt16Array(io, 3, &pcs) == 0 { return false }
+        if coordinates > 0, _cmsWriteUInt16Array(io, coordinates, &colorant) == 0 { return false }
+    }
+    return true
+}
+
+let namedColorTagType = TagTypeHandler(
+    signature: cmsSigNamedColor2Type,
+    read: readNamedColor, write: writeNamedColor,
+    duplicate: { _, pointer, _ in
+        UnsafeMutableRawPointer(cmsDupNamedColorList(
+            UnsafeMutablePointer(mutating: pointer.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self))
+        ))
+    },
+    free: { _, object in
+        cmsFreeNamedColorList(object.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self))
+    }
+)

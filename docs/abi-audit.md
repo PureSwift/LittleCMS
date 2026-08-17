@@ -263,6 +263,10 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   and its PCS coordinates. The name is **truncated at 32 bytes on the
   way out**, so a longer one set through the named-colour API does not
   survive a save.
+- `ncl2` stores a **list-wide** prefix and suffix and a per-entry root,
+  all cut to 32 bytes. The name a user sees is prefix + root + suffix,
+  but `cmsNamedColorIndex` matches the **root alone** — so a caller that
+  assembles the displayed name and looks it up finds nothing.
 - Two reference leaks are **not** reproduced (`Type_Signature_Read` and
   `Type_DateTime_Read` drop their block on a failed read). A leak is not
   observable through the ABI.

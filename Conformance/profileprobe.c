@@ -1171,6 +1171,79 @@ int main(void)
         cmsCloseProfile(h);
     }
 
+    /* -- the named-colour type ---------------------------------------------- */
+    {
+        cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+        cmsSetProfileVersion(h, 4.3);
+        cmsSetColorSpace(h, cmsSigCmykData);
+        cmsSetDeviceClass(h, cmsSigNamedColorClass);
+
+        /* Prefix and suffix are list-wide; only the root varies per
+         * entry, and all three are cut to 32 bytes. */
+        cmsNAMEDCOLORLIST* list =
+            cmsAllocNamedColorList(NULL, 5, 4, "PANTONE ", " CV");
+        for (int i = 0; i < 5; i++) {
+            char root[64];
+            cmsUInt16Number pcs[3], ink[4];
+            snprintf(root, sizeof root, "%d-%d", 100 + i, i);
+            for (int k = 0; k < 3; k++) pcs[k] = (cmsUInt16Number) ((i + 1) * 6000 + k);
+            for (int k = 0; k < 4; k++) ink[k] = (cmsUInt16Number) ((i + 1) * 3000 + k);
+            cmsAppendNamedColor(list, root, pcs, ink);
+        }
+        printf("named write %d\n", cmsWriteTag(h, cmsSigNamedColor2Tag, list));
+        cmsFreeNamedColorList(list);
+
+        cmsUInt32Number needed = 0;
+        cmsSaveProfileToMem(h, NULL, &needed);
+        unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+        cmsUInt32Number room = needed;
+        cmsSaveProfileToMem(h, out, &room);
+        feed_saved(out, needed);
+        printf("named saved %u\n", needed);
+
+        cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+        cmsNAMEDCOLORLIST* got =
+            (cmsNAMEDCOLORLIST*) cmsReadTag(back, cmsSigNamedColor2Tag);
+        printf("named read %d count %u\n", got != NULL,
+               got ? cmsNamedColorCount(got) : 0);
+        if (got) {
+            for (cmsUInt32Number i = 0; i < cmsNamedColorCount(got); i++) {
+                char name[64], pre[64], suf[64];
+                cmsUInt16Number pcs[3], ink[16];
+                memset(name, 0, sizeof name);
+                memset(pre, 0, sizeof pre);
+                memset(suf, 0, sizeof suf);
+                memset(ink, 0, sizeof ink);
+                cmsNamedColorInfo(got, i, name, pre, suf, pcs, ink);
+                printf("  %u '%s' pre '%s' suf '%s' pcs %u %u %u ink %u %u %u %u\n",
+                       i, name, pre, suf, pcs[0], pcs[1], pcs[2],
+                       ink[0], ink[1], ink[2], ink[3]);
+            }
+            /* The lookup matches the *root* only.  A caller that
+             * assembles the name a user sees -- prefix, root, suffix --
+             * and looks that up finds nothing. */
+            printf("  index of root '102-2' = %d\n",
+                   cmsNamedColorIndex(got, "102-2"));
+            printf("  index of decorated 'PANTONE 102-2 CV' = %d\n",
+                   cmsNamedColorIndex(got, "PANTONE 102-2 CV"));
+            printf("  index of absent = %d\n", cmsNamedColorIndex(got, "nope"));
+        }
+        report("named colours");
+
+        cmsUInt32Number again = 0;
+        cmsSaveProfileToMem(back, NULL, &again);
+        unsigned char* twice = (unsigned char*) calloc(1, again ? again : 1);
+        cmsUInt32Number room2 = again;
+        cmsSaveProfileToMem(back, twice, &room2);
+        printf("named re-saved %u identical %d\n", again,
+               again == needed && memcmp(out, twice, again) == 0);
+
+        free(twice);
+        cmsCloseProfile(back);
+        free(out);
+        cmsCloseProfile(h);
+    }
+
     printf("profile probe OK\n");
     return 0;
 }

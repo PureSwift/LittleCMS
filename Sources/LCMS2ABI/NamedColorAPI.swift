@@ -22,6 +22,14 @@ final class NamedColorListBox: HandleBox {
     }
 }
 
+/// The box behind a handle the caller has already checked.  The tag
+/// layer needs the list-wide prefix, suffix and colorant count, which no
+/// exported accessor returns on their own.
+@inline(__always)
+func namedColorBox(_ list: UnsafeMutablePointer<cmsNAMEDCOLORLIST>) -> NamedColorListBox {
+    Unmanaged<NamedColorListBox>.fromOpaque(UnsafeRawPointer(list)).takeUnretainedValue()
+}
+
 @inline(__always)
 private func box(_ v: UnsafePointer<cmsNAMEDCOLORLIST>?) -> NamedColorListBox? {
     guard let v else { return nil }
