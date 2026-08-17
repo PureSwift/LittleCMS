@@ -267,6 +267,13 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   all cut to 32 bytes. The name a user sees is prefix + root + suffix,
   but `cmsNamedColorIndex` matches the **root alone** — so a caller that
   assembles the displayed name and looks it up finds nothing.
+- `vcgt` is the only tag handed back as an **array of three curves**
+  rather than one object. It has two on-disk flavours: three parametric
+  formulas, used only when all three curves are exactly parametric type
+  5, and otherwise a sampled table — **always 256 words**, so a curve of
+  any other length is resampled and does not survive a save at its
+  original resolution. It also carries a fixup for a depth Adobe once
+  wrote wrongly, recognised by the tag's own length.
 - Two reference leaks are **not** reproduced (`Type_Signature_Read` and
   `Type_DateTime_Read` drop their block on a failed read). A leak is not
   observable through the ABI.

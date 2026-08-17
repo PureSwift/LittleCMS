@@ -483,6 +483,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     table[cmsSigLutBtoAType] = lutBtoATagType
     table.merge(structuralTagTypes) { existing, _ in existing }
     table[cmsSigNamedColor2Type] = namedColorTagType
+    table[cmsSigVcgtType] = vcgtTagType
 
     return table
 }()
@@ -2353,5 +2354,186 @@ let namedColorTagType = TagTypeHandler(
     },
     free: { _, object in
         cmsFreeNamedColorList(object.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self))
+    }
+)
+
+// -- the video card gamma type ----------------------------------------------------
+
+/// `vcgt` comes in two flavours and is handed to the caller as three
+/// tone curves either way — an array of three `cmsToneCurve*`, not a
+/// single object, which is the only tag type shaped like that.
+///
+/// The flavour codes are private to the reference's cmstypes.c and
+/// appear in no header.
+private let vcgtTableFlavour: cmsUInt32Number = 0
+private let vcgtFormulaFlavour: cmsUInt32Number = 1
+
+@Sendable private func readVCGT(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    var flavour: cmsUInt32Number = 0
+    if _cmsReadUInt32Number(io, &flavour) == 0 { return nil }
+
+    guard let raw = _cmsCalloc(
+        context, 3, cmsUInt32Number(MemoryLayout<UnsafeMutablePointer<cmsToneCurve>?>.stride)
+    ) else { return nil }
+    let curves = raw.assumingMemoryBound(to: UnsafeMutablePointer<cmsToneCurve>?.self)
+
+    func fail() -> UnsafeMutableRawPointer? {
+        for i in 0..<3 { cmsFreeToneCurve(curves[i]) }
+        _cmsFree(context, raw)
+        return nil
+    }
+
+    switch flavour {
+    case vcgtTableFlavour:
+        var channels: cmsUInt16Number = 0
+        var elements: cmsUInt16Number = 0
+        var bytes: cmsUInt16Number = 0
+        if _cmsReadUInt16Number(io, &channels) == 0 { return fail() }
+        if channels != 3 {
+            report(
+                cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
+                "Unsupported number of channels for VCGT '\(channels)'", to: context
+            )
+            return fail()
+        }
+        if _cmsReadUInt16Number(io, &elements) == 0 { return fail() }
+        if _cmsReadUInt16Number(io, &bytes) == 0 { return fail() }
+
+        // Adobe once wrote a one-byte depth for what is plainly a
+        // two-byte table; the tag's own length gives it away.
+        if elements == 256 && bytes == 1 && sizeOfTag == 1576 { bytes = 2 }
+
+        for n in 0..<3 {
+            guard let curve = cmsBuildTabulatedToneCurve16(
+                context, cmsUInt32Number(elements), nil
+            ) else { return fail() }
+            curves[n] = curve
+            guard let table = curve.pointee.Table16 else { return fail() }
+
+            switch bytes {
+            case 1:
+                for i in 0..<Int(elements) {
+                    var v: cmsUInt8Number = 0
+                    if _cmsReadUInt8Number(io, &v) == 0 { return fail() }
+                    table[i] = from8To16(v)
+                }
+            case 2:
+                if _cmsReadUInt16Array(io, cmsUInt32Number(elements), table) == 0 {
+                    return fail()
+                }
+            default:
+                report(
+                    cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
+                    "Unsupported bit depth for VCGT '\(Int(bytes) * 8)'", to: context
+                )
+                return fail()
+            }
+        }
+
+    case vcgtFormulaFlavour:
+        // The stored form is Y = (Max - Min) * X^Gamma + Min, which is
+        // parametric type 5 with most of its parameters zero.
+        for n in 0..<3 {
+            var gamma: cmsFloat64Number = 0
+            var minimum: cmsFloat64Number = 0
+            var maximum: cmsFloat64Number = 0
+            if _cmsRead15Fixed16Number(io, &gamma) == 0 { return fail() }
+            if _cmsRead15Fixed16Number(io, &minimum) == 0 { return fail() }
+            if _cmsRead15Fixed16Number(io, &maximum) == 0 { return fail() }
+
+            var params = [cmsFloat64Number](repeating: 0, count: 10)
+            params[0] = gamma
+            params[1] = pow(maximum - minimum, 1.0 / gamma)
+            params[5] = minimum
+
+            guard let curve = cmsBuildParametricToneCurve(context, 5, &params)
+            else { return fail() }
+            curves[n] = curve
+        }
+
+    default:
+        report(
+            cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
+            "Unsupported tag type for VCGT '\(flavour)'", to: context
+        )
+        return fail()
+    }
+
+    items = 1
+    return raw
+}
+
+@Sendable private func writeVCGT(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+) -> Bool {
+    let curves = object.assumingMemoryBound(to: UnsafeMutablePointer<cmsToneCurve>?.self)
+
+    // The formula form is used only when all three curves are that
+    // exact parametric shape; anything else is sampled into a table.
+    let allFormula = (0..<3).allSatisfy { cmsGetToneCurveParametricType(curves[$0]) == 5 }
+
+    if allFormula {
+        if _cmsWriteUInt32Number(io, vcgtFormulaFlavour) == 0 { return false }
+        for i in 0..<3 {
+            guard let segments = curves[i]?.pointee.Segments else { return false }
+            let (gamma, minimum, maximum) = withUnsafeBytes(of: segments[0].Params) { raw -> (Double, Double, Double) in
+                let p = raw.bindMemory(to: cmsFloat64Number.self)
+                let g = p[0]
+                let low = p[5]
+                return (g, low, pow(p[1], g) + low)
+            }
+            if _cmsWrite15Fixed16Number(io, gamma) == 0 { return false }
+            if _cmsWrite15Fixed16Number(io, minimum) == 0 { return false }
+            if _cmsWrite15Fixed16Number(io, maximum) == 0 { return false }
+        }
+        return true
+    }
+
+    // Always 256 words, whatever the curves actually hold.
+    if _cmsWriteUInt32Number(io, vcgtTableFlavour) == 0 { return false }
+    if _cmsWriteUInt16Number(io, 3) == 0 { return false }
+    if _cmsWriteUInt16Number(io, 256) == 0 { return false }
+    if _cmsWriteUInt16Number(io, 2) == 0 { return false }
+
+    for i in 0..<3 {
+        for j in 0..<256 {
+            let x = cmsFloat32Number(cmsFloat64Number(j) / 255.0)
+            let v = cmsEvalToneCurveFloat(curves[i], x)
+            if _cmsWriteUInt16Number(
+                io, quickSaturateWord(cmsFloat64Number(v) * 65535.0)
+            ) == 0 { return false }
+        }
+    }
+    return true
+}
+
+let vcgtTagType = TagTypeHandler(
+    signature: cmsSigVcgtType,
+    read: readVCGT, write: writeVCGT,
+    duplicate: { context, pointer, _ in
+        let source = pointer.assumingMemoryBound(to: UnsafeMutablePointer<cmsToneCurve>?.self)
+        guard let raw = _cmsCalloc(
+            context, 3, cmsUInt32Number(MemoryLayout<UnsafeMutablePointer<cmsToneCurve>?>.stride)
+        ) else { return nil }
+        let copy = raw.assumingMemoryBound(to: UnsafeMutablePointer<cmsToneCurve>?.self)
+        for i in 0..<3 {
+            guard let one = cmsDupToneCurve(source[i]) else {
+                for j in 0..<i { cmsFreeToneCurve(copy[j]) }
+                _cmsFree(context, raw)
+                return nil
+            }
+            copy[i] = one
+        }
+        return raw
+    },
+    free: { context, object in
+        let curves = object.assumingMemoryBound(to: UnsafeMutablePointer<cmsToneCurve>?.self)
+        for i in 0..<3 { cmsFreeToneCurve(curves[i]) }
+        _cmsFree(context, object)
     }
 )

@@ -14,6 +14,7 @@
 #include "lcms2.h"
 #include "lcms2_plugin.h"   /* the date-time coders live here */
 
+#include <math.h>
 #include <unistd.h>
 
 #include <stdint.h>
@@ -1242,6 +1243,72 @@ int main(void)
         cmsCloseProfile(back);
         free(out);
         cmsCloseProfile(h);
+    }
+
+    /* -- the video card gamma type ------------------------------------------ */
+    {
+        /* vcgt is the one tag handed back as an array of three curves
+         * rather than a single object, and it has two on-disk flavours:
+         * three parametric formulas, or a sampled table. */
+        for (int formula = 1; formula >= 0; formula--) {
+            cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+            cmsSetProfileVersion(h, 4.3);
+
+            cmsToneCurve* v[3];
+            if (formula) {
+                /* Exactly parametric type 5, which is what sends it to
+                 * the formula flavour. */
+                for (int i = 0; i < 3; i++) {
+                    cmsFloat64Number p[7] = { 2.2 + 0.1 * i, 0.0, 0.0, 0.0, 0.0, 0.02 * i, 0.0 };
+                    p[1] = pow(1.0 - p[5], 1.0 / p[0]);
+                    v[i] = cmsBuildParametricToneCurve(NULL, 5, p);
+                }
+            } else {
+                cmsUInt16Number ramp[512];
+                for (int j = 0; j < 512; j++) ramp[j] = (cmsUInt16Number) (j * 128);
+                for (int i = 0; i < 3; i++)
+                    v[i] = cmsBuildTabulatedToneCurve16(NULL, 512, ramp);
+            }
+
+            printf("vcgt %s write %d\n", formula ? "formula" : "table",
+                   cmsWriteTag(h, cmsSigVcgtTag, v));
+            for (int i = 0; i < 3; i++) cmsFreeToneCurve(v[i]);
+
+            cmsUInt32Number needed = 0;
+            cmsSaveProfileToMem(h, NULL, &needed);
+            unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+            cmsUInt32Number room = needed;
+            cmsSaveProfileToMem(h, out, &room);
+            feed_saved(out, needed);
+            printf("  saved %u\n", needed);
+
+            cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+            cmsToneCurve** got = (cmsToneCurve**) cmsReadTag(back, cmsSigVcgtTag);
+            printf("  read %d\n", got != NULL);
+            if (got) {
+                for (int i = 0; i < 3; i++) {
+                    printf("    curve %d parametric %d entries %u\n", i,
+                           cmsGetToneCurveParametricType(got[i]),
+                           cmsGetToneCurveEstimatedTableEntries(got[i]));
+                    for (int k = 0; k <= 8; k++)
+                        feed_float(cmsEvalToneCurveFloat(got[i], (cmsFloat32Number) k / 8.0f));
+                }
+            }
+            report(formula ? "vcgt formula" : "vcgt table");
+
+            cmsUInt32Number again = 0;
+            cmsSaveProfileToMem(back, NULL, &again);
+            unsigned char* twice = (unsigned char*) calloc(1, again ? again : 1);
+            cmsUInt32Number room2 = again;
+            cmsSaveProfileToMem(back, twice, &room2);
+            printf("  re-saved %u identical %d\n", again,
+                   again == needed && memcmp(out, twice, again) == 0);
+
+            free(twice);
+            cmsCloseProfile(back);
+            free(out);
+            cmsCloseProfile(h);
+        }
     }
 
     printf("profile probe OK\n");
