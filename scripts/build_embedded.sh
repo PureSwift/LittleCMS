@@ -8,10 +8,13 @@
 # archive.
 #
 # What comes out is half of a firmware: the color engine, expecting the
-# platform to provide what Embedded Swift requires of it — an allocator
-# (posix_memalign or malloc) — and nothing else.  The engine imports no
-# Foundation and no C library, and keeping that true on every push is this
-# script's job in CI.
+# platform to provide two things and nothing else — an allocator
+# (posix_memalign or malloc), and the C math functions the colour
+# transforms need (pow, sin, cos, atan2, exp, log, log10).  Both appear as
+# ordinary undefined symbols in the archive, and a firmware that links
+# newlib has both already.  The engine imports no Foundation and no C
+# library of its own, and keeping that true on every push is this script's
+# job in CI.
 #
 # usage: build_embedded.sh [triple] [output-directory]
 #        triples with a shipped stdlib live under $TOOLCHAIN/lib/swift/embedded
@@ -69,7 +72,7 @@ ar=$( (command -v llvm-ar || xcrun --find llvm-ar || command -v ar) 2>/dev/null 
 
 echo "building LittleCMS for $triple"
 # shellcheck disable=SC2046
-"$swiftc" -target "$triple" -enable-experimental-feature Embedded \
+"$swiftc" -target "$triple" -enable-experimental-feature Embedded -enable-experimental-feature Extern \
     -wmo -parse-as-library -O \
     -module-name LittleCMS \
     -emit-module -emit-module-path "$output/LittleCMS.swiftmodule" \

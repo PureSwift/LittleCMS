@@ -170,11 +170,6 @@ cmsStage* _cmsStageAllocXYZ2Lab(cmsContext ContextID)
     return (cmsStage*){0};
 }
 
-cmsBool cmsAdaptToIlluminant(cmsCIEXYZ* Result, const cmsCIEXYZ* SourceWhitePt, const cmsCIEXYZ* Illuminant, const cmsCIEXYZ* Value)
-{
-    swift_unimplemented_fatal("cmsAdaptToIlluminant");
-}
-
 cmsNAMEDCOLORLIST* cmsAllocNamedColorList(cmsContext ContextID, cmsUInt32Number n, cmsUInt32Number ColorantCount, const char* Prefix, const char* Suffix)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsAllocNamedColorList is not implemented");
@@ -190,11 +185,6 @@ cmsSEQ* cmsAllocProfileSequenceDescription(cmsContext ContextID, cmsUInt32Number
 cmsBool cmsAppendNamedColor(cmsNAMEDCOLORLIST* v, const char* Name, cmsUInt16Number PCS[3], cmsUInt16Number Colorant[16])
 {
     swift_unimplemented_fatal("cmsAppendNamedColor");
-}
-
-cmsFloat64Number cmsBFDdeltaE(const cmsCIELab* Lab1, const cmsCIELab* Lab2)
-{
-    swift_unimplemented_fatal("cmsBFDdeltaE");
 }
 
 cmsToneCurve* cmsBuildGamma(cmsContext ContextID, cmsFloat64Number Gamma)
@@ -227,16 +217,6 @@ cmsToneCurve* cmsBuildTabulatedToneCurveFloat(cmsContext ContextID, cmsUInt32Num
     return (cmsToneCurve*){0};
 }
 
-cmsFloat64Number cmsCIE2000DeltaE(const cmsCIELab* Lab1, const cmsCIELab* Lab2, cmsFloat64Number Kl, cmsFloat64Number Kc, cmsFloat64Number Kh)
-{
-    swift_unimplemented_fatal("cmsCIE2000DeltaE");
-}
-
-cmsFloat64Number cmsCIE94DeltaE(const cmsCIELab* Lab1, const cmsCIELab* Lab2)
-{
-    swift_unimplemented_fatal("cmsCIE94DeltaE");
-}
-
 void cmsCIECAM02Done(cmsHANDLE hModel)
 {
     swift_unimplemented_fatal("cmsCIECAM02Done");
@@ -256,11 +236,6 @@ cmsHANDLE cmsCIECAM02Init(cmsContext ContextID, const cmsViewingConditions* pVC)
 void cmsCIECAM02Reverse(cmsHANDLE hModel, const cmsJCh* pIn, cmsCIEXYZ* pOut)
 {
     swift_unimplemented_fatal("cmsCIECAM02Reverse");
-}
-
-cmsFloat64Number cmsCMCdeltaE(const cmsCIELab* Lab1, const cmsCIELab* Lab2, cmsFloat64Number l, cmsFloat64Number c)
-{
-    swift_unimplemented_fatal("cmsCMCdeltaE");
 }
 
 cmsBool cmsChangeBuffersFormat(cmsHTRANSFORM hTransform, cmsUInt32Number InputFormat, cmsUInt32Number OutputFormat)
@@ -455,29 +430,9 @@ cmsHPROFILE cmsCreate_sRGBProfileTHR(cmsContext ContextID)
     return (cmsHPROFILE){0};
 }
 
-const cmsCIEXYZ* cmsD50_XYZ(void)
-{
-    swift_unimplemented_fatal("cmsD50_XYZ");
-}
-
-const cmsCIExyY* cmsD50_xyY(void)
-{
-    swift_unimplemented_fatal("cmsD50_xyY");
-}
-
 void cmsDeleteTransform(cmsHTRANSFORM hTransform)
 {
     swift_unimplemented_fatal("cmsDeleteTransform");
-}
-
-cmsFloat64Number cmsDeltaE(const cmsCIELab* Lab1, const cmsCIELab* Lab2)
-{
-    swift_unimplemented_fatal("cmsDeltaE");
-}
-
-cmsBool cmsDesaturateLab(cmsCIELab* Lab, double amax, double amin, double bmax, double bmin)
-{
-    swift_unimplemented_fatal("cmsDesaturateLab");
 }
 
 cmsBool cmsDetectBlackPoint(cmsCIEXYZ* BlackPoint, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags)
@@ -574,21 +529,6 @@ cmsUInt16Number cmsEvalToneCurve16(const cmsToneCurve* Curve, cmsUInt16Number v)
 cmsFloat32Number cmsEvalToneCurveFloat(const cmsToneCurve* Curve, cmsFloat32Number v)
 {
     swift_unimplemented_fatal("cmsEvalToneCurveFloat");
-}
-
-void cmsFloat2LabEncoded(cmsUInt16Number wLab[3], const cmsCIELab* Lab)
-{
-    swift_unimplemented_fatal("cmsFloat2LabEncoded");
-}
-
-void cmsFloat2LabEncodedV2(cmsUInt16Number wLab[3], const cmsCIELab* Lab)
-{
-    swift_unimplemented_fatal("cmsFloat2LabEncodedV2");
-}
-
-void cmsFloat2XYZEncoded(cmsUInt16Number XYZ[3], const cmsCIEXYZ* fXYZ)
-{
-    swift_unimplemented_fatal("cmsFloat2XYZEncoded");
 }
 
 cmsUInt32Number cmsFormatterForColorspaceOfProfile(cmsHPROFILE hProfile, cmsUInt32Number nBytes, cmsBool lIsFloat)
@@ -1090,31 +1030,6 @@ cmsToneCurve* cmsJoinToneCurve(cmsContext ContextID, const cmsToneCurve* X, cons
     return (cmsToneCurve*){0};
 }
 
-void cmsLCh2Lab(cmsCIELab* Lab, const cmsCIELCh* LCh)
-{
-    swift_unimplemented_fatal("cmsLCh2Lab");
-}
-
-void cmsLab2LCh(cmsCIELCh*LCh, const cmsCIELab* Lab)
-{
-    swift_unimplemented_fatal("cmsLab2LCh");
-}
-
-void cmsLab2XYZ(const cmsCIEXYZ* WhitePoint, cmsCIEXYZ* xyz, const cmsCIELab* Lab)
-{
-    swift_unimplemented_fatal("cmsLab2XYZ");
-}
-
-void cmsLabEncoded2Float(cmsCIELab* Lab, const cmsUInt16Number wLab[3])
-{
-    swift_unimplemented_fatal("cmsLabEncoded2Float");
-}
-
-void cmsLabEncoded2FloatV2(cmsCIELab* Lab, const cmsUInt16Number wLab[3])
-{
-    swift_unimplemented_fatal("cmsLabEncoded2FloatV2");
-}
-
 cmsBool cmsLinkTag(cmsHPROFILE hProfile, cmsTagSignature sig, cmsTagSignature dest)
 {
     swift_unimplemented_fatal("cmsLinkTag");
@@ -1535,11 +1450,6 @@ cmsTagSignature cmsTagLinkedTo(cmsHPROFILE hProfile, cmsTagSignature sig)
     swift_unimplemented_fatal("cmsTagLinkedTo");
 }
 
-cmsBool cmsTempFromWhitePoint(cmsFloat64Number* TempK, const cmsCIExyY* WhitePoint)
-{
-    swift_unimplemented_fatal("cmsTempFromWhitePoint");
-}
-
 cmsHPROFILE cmsTransform2DeviceLink(cmsHTRANSFORM hTransform, cmsFloat64Number Version, cmsUInt32Number dwFlags)
 {
     swift_unimplemented_fatal("cmsTransform2DeviceLink");
@@ -1555,11 +1465,6 @@ void cmsUnregisterPluginsTHR(cmsContext ContextID)
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsUnregisterPluginsTHR is not implemented");
 }
 
-cmsBool cmsWhitePointFromTemp(cmsCIExyY* WhitePoint, cmsFloat64Number TempK)
-{
-    swift_unimplemented_fatal("cmsWhitePointFromTemp");
-}
-
 cmsBool cmsWriteRawTag(cmsHPROFILE hProfile, cmsTagSignature sig, const void* data, cmsUInt32Number Size)
 {
     swift_unimplemented_fatal("cmsWriteRawTag");
@@ -1570,27 +1475,7 @@ cmsBool cmsWriteTag(cmsHPROFILE hProfile, cmsTagSignature sig, const void* data)
     swift_unimplemented_fatal("cmsWriteTag");
 }
 
-void cmsXYZ2Lab(const cmsCIEXYZ* WhitePoint, cmsCIELab* Lab, const cmsCIEXYZ* xyz)
-{
-    swift_unimplemented_fatal("cmsXYZ2Lab");
-}
-
-void cmsXYZ2xyY(cmsCIExyY* Dest, const cmsCIEXYZ* Source)
-{
-    swift_unimplemented_fatal("cmsXYZ2xyY");
-}
-
-void cmsXYZEncoded2Float(cmsCIEXYZ* fxyz, const cmsUInt16Number XYZ[3])
-{
-    swift_unimplemented_fatal("cmsXYZEncoded2Float");
-}
-
 int cmsstrcasecmp(const char* s1, const char* s2)
 {
     swift_unimplemented_fatal("cmsstrcasecmp");
-}
-
-void cmsxyY2XYZ(cmsCIEXYZ* Dest, const cmsCIExyY* Source)
-{
-    swift_unimplemented_fatal("cmsxyY2XYZ");
 }

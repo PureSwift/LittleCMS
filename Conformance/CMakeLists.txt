@@ -100,6 +100,13 @@ target_link_libraries(ioprobe_ours PRIVATE lcms2)
 add_test(NAME io_probe COMMAND ioprobe_ours
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
+add_executable(colorprobe_ours colorprobe.c)
+target_link_libraries(colorprobe_ours PRIVATE lcms2)
+if(NOT APPLE)
+    target_link_libraries(colorprobe_ours PRIVATE m)
+endif()
+add_test(NAME color_probe COMMAND colorprobe_ours)
+
 # The stubs' contract: the gap is reported through the error path and the
 # call fails cleanly rather than answering.
 add_test(NAME stub_behavior COMMAND stub_probe_ours)
@@ -164,6 +171,18 @@ if(SLCMS_REFERENCE_FOUND)
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
                 $<TARGET_FILE:ioprobe_ours>
                 $<TARGET_FILE:ioprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+
+    add_executable(colorprobe_reference colorprobe.c)
+    target_link_libraries(colorprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+    if(NOT APPLE)
+        target_link_libraries(colorprobe_reference PRIVATE m)
+    endif()
+
+    add_test(NAME color_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:colorprobe_ours>
+                $<TARGET_FILE:colorprobe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
     add_test(NAME md5_differential
