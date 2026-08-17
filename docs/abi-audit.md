@@ -298,6 +298,11 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   trip**: the reference writes it and then fails to read it back, its
   size accounting having run out against the larger `desc` records. Ours
   fails identically.
+- `psid` is the same sequence structure reached through a **position
+  table** — a directory of offset and size pairs, then the elements — so
+  each element can be a different length, which an embedded description
+  certainly is. The count is checked against what the file can hold
+  before anything is allocated. Unlike `pseq`, it round-trips.
 - Two reference leaks are **not** reproduced (`Type_Signature_Read` and
   `Type_DateTime_Read` drop their block on a failed read). A leak is not
   observable through the ABI.

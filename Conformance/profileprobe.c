@@ -1472,6 +1472,61 @@ int main(void)
         }
     }
 
+    /* -- the sequence identifier type ---------------------------------------- */
+    {
+        cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+        cmsSetProfileVersion(h, 4.3);
+        cmsSetDeviceClass(h, cmsSigLinkClass);
+
+        cmsSEQ* seq = cmsAllocProfileSequenceDescription(NULL, 3);
+        for (int i = 0; i < 3; i++) {
+            for (int k = 0; k < 16; k++)
+                seq->seq[i].ProfileID.ID8[k] = (cmsUInt8Number) (i * 16 + k);
+            seq->seq[i].Description = cmsMLUalloc(NULL, 1);
+            cmsMLUsetASCII(seq->seq[i].Description, "en", "US",
+                           i == 0 ? "first link" : (i == 1 ? "second link" : "third"));
+        }
+        printf("psid write %d\n", cmsWriteTag(h, cmsSigProfileSequenceIdTag, seq));
+        cmsFreeProfileSequenceDescription(seq);
+
+        cmsUInt32Number needed = 0;
+        cmsSaveProfileToMem(h, NULL, &needed);
+        unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+        cmsUInt32Number room = needed;
+        cmsSaveProfileToMem(h, out, &room);
+        feed_saved(out, needed);
+        printf("psid saved %u\n", needed);
+
+        cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+        cmsSEQ* got = (cmsSEQ*) cmsReadTag(back, cmsSigProfileSequenceIdTag);
+        printf("psid read %d n %u\n", got != NULL, got ? got->n : 0);
+        if (got) {
+            for (cmsUInt32Number i = 0; i < got->n; i++) {
+                char d[64];
+                memset(d, 0, sizeof d);
+                cmsMLUgetASCII(got->seq[i].Description, "en", "US", d, sizeof d);
+                printf("  %u id %02x%02x..%02x '%s'\n", i,
+                       got->seq[i].ProfileID.ID8[0], got->seq[i].ProfileID.ID8[1],
+                       got->seq[i].ProfileID.ID8[15], d);
+                feed(got->seq[i].ProfileID.ID8, 16);
+            }
+        }
+        report("sequence identifiers");
+
+        cmsUInt32Number again = 0;
+        cmsSaveProfileToMem(back, NULL, &again);
+        unsigned char* twice = (unsigned char*) calloc(1, again ? again : 1);
+        cmsUInt32Number room2 = again;
+        cmsSaveProfileToMem(back, twice, &room2);
+        printf("psid re-saved %u identical %d\n", again,
+               again == needed && memcmp(out, twice, again) == 0);
+
+        free(twice);
+        cmsCloseProfile(back);
+        free(out);
+        cmsCloseProfile(h);
+    }
+
     printf("profile probe OK\n");
     return 0;
 }

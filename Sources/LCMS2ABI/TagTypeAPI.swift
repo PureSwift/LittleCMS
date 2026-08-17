@@ -491,6 +491,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     table[cmsSigVcgtType] = vcgtTagType
     table[cmsSigDictType] = dictionaryTagType
     table[cmsSigProfileSequenceDescType] = profileSequenceTagType
+    table[cmsSigProfileSequenceIdType] = profileSequenceIDTagType
 
     return table
 }()
@@ -2991,6 +2992,121 @@ private func saveDescription(
 let profileSequenceTagType = TagTypeHandler(
     signature: cmsSigProfileSequenceDescType,
     read: readProfileSequence, write: writeProfileSequence,
+    duplicate: { _, pointer, _ in
+        UnsafeMutableRawPointer(cmsDupProfileSequenceDescription(
+            UnsafeMutablePointer(mutating: pointer.assumingMemoryBound(to: cmsSEQ.self))
+        ))
+    },
+    free: { _, object in
+        cmsFreeProfileSequenceDescription(object.assumingMemoryBound(to: cmsSEQ.self))
+    }
+)
+
+// -- the profile sequence identifier type ----------------------------------------
+
+/// `psid` is the same sequence structure reached through a position
+/// table: a directory of offset and size pairs, then the elements.  That
+/// indirection is what lets each element be a different length, which a
+/// description embedded in it certainly is.
+@Sendable private func readProfileSequenceID(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    guard let tell = io.pointee.Tell, let seek = io.pointee.Seek, let read = io.pointee.Read
+    else { return nil }
+    let base = tell(io) - tagBaseSize
+
+    var count: cmsUInt32Number = 0
+    if _cmsReadUInt32Number(io, &count) == 0 { return nil }
+
+    // The directory is two words per element; a count claiming more than
+    // the file can hold is refused before anything is allocated.
+    let position = tell(io)
+    if (io.pointee.ReportedSize - position) / 8 < count { return nil }
+
+    guard let sequence = cmsAllocProfileSequenceDescription(context, count) else { return nil }
+    func fail() -> UnsafeMutableRawPointer? {
+        cmsFreeProfileSequenceDescription(sequence)
+        return nil
+    }
+    guard let entries = sequence.pointee.seq else { return fail() }
+
+    var offsets = [cmsUInt32Number](repeating: 0, count: Int(count))
+    var sizes = [cmsUInt32Number](repeating: 0, count: Int(count))
+    for i in 0..<Int(count) {
+        if _cmsReadUInt32Number(io, &offsets[i]) == 0 { return fail() }
+        if _cmsReadUInt32Number(io, &sizes[i]) == 0 { return fail() }
+        offsets[i] += base
+    }
+
+    for i in 0..<Int(count) {
+        if seek(io, offsets[i]) == 0 { return fail() }
+        let entry = entries + i
+
+        let got = withUnsafeMutableBytes(of: &entry.pointee.ProfileID) { buffer in
+            read(io, buffer.baseAddress, 16, 1)
+        }
+        if got != 1 { return fail() }
+        if !readEmbeddedText(context, io, &entry.pointee.Description, sizes[i]) {
+            return fail()
+        }
+    }
+
+    items = 1
+    return UnsafeMutableRawPointer(sequence)
+}
+
+@Sendable private func writeProfileSequenceID(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number,
+    _ version: cmsUInt32Number
+) -> Bool {
+    guard let tell = io.pointee.Tell, let seek = io.pointee.Seek, let write = io.pointee.Write
+    else { return false }
+    let sequence = object.assumingMemoryBound(to: cmsSEQ.self)
+    guard let entries = sequence.pointee.seq else { return false }
+
+    let base = tell(io) - tagBaseSize
+    let count = Int(sequence.pointee.n)
+
+    if _cmsWriteUInt32Number(io, sequence.pointee.n) == 0 { return false }
+
+    let directory = tell(io)
+    for _ in 0..<count {
+        if _cmsWriteUInt32Number(io, 0) == 0 { return false }
+        if _cmsWriteUInt32Number(io, 0) == 0 { return false }
+    }
+
+    var offsets = [cmsUInt32Number](repeating: 0, count: count)
+    var sizes = [cmsUInt32Number](repeating: 0, count: count)
+
+    for i in 0..<count {
+        let before = tell(io)
+        offsets[i] = before - base
+        let entry = entries + i
+
+        let wrote = withUnsafeBytes(of: entry.pointee.ProfileID) { buffer in
+            write(io, 16, buffer.baseAddress)
+        }
+        if wrote == 0 { return false }
+        if !saveDescription(context, io, version, entry.pointee.Description) { return false }
+
+        sizes[i] = tell(io) - before
+    }
+
+    let end = tell(io)
+    if seek(io, directory) == 0 { return false }
+    for i in 0..<count {
+        if _cmsWriteUInt32Number(io, offsets[i]) == 0 { return false }
+        if _cmsWriteUInt32Number(io, sizes[i]) == 0 { return false }
+    }
+    return seek(io, end) != 0
+}
+
+let profileSequenceIDTagType = TagTypeHandler(
+    signature: cmsSigProfileSequenceIdType,
+    read: readProfileSequenceID, write: writeProfileSequenceID,
     duplicate: { _, pointer, _ in
         UnsafeMutableRawPointer(cmsDupProfileSequenceDescription(
             UnsafeMutablePointer(mutating: pointer.assumingMemoryBound(to: cmsSEQ.self))
