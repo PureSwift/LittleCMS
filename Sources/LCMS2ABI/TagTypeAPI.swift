@@ -492,6 +492,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     table[cmsSigDictType] = dictionaryTagType
     table[cmsSigProfileSequenceDescType] = profileSequenceTagType
     table[cmsSigProfileSequenceIdType] = profileSequenceIDTagType
+    table.merge(printingTagTypes) { existing, _ in existing }
 
     return table
 }()
@@ -3116,3 +3117,183 @@ let profileSequenceIDTagType = TagTypeHandler(
         cmsFreeProfileSequenceDescription(object.assumingMemoryBound(to: cmsSEQ.self))
     }
 )
+
+// -- undercolour removal and screening -------------------------------------------
+
+/// `bfd`: two sampled curves back to back, then a description whose
+/// length is whatever is left of the tag — there is no count for it, so
+/// the tag's own size is the only thing that says where the text ends.
+@Sendable private func readUcrBg(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    guard let raw = _cmsMallocZero(context, cmsUInt32Number(MemoryLayout<cmsUcrBg>.size)),
+          let read = io.pointee.Read
+    else { return nil }
+    let n = raw.assumingMemoryBound(to: cmsUcrBg.self)
+
+    func fail() -> UnsafeMutableRawPointer? {
+        cmsFreeToneCurve(n.pointee.Ucr)
+        cmsFreeToneCurve(n.pointee.Bg)
+        cmsMLUfree(n.pointee.Desc)
+        _cmsFree(context, raw)
+        return nil
+    }
+
+    var remaining = cmsInt32Number(bitPattern: sizeOfTag)
+
+    func readCurve(
+        into slot: inout UnsafeMutablePointer<cmsToneCurve>?
+    ) -> Bool {
+        if remaining < 4 { return false }
+        var count: cmsUInt32Number = 0
+        if _cmsReadUInt32Number(io, &count) == 0 { return false }
+        remaining -= 4
+
+        guard let curve = cmsBuildTabulatedToneCurve16(context, count, nil) else { return false }
+        slot = curve
+        if remaining < cmsInt32Number(bitPattern: count &* 2) { return false }
+        if _cmsReadUInt16Array(io, count, curve.pointee.Table16) == 0 { return false }
+        remaining -= cmsInt32Number(bitPattern: count &* 2)
+        return true
+    }
+
+    if !readCurve(into: &n.pointee.Ucr) { return fail() }
+    if !readCurve(into: &n.pointee.Bg) { return fail() }
+
+    if remaining < 0 || remaining > 32000 { return fail() }
+
+    guard let description = cmsMLUalloc(context, 1) else { return fail() }
+    n.pointee.Desc = description
+
+    let length = cmsUInt32Number(remaining)
+    guard let text = _cmsMalloc(context, length + 1) else { return fail() }
+    defer { _cmsFree(context, text) }
+
+    if length > 0, read(io, text, 1, length) != length { return fail() }
+    text.assumingMemoryBound(to: CChar.self)[Int(length)] = 0
+    _ = cmsMLUsetASCII(
+        description, cmsNoLanguage, cmsNoCountry, text.assumingMemoryBound(to: CChar.self)
+    )
+
+    items = 1
+    return raw
+}
+
+@Sendable private func writeUcrBg(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number,
+    _ version: cmsUInt32Number
+) -> Bool {
+    guard let write = io.pointee.Write else { return false }
+    let value = object.assumingMemoryBound(to: cmsUcrBg.self)
+    guard let ucr = value.pointee.Ucr, let bg = value.pointee.Bg else { return false }
+
+    if _cmsWriteUInt32Number(io, ucr.pointee.nEntries) == 0 { return false }
+    if _cmsWriteUInt16Array(io, ucr.pointee.nEntries, ucr.pointee.Table16) == 0 { return false }
+    if _cmsWriteUInt32Number(io, bg.pointee.nEntries) == 0 { return false }
+    if _cmsWriteUInt16Array(io, bg.pointee.nEntries, bg.pointee.Table16) == 0 { return false }
+
+    // The text carries no length of its own; it simply runs to the end.
+    let size = cmsMLUgetASCII(value.pointee.Desc, cmsNoLanguage, cmsNoCountry, nil, 0)
+    guard let text = _cmsMalloc(context, size) else { return false }
+    defer { _cmsFree(context, text) }
+
+    let got = cmsMLUgetASCII(
+        value.pointee.Desc, cmsNoLanguage, cmsNoCountry,
+        text.assumingMemoryBound(to: CChar.self), size
+    )
+    if got != size { return false }
+    return write(io, size, text) != 0
+}
+
+/// `scrn`: a flag word, a channel count, and three numbers per channel.
+/// A count past the ceiling is **clamped rather than refused**, so a
+/// malformed tag reads back shorter than it claimed.
+@Sendable private func readScreening(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    guard let raw = _cmsMallocZero(context, cmsUInt32Number(MemoryLayout<cmsScreening>.size))
+    else { return nil }
+    let sc = raw.assumingMemoryBound(to: cmsScreening.self)
+
+    func fail() -> UnsafeMutableRawPointer? {
+        _cmsFree(context, raw)
+        return nil
+    }
+
+    if _cmsReadUInt32Number(io, &sc.pointee.Flag) == 0 { return fail() }
+    if _cmsReadUInt32Number(io, &sc.pointee.nChannels) == 0 { return fail() }
+
+    if sc.pointee.nChannels > cmsUInt32Number(cmsMAXCHANNELS) - 1 {
+        sc.pointee.nChannels = cmsUInt32Number(cmsMAXCHANNELS) - 1
+    }
+
+    let ok = withUnsafeMutableBytes(of: &sc.pointee.Channels) { buffer -> Bool in
+        let channels = buffer.baseAddress!.assumingMemoryBound(to: cmsScreeningChannel.self)
+        for i in 0..<Int(sc.pointee.nChannels) {
+            if _cmsRead15Fixed16Number(io, &channels[i].Frequency) == 0 { return false }
+            if _cmsRead15Fixed16Number(io, &channels[i].ScreenAngle) == 0 { return false }
+            if _cmsReadUInt32Number(io, &channels[i].SpotShape) == 0 { return false }
+        }
+        return true
+    }
+    if !ok { return fail() }
+
+    items = 1
+    return raw
+}
+
+@Sendable private func writeScreening(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number,
+    _ version: cmsUInt32Number
+) -> Bool {
+    let sc = object.assumingMemoryBound(to: cmsScreening.self)
+    if _cmsWriteUInt32Number(io, sc.pointee.Flag) == 0 { return false }
+    if _cmsWriteUInt32Number(io, sc.pointee.nChannels) == 0 { return false }
+
+    return withUnsafeBytes(of: sc.pointee.Channels) { buffer -> Bool in
+        let channels = buffer.baseAddress!.assumingMemoryBound(to: cmsScreeningChannel.self)
+        for i in 0..<Int(sc.pointee.nChannels) {
+            if _cmsWrite15Fixed16Number(io, channels[i].Frequency) == 0 { return false }
+            if _cmsWrite15Fixed16Number(io, channels[i].ScreenAngle) == 0 { return false }
+            if _cmsWriteUInt32Number(io, channels[i].SpotShape) == 0 { return false }
+        }
+        return true
+    }
+}
+
+let printingTagTypes: [cmsTagTypeSignature: TagTypeHandler] = [
+    cmsSigUcrBgType: TagTypeHandler(
+        signature: cmsSigUcrBgType, read: readUcrBg, write: writeUcrBg,
+        duplicate: { context, pointer, _ in
+            let source = pointer.assumingMemoryBound(to: cmsUcrBg.self)
+            guard let raw = _cmsMallocZero(
+                context, cmsUInt32Number(MemoryLayout<cmsUcrBg>.size)
+            ) else { return nil }
+            let copy = raw.assumingMemoryBound(to: cmsUcrBg.self)
+            copy.pointee.Ucr = cmsDupToneCurve(source.pointee.Ucr)
+            copy.pointee.Bg = cmsDupToneCurve(source.pointee.Bg)
+            copy.pointee.Desc = cmsMLUdup(source.pointee.Desc)
+            return raw
+        },
+        free: { context, object in
+            let value = object.assumingMemoryBound(to: cmsUcrBg.self)
+            cmsFreeToneCurve(value.pointee.Ucr)
+            cmsFreeToneCurve(value.pointee.Bg)
+            cmsMLUfree(value.pointee.Desc)
+            _cmsFree(context, object)
+        }
+    ),
+    cmsSigScreeningType: TagTypeHandler(
+        signature: cmsSigScreeningType, read: readScreening, write: writeScreening,
+        duplicate: { context, pointer, _ in
+            _cmsDupMem(context, pointer, cmsUInt32Number(MemoryLayout<cmsScreening>.size))
+        },
+        free: freePlainBlock
+    ),
+]

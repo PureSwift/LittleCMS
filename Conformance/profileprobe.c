@@ -1527,6 +1527,85 @@ int main(void)
         cmsCloseProfile(h);
     }
 
+    /* -- undercolour removal and screening ----------------------------------- */
+    {
+        cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+        cmsSetProfileVersion(h, 4.3);
+        cmsSetColorSpace(h, cmsSigCmykData);
+
+        cmsUcrBg ucr;
+        memset(&ucr, 0, sizeof ucr);
+        cmsUInt16Number utab[32], btab[16];
+        for (int i = 0; i < 32; i++) utab[i] = (cmsUInt16Number) (i * 2114);
+        for (int i = 0; i < 16; i++) btab[i] = (cmsUInt16Number) (65535 - i * 4369);
+        ucr.Ucr = cmsBuildTabulatedToneCurve16(NULL, 32, utab);
+        ucr.Bg = cmsBuildTabulatedToneCurve16(NULL, 16, btab);
+        ucr.Desc = cmsMLUalloc(NULL, 1);
+        cmsMLUsetASCII(ucr.Desc, cmsNoLanguage, cmsNoCountry, "a UCR/BG description");
+        printf("ucrbg write %d\n", cmsWriteTag(h, cmsSigUcrBgTag, &ucr));
+        cmsFreeToneCurve(ucr.Ucr);
+        cmsFreeToneCurve(ucr.Bg);
+        cmsMLUfree(ucr.Desc);
+
+        cmsScreening sc;
+        memset(&sc, 0, sizeof sc);
+        sc.Flag = cmsPRINTER_DEFAULT_SCREENS;
+        sc.nChannels = 4;
+        for (cmsUInt32Number i = 0; i < 4; i++) {
+            sc.Channels[i].Frequency = 60.0 + i;
+            sc.Channels[i].ScreenAngle = 15.0 * (double) (i + 1);
+            sc.Channels[i].SpotShape = cmsSPOT_ELLIPSE;
+        }
+        printf("screening write %d\n", cmsWriteTag(h, cmsSigScreeningTag, &sc));
+
+        cmsUInt32Number needed = 0;
+        cmsSaveProfileToMem(h, NULL, &needed);
+        unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+        cmsUInt32Number room = needed;
+        cmsSaveProfileToMem(h, out, &room);
+        feed_saved(out, needed);
+        printf("printing saved %u\n", needed);
+
+        cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+        cmsUcrBg* rucr = (cmsUcrBg*) cmsReadTag(back, cmsSigUcrBgTag);
+        if (rucr) {
+            char d[64];
+            memset(d, 0, sizeof d);
+            cmsMLUgetASCII(rucr->Desc, cmsNoLanguage, cmsNoCountry, d, sizeof d);
+            printf("  ucr %u entries bg %u entries '%s'\n",
+                   cmsGetToneCurveEstimatedTableEntries(rucr->Ucr),
+                   cmsGetToneCurveEstimatedTableEntries(rucr->Bg), d);
+            for (int k = 0; k <= 8; k++) {
+                feed_float(cmsEvalToneCurveFloat(rucr->Ucr, (cmsFloat32Number) k / 8.0f));
+                feed_float(cmsEvalToneCurveFloat(rucr->Bg, (cmsFloat32Number) k / 8.0f));
+            }
+        }
+
+        cmsScreening* rsc = (cmsScreening*) cmsReadTag(back, cmsSigScreeningTag);
+        if (rsc) {
+            printf("  screening flag %u channels %u\n",
+                   (unsigned) rsc->Flag, rsc->nChannels);
+            for (cmsUInt32Number i = 0; i < rsc->nChannels; i++)
+                printf("    %u freq %.6f angle %.6f spot %u\n", i,
+                       rsc->Channels[i].Frequency, rsc->Channels[i].ScreenAngle,
+                       (unsigned) rsc->Channels[i].SpotShape);
+        }
+        report("printing tags");
+
+        cmsUInt32Number again = 0;
+        cmsSaveProfileToMem(back, NULL, &again);
+        unsigned char* twice = (unsigned char*) calloc(1, again ? again : 1);
+        cmsUInt32Number room2 = again;
+        cmsSaveProfileToMem(back, twice, &room2);
+        printf("printing re-saved %u identical %d\n", again,
+               again == needed && memcmp(out, twice, again) == 0);
+
+        free(twice);
+        cmsCloseProfile(back);
+        free(out);
+        cmsCloseProfile(h);
+    }
+
     printf("profile probe OK\n");
     return 0;
 }

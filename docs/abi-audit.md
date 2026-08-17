@@ -303,6 +303,12 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   each element can be a different length, which an embedded description
   certainly is. The count is checked against what the file can hold
   before anything is allocated. Unlike `pseq`, it round-trips.
+- `bfd` holds two sampled curves and then a description with **no
+  length of its own** — it runs to the end of the tag, so the tag's size
+  is the only thing that says where the text stops.
+- `scrn` **clamps** a channel count past the ceiling rather than
+  refusing it, so a malformed tag reads back shorter than it claimed
+  instead of failing.
 - Two reference leaks are **not** reproduced (`Type_Signature_Read` and
   `Type_DateTime_Read` drop their block on a failed read). A leak is not
   observable through the ABI.
