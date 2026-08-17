@@ -195,6 +195,12 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   table behind the walk.  `SAMPLER_INSPECT` keeps the output buffer but
   discards whatever the sampler writes.  A sampler that returns 0
   abandons the walk, and what it already wrote stays written.
+- **Only `nInputs` slots of the sampler's input array are defined.**
+  `cmsStageSampleCLut*` memsets its buffer first, but `cmsSliceSpace*`
+  does not — so a sampler reading past the input count reads stack
+  garbage. A probe that did so agreed on macOS and disagreed on Linux;
+  the rule for probes is to read exactly what the API defines as
+  written, never the width of the buffer.
 
 ### Transforms (20), Colorimetry (23), Formatters (2 + `TYPE_*` space), MLU (12), Named colors (8), Dictionaries (6), PSEQ (3), Intents (5), CHAD (5), Alarm codes (4), GBD (12, stubbed), IT8/CGATS (37, stubbed), PostScript (3, stubbed), MD5 (3), IO handlers (5), Header access (26), Virtual profiles (24), Misc (3)
 

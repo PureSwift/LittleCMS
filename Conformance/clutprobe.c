@@ -108,27 +108,35 @@ static cmsInt32Number FillFloat(CMSREGISTER const cmsFloat32Number In[],
     return 1;
 }
 
-/* The float counterpart of Inspect16, for the slicing walk. */
+/* Records every node it is shown without writing anything back.
+ *
+ * Only `inputs` slots are read.  cmsSliceSpace16/Float leave the rest of
+ * the input array uninitialized -- unlike cmsStageSampleCLut*, which
+ * memsets it -- so reading past the count reads whatever was on the
+ * stack.  That is not a difference worth measuring, and measuring it
+ * agreed on one platform and disagreed on another. */
+typedef struct { cmsUInt32Number visited; int inputs; int outputs; } Walk;
+
+/* The float counterpart of Inspect16, with the same bound. */
 static cmsInt32Number InspectFloat(CMSREGISTER const cmsFloat32Number In[],
                                    CMSREGISTER cmsFloat32Number Out[],
                                    CMSREGISTER void* Cargo)
 {
-    cmsUInt32Number* count = (cmsUInt32Number*) Cargo;
-    for (int i = 0; i < 4; i++) feed_float(In[i]);
-    if (Out != NULL) for (int i = 0; i < 3; i++) feed_float(Out[i]);
-    (*count)++;
+    Walk* w = (Walk*) Cargo;
+    for (int i = 0; i < w->inputs; i++) feed_float(In[i]);
+    if (Out != NULL) for (int i = 0; i < w->outputs; i++) feed_float(Out[i]);
+    w->visited++;
     return 1;
 }
 
-/* Records every node it is shown without writing anything back. */
 static cmsInt32Number Inspect16(CMSREGISTER const cmsUInt16Number In[],
                                 CMSREGISTER cmsUInt16Number Out[],
                                 CMSREGISTER void* Cargo)
 {
-    cmsUInt32Number* count = (cmsUInt32Number*) Cargo;
-    for (int i = 0; i < 4; i++) feed_u16(In[i]);
-    if (Out != NULL) for (int i = 0; i < 3; i++) feed_u16(Out[i]);
-    (*count)++;
+    Walk* w = (Walk*) Cargo;
+    for (int i = 0; i < w->inputs; i++) feed_u16(In[i]);
+    if (Out != NULL) for (int i = 0; i < w->outputs; i++) feed_u16(Out[i]);
+    w->visited++;
     return 1;
 }
 
@@ -253,11 +261,11 @@ int main(void)
         cmsStage* mpe = cmsStageAllocCLut16bit(NULL, 4, 4, 3, NULL);
         cmsStageSampleCLut16bit(mpe, Fill16, &outputs, 0);
 
-        cmsUInt32Number visited = 0;
+        Walk walk = { 0, 4, 3 };
         printf("inspected %d\n",
-               cmsStageSampleCLut16bit(mpe, Inspect16, &visited, SAMPLER_INSPECT));
+               cmsStageSampleCLut16bit(mpe, Inspect16, &walk, SAMPLER_INSPECT));
         report("inspection walk");
-        printf("visited %u nodes\n", (unsigned) visited);
+        printf("visited %u nodes\n", (unsigned) walk.visited);
         feed_table(mpe, "table after inspection");
         cmsStageFree(mpe);
     }
@@ -277,23 +285,23 @@ int main(void)
     /* -- slicing: the same walk with no table behind it -------------------- */
     {
         static const cmsUInt32Number points[3] = { 3, 4, 5 };
-        cmsUInt32Number counted = 0;
-        printf("slice16 %d\n", cmsSliceSpace16(3, points, Inspect16, &counted));
+        Walk walk = { 0, 3, 0 };
+        printf("slice16 %d\n", cmsSliceSpace16(3, points, Inspect16, &walk));
         report("slice16 walk");
-        printf("slice16 visited %u\n", (unsigned) counted);
+        printf("slice16 visited %u\n", (unsigned) walk.visited);
 
-        counted = 0;
-        printf("sliceFloat %d\n", cmsSliceSpaceFloat(3, points, InspectFloat, &counted));
+        Walk fwalk = { 0, 3, 0 };
+        printf("sliceFloat %d\n", cmsSliceSpaceFloat(3, points, InspectFloat, &fwalk));
         report("sliceFloat walk");
-        printf("sliceFloat visited %u\n", (unsigned) counted);
+        printf("sliceFloat visited %u\n", (unsigned) fwalk.visited);
 
         /* Refusals: past the channel ceiling, and a degenerate axis. */
         static const cmsUInt32Number degenerate[3] = { 3, 1, 5 };
-        counted = 0;
+        Walk guard = { 0, 3, 0 };
         printf("degenerate axis -> %d\n",
-               cmsSliceSpace16(3, degenerate, Inspect16, &counted));
+               cmsSliceSpace16(3, degenerate, Inspect16, &guard));
         printf("too many inputs -> %d\n",
-               cmsSliceSpace16(cmsMAXCHANNELS, points, Inspect16, &counted));
+               cmsSliceSpace16(cmsMAXCHANNELS, points, Inspect16, &guard));
     }
 
     /* -- refusals from the allocators -------------------------------------- */
