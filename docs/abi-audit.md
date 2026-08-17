@@ -224,6 +224,24 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   repeated language/country pair). A hand-crafted profile whose pool has
   strings sharing bytes re-emits with the same strings but not the same
   bytes.
+- **The type is decided again at save time**, from the profile's version
+  and the object as it then stands — not remembered from what the tag
+  was read as. Two consequences that look like bugs and are not:
+  reading a v2 profile and saving it back **promotes its LUTs from
+  `mft1` to `mft2`** and grows the file, because the save-as-8-bits flag
+  lives on the in-memory pipeline and the reader does not restore it;
+  and changing a profile's version after loading re-encodes its tags to
+  match on the way out.
+- `mft1`/`mft2` hold exactly four stages in one order — matrix, input
+  curves, CLUT, output curves — and refuse anything else, so an
+  optimized or extended pipeline cannot be written back. Both require a
+  **square** grid: one node count covers every dimension, so a granular
+  CLUT is refused.
+- `mft1` widens each byte by replication (`0xFF` becomes `0xFFFF`, not
+  `0xFF00`) and its curve tables must be exactly 256 entries — except an
+  identity ramp, which it recognises by shape and writes as the
+  identity. `mft2` stores its own table lengths, and a length of zero is
+  a Little CMS extension meaning the stage is absent.
 - Two reference leaks are **not** reproduced (`Type_Signature_Read` and
   `Type_DateTime_Read` drop their block on a failed read). A leak is not
   observable through the ABI.

@@ -48,6 +48,10 @@ static const char* type_name(const unsigned char b[4])
     return out;
 }
 
+/* A reproducible input stream, so both builds walk the same numbers. */
+static uint32_t seed = 5150;
+static uint32_t next(void) { seed = seed * 1103515245u + 12345u; return seed >> 8; }
+
 /* Curve values are floats, and a NaN is a NaN — see docs/abi-audit.md. */
 static void feed_float(float v)
 {
@@ -816,6 +820,104 @@ int main(void)
             cmsFreeToneCurve(sigmoid);
             cmsFreeToneCurve(tabulated);
         }
+    }
+
+    /* -- the 8-bit LUT type ------------------------------------------------ */
+    {
+        cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+        cmsSetProfileVersion(h, 2.4);          /* v2 chooses mft1 or mft2 */
+        cmsSetColorSpace(h, cmsSigRgbData);
+        cmsSetPCS(h, cmsSigLabData);
+
+        /* A full four-stage pipeline: matrix, input curves, CLUT,
+         * output curves — the shape mft1 can hold and no other. */
+        cmsPipeline* lut = cmsPipelineAlloc(NULL, 3, 3);
+        static const cmsFloat64Number matrix[9] = {
+            0.9, 0.05, 0.05,  0.1, 0.8, 0.1,  0.05, 0.15, 0.8
+        };
+        cmsPipelineInsertStage(lut, cmsAT_END,
+                               cmsStageAllocMatrix(NULL, 3, 3, matrix, NULL));
+
+        cmsToneCurve* pre[3];
+        cmsUInt16Number ramp[256];
+        for (int i = 0; i < 256; i++) ramp[i] = (cmsUInt16Number) (i * 257);
+        for (int i = 0; i < 3; i++) pre[i] = cmsBuildTabulatedToneCurve16(NULL, 256, ramp);
+        cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, pre));
+        for (int i = 0; i < 3; i++) cmsFreeToneCurve(pre[i]);
+
+        cmsUInt16Number* grid = (cmsUInt16Number*) calloc(9 * 9 * 9 * 3, sizeof(cmsUInt16Number));
+        for (int i = 0; i < 9 * 9 * 9 * 3; i++)
+            grid[i] = (cmsUInt16Number) ((i * 7919) & 0xFFFF);
+        cmsPipelineInsertStage(lut, cmsAT_END,
+                               cmsStageAllocCLut16bit(NULL, 9, 3, 3, grid));
+        free(grid);
+
+        cmsToneCurve* post[3];
+        for (int i = 0; i < 3; i++) post[i] = cmsBuildTabulatedToneCurve16(NULL, 256, ramp);
+        cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, post));
+        for (int i = 0; i < 3; i++) cmsFreeToneCurve(post[i]);
+
+        /* Marked to be stored in eight bits, which is what sends it to
+         * mft1 rather than mft2. */
+        cmsPipelineSetSaveAs8bitsFlag(lut, TRUE);
+        printf("lut8 write %d\n", cmsWriteTag(h, cmsSigAToB0Tag, lut));
+        cmsPipelineFree(lut);
+
+        cmsUInt32Number needed = 0;
+        cmsSaveProfileToMem(h, NULL, &needed);
+        unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+        cmsUInt32Number room = needed;
+        cmsSaveProfileToMem(h, out, &room);
+        feed_saved(out, needed);
+        printf("lut8 saved %u bytes\n", needed);
+        report("lut8 profile bytes");
+
+        cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+        unsigned char base[4] = { 0, 0, 0, 0 };
+        cmsReadRawTag(back, cmsSigAToB0Tag, base, sizeof base);
+        cmsPipeline* got = (cmsPipeline*) cmsReadTag(back, cmsSigAToB0Tag);
+        printf("lut8 type %s read %d\n", type_name(base), got != NULL);
+        if (got) {
+            printf("  %u->%u stages %u\n",
+                   cmsPipelineInputChannels(got), cmsPipelineOutputChannels(got),
+                   cmsPipelineStageCount(got));
+            for (cmsStage* st = cmsPipelineGetPtrToFirstStage(got); st; st = cmsStageNext(st))
+                printf("    stage %08x %u->%u\n", (unsigned) cmsStageType(st),
+                       cmsStageInputChannels(st), cmsStageOutputChannels(st));
+
+            /* Evaluating it is the point: the bytes only matter if the
+             * pipeline they rebuild computes the same colours. */
+            seed = 5150;
+            for (int trial = 0; trial < 200; trial++) {
+                cmsFloat32Number in[4], fout[4];
+                cmsUInt16Number win[4], wout[4];
+                for (int i = 0; i < 3; i++) {
+                    in[i] = (cmsFloat32Number) (next() & 0xFFFF) / 65535.0f;
+                    win[i] = (cmsUInt16Number) (next() & 0xFFFF);
+                }
+                memset(fout, 0, sizeof fout);
+                cmsPipelineEvalFloat(in, fout, got);
+                for (int i = 0; i < 3; i++) feed_float(fout[i]);
+                memset(wout, 0, sizeof wout);
+                cmsPipelineEval16(win, wout, got);
+                for (int i = 0; i < 3; i++) feed(&wout[i], sizeof wout[i]);
+            }
+            report("lut8 evaluated");
+        }
+
+        /* Re-saving what was read must reproduce the same bytes. */
+        cmsUInt32Number again = 0;
+        cmsSaveProfileToMem(back, NULL, &again);
+        unsigned char* twice = (unsigned char*) calloc(1, again ? again : 1);
+        cmsUInt32Number room2 = again;
+        cmsSaveProfileToMem(back, twice, &room2);
+        printf("lut8 re-saved %u identical %d\n", again,
+               again == needed && memcmp(out, twice, again) == 0);
+
+        free(twice);
+        cmsCloseProfile(back);
+        free(out);
+        cmsCloseProfile(h);
     }
 
     printf("profile probe OK\n");

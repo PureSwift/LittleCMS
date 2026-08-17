@@ -239,6 +239,12 @@ final class ProfileBox: HandleBox {
 
     var mutex: UnsafeMutableRawPointer?
 
+    /// The version as a caller reads it, which is what the type
+    /// decisions are made against.
+    var versionAsDecimal: cmsFloat64Number {
+        cmsFloat64Number(baseToBase(version >> 16, from: 16, to: 10)) / 100.0
+    }
+
     /// `freeOneTag`.  A slot written as raw holds a plain block; a
     /// cooked one is whatever its type handler made.
     func releaseTag(_ i: Int) {
@@ -1063,8 +1069,21 @@ private func saveTags(
                 // makes of the object.  A tag whose type the library
                 // does not know is passed over rather than failing the
                 // whole save.
+                //
+                // The type is decided *here*, from the profile's version
+                // and the object as it now stands — not remembered from
+                // whatever it was read as.  So a v2 LUT read from the
+                // 8-bit form comes back out in the 16-bit form unless
+                // the pipeline still asks for 8, and a profile whose
+                // version was changed after loading re-encodes its tags
+                // to match.
                 guard let descriptor = tagDescriptor(for: box.tagNames[i]),
-                      let handler = tagTypeHandler(for: box.tagTypes[i])
+                      let type = typeToWrite(
+                          for: box.tagNames[i],
+                          version: box.versionAsDecimal,
+                          data: object
+                      ),
+                      let handler = tagTypeHandler(for: type)
                 else { continue }
 
                 if _cmsWriteTypeBase(destination, handler.signature) == 0 { return false }
