@@ -136,6 +136,15 @@ int main(void)
      * through the generic path and needs a transform. */
     probe_selection("KCMY_16", TYPE_KCMY_16);
 
+    /* Word layouts with specific entries the earlier list did not
+     * reach: reversed, and the three-channel-plus-one orderings. */
+    probe_selection("GRAY_16_REV", TYPE_GRAY_16_REV);
+    probe_selection("CMYK_16_REV", TYPE_CMYK_16_REV);
+    probe_selection("ARGB_16", TYPE_ARGB_16);
+    probe_selection("ABGR_16", TYPE_ABGR_16);
+    probe_selection("BGRA_16", TYPE_BGRA_16);
+    probe_selection("RGBA_16", TYPE_RGBA_16);
+
     /* Layouts we do not run, only ask about: either they are not served
      * yet, or their formatters need a transform we do not have here. A
      * difference in these lines is the reference selecting something we

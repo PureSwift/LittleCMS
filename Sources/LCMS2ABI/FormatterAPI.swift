@@ -775,6 +775,73 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
     return p
 }
 
+/// Reversal in sixteen bits, matching the packers that do the same.
+@Sendable private func unroll1WordReversed(
+    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    let v = 0xFFFF &- UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    values[0] = v
+    values[1] = v
+    values[2] = v
+    p += 2
+    return p
+}
+
+/// One word read, then four skipped: the layout carries three extra
+/// channels the colour does not use.
+@Sendable private func unroll1WordSkip3(
+    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    let v = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+    values[0] = v
+    values[1] = v
+    values[2] = v
+    p += 8
+    return p
+}
+
+@Sendable private func unrollWords3Skip1Swap(
+    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p += 2
+    for slot in [2, 1, 0] {
+        values[slot] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+        p += 2
+    }
+    return p
+}
+
+@Sendable private func unrollWords3Skip1SwapFirst(
+    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p += 2
+    for slot in [0, 1, 2] {
+        values[slot] = UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+        p += 2
+    }
+    return p
+}
+
+@Sendable private func unrollWords4Reverse(
+    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    for slot in 0..<4 {
+        values[slot] = 0xFFFF &- UnsafeRawPointer(p).loadUnaligned(as: cmsUInt16Number.self)
+        p += 2
+    }
+    return p
+}
+
 /// The integer half of the input table, in the reference's order.
 let inputFormatters16: [FormatterEntry] = [
     FormatterEntry(channelsSH(1) | bytesSH(1), Any_.space, unpack: unroll1Byte),
@@ -812,11 +879,28 @@ let inputFormatters16: [FormatterEntry] = [
         unpack: unrollBytes4SwapSwapFirst
     ),
     FormatterEntry(channelsSH(1) | bytesSH(2), Any_.space, unpack: unroll1Word),
+    FormatterEntry(
+        channelsSH(1) | bytesSH(2) | flavorSH(1), Any_.space, unpack: unroll1WordReversed
+    ),
+    FormatterEntry(
+        channelsSH(1) | bytesSH(2) | extraSH(3), Any_.space, unpack: unroll1WordSkip3
+    ),
     FormatterEntry(channelsSH(2) | bytesSH(2), Any_.space, unpack: unrollWords2),
     FormatterEntry(channelsSH(3) | bytesSH(2), Any_.space, unpack: unrollWords3),
     FormatterEntry(channelsSH(4) | bytesSH(2), Any_.space, unpack: unrollWords4),
     FormatterEntry(
         channelsSH(3) | bytesSH(2) | doSwapSH(1), Any_.space, unpack: unrollWords3Swap
+    ),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(2) | extraSH(1) | swapFirstSH(1), Any_.space,
+        unpack: unrollWords3Skip1SwapFirst
+    ),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(2) | extraSH(1) | doSwapSH(1), Any_.space,
+        unpack: unrollWords3Skip1Swap
+    ),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(2) | flavorSH(1), Any_.space, unpack: unrollWords4Reverse
     ),
     FormatterEntry(
         channelsSH(4) | bytesSH(2) | swapFirstSH(1), Any_.space, unpack: unrollWords4SwapFirst
