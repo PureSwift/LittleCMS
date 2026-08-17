@@ -50,16 +50,6 @@ cmsUInt32Number _cmsGetTransformWorkerFlags(struct _cmstransform_struct* CMMcarg
     swift_unimplemented_fatal("_cmsGetTransformWorkerFlags");
 }
 
-cmsColorSpaceSignature _cmsICCcolorSpace(int OurNotation)
-{
-    swift_unimplemented_fatal("_cmsICCcolorSpace");
-}
-
-int _cmsLCMScolorSpace(cmsColorSpaceSignature ProfileSpace)
-{
-    swift_unimplemented_fatal("_cmsLCMScolorSpace");
-}
-
 cmsBool _cmsOptimizePipeline(cmsContext ContextID, cmsPipeline** Lut, cmsUInt32Number Intent, cmsUInt32Number* InputFormat, cmsUInt32Number* OutputFormat, cmsUInt32Number* dwFlags)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsOptimizePipeline is not implemented");
@@ -167,11 +157,6 @@ void cmsCIECAM02Reverse(cmsHANDLE hModel, const cmsJCh* pIn, cmsCIEXYZ* pOut)
 cmsBool cmsChangeBuffersFormat(cmsHTRANSFORM hTransform, cmsUInt32Number InputFormat, cmsUInt32Number OutputFormat)
 {
     swift_unimplemented_fatal("cmsChangeBuffersFormat");
-}
-
-cmsUInt32Number cmsChannelsOf(cmsColorSpaceSignature ColorSpace)
-{
-    swift_unimplemented_fatal("cmsChannelsOf");
 }
 
 cmsHPROFILE cmsCreateBCHSWabstractProfile(cmsUInt32Number nLUTPoints, cmsFloat64Number Bright, cmsFloat64Number Contrast, cmsFloat64Number Hue, cmsFloat64Number Saturation, cmsUInt32Number TempSrc, cmsUInt32Number TempDest)

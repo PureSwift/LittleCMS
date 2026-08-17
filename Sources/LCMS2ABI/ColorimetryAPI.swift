@@ -270,3 +270,105 @@ public func cmsDesaturateLab(
     Lab.pointee = abi(value)
     return outcome ? 1 : 0
 }
+
+// -- colour space notations --------------------------------------------------
+
+// The library carries two names for a colour space: the ICC signature a
+// profile stores, and the small `PT_*` code a pixel format packs into
+// five bits.  These translate between them.
+//
+// Neither is a bijection.  Several signatures collapse onto one code —
+// `cmsSig4colorData` and `cmsSigMCH4Data` are both `PT_MCH4` — so the
+// round trip through the code and back does not always return the
+// signature it started from.
+
+@c @implementation
+public func _cmsLCMScolorSpace(_ ProfileSpace: cmsColorSpaceSignature) -> cmsInt32Number {
+    switch ProfileSpace {
+    case cmsSigGrayData: return cmsInt32Number(PT_GRAY)
+    case cmsSigRgbData: return cmsInt32Number(PT_RGB)
+    case cmsSigCmyData: return cmsInt32Number(PT_CMY)
+    case cmsSigCmykData: return cmsInt32Number(PT_CMYK)
+    case cmsSigYCbCrData: return cmsInt32Number(PT_YCbCr)
+    case cmsSigLuvData: return cmsInt32Number(PT_YUV)
+    case cmsSigXYZData: return cmsInt32Number(PT_XYZ)
+    case cmsSigLabData: return cmsInt32Number(PT_Lab)
+    case cmsSigLuvKData: return cmsInt32Number(PT_YUVK)
+    case cmsSigHsvData: return cmsInt32Number(PT_HSV)
+    case cmsSigHlsData: return cmsInt32Number(PT_HLS)
+    case cmsSigYxyData: return cmsInt32Number(PT_Yxy)
+
+    // The `ncolor` and `MCHn` spellings of the same width answer alike.
+    case cmsSig1colorData, cmsSigMCH1Data: return cmsInt32Number(PT_MCH1)
+    case cmsSig2colorData, cmsSigMCH2Data: return cmsInt32Number(PT_MCH2)
+    case cmsSig3colorData, cmsSigMCH3Data: return cmsInt32Number(PT_MCH3)
+    case cmsSig4colorData, cmsSigMCH4Data: return cmsInt32Number(PT_MCH4)
+    case cmsSig5colorData, cmsSigMCH5Data: return cmsInt32Number(PT_MCH5)
+    case cmsSig6colorData, cmsSigMCH6Data: return cmsInt32Number(PT_MCH6)
+    case cmsSig7colorData, cmsSigMCH7Data: return cmsInt32Number(PT_MCH7)
+    case cmsSig8colorData, cmsSigMCH8Data: return cmsInt32Number(PT_MCH8)
+    case cmsSig9colorData, cmsSigMCH9Data: return cmsInt32Number(PT_MCH9)
+    case cmsSig10colorData, cmsSigMCHAData: return cmsInt32Number(PT_MCH10)
+    case cmsSig11colorData, cmsSigMCHBData: return cmsInt32Number(PT_MCH11)
+    case cmsSig12colorData, cmsSigMCHCData: return cmsInt32Number(PT_MCH12)
+    case cmsSig13colorData, cmsSigMCHDData: return cmsInt32Number(PT_MCH13)
+    case cmsSig14colorData, cmsSigMCHEData: return cmsInt32Number(PT_MCH14)
+    case cmsSig15colorData, cmsSigMCHFData: return cmsInt32Number(PT_MCH15)
+
+    default: return 0
+    }
+}
+
+@c @implementation
+public func _cmsICCcolorSpace(_ OurNotation: cmsInt32Number) -> cmsColorSpaceSignature {
+    switch OurNotation {
+    // One and two are accepted alongside the named codes: an older
+    // numbering where a channel count stood in for the space.
+    case 1, cmsInt32Number(PT_GRAY): return cmsSigGrayData
+    case 2, cmsInt32Number(PT_RGB): return cmsSigRgbData
+
+    case cmsInt32Number(PT_CMY): return cmsSigCmyData
+    case cmsInt32Number(PT_CMYK): return cmsSigCmykData
+    case cmsInt32Number(PT_YCbCr): return cmsSigYCbCrData
+    case cmsInt32Number(PT_YUV): return cmsSigLuvData
+    case cmsInt32Number(PT_XYZ): return cmsSigXYZData
+
+    // Both Lab codes name the same signature; the version distinction
+    // lives in the encoding, not the space.
+    case cmsInt32Number(PT_LabV2), cmsInt32Number(PT_Lab): return cmsSigLabData
+
+    case cmsInt32Number(PT_YUVK): return cmsSigLuvKData
+    case cmsInt32Number(PT_HSV): return cmsSigHsvData
+    case cmsInt32Number(PT_HLS): return cmsSigHlsData
+    case cmsInt32Number(PT_Yxy): return cmsSigYxyData
+
+    // Back the other way, only the `MCHn` spelling is produced.
+    case cmsInt32Number(PT_MCH1): return cmsSigMCH1Data
+    case cmsInt32Number(PT_MCH2): return cmsSigMCH2Data
+    case cmsInt32Number(PT_MCH3): return cmsSigMCH3Data
+    case cmsInt32Number(PT_MCH4): return cmsSigMCH4Data
+    case cmsInt32Number(PT_MCH5): return cmsSigMCH5Data
+    case cmsInt32Number(PT_MCH6): return cmsSigMCH6Data
+    case cmsInt32Number(PT_MCH7): return cmsSigMCH7Data
+    case cmsInt32Number(PT_MCH8): return cmsSigMCH8Data
+    case cmsInt32Number(PT_MCH9): return cmsSigMCH9Data
+    case cmsInt32Number(PT_MCH10): return cmsSigMCHAData
+    case cmsInt32Number(PT_MCH11): return cmsSigMCHBData
+    case cmsInt32Number(PT_MCH12): return cmsSigMCHCData
+    case cmsInt32Number(PT_MCH13): return cmsSigMCHDData
+    case cmsInt32Number(PT_MCH14): return cmsSigMCHEData
+    case cmsInt32Number(PT_MCH15): return cmsSigMCHFData
+
+    default: return cmsColorSpaceSignature(0)
+    }
+}
+
+/// Channels, with a space the library does not know answered as three
+/// rather than refused — which is why `cmsChannelsOfColorSpace` exists
+/// alongside it and returns -1 instead.
+@c @implementation
+public func cmsChannelsOf(_ ColorSpace: cmsColorSpaceSignature) -> cmsUInt32Number {
+    let n = cmsChannelsOfColorSpace(ColorSpace)
+    if n < 0 { return 3 }
+    return cmsUInt32Number(n)
+}

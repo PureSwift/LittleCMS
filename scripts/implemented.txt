@@ -44,7 +44,9 @@ _cmsFree
 _cmsFreeInterpParams
 _cmsGetFormatter
 _cmsHalf2Float
+_cmsICCcolorSpace
 _cmsIOPrintf
+_cmsLCMScolorSpace
 _cmsLockMutex
 _cmsMAT3eval
 _cmsMAT3identity
@@ -96,6 +98,7 @@ cmsBuildTabulatedToneCurveFloat
 cmsCIE2000DeltaE
 cmsCIE94DeltaE
 cmsCMCdeltaE
+cmsChannelsOf
 cmsChannelsOfColorSpace
 cmsCloseIOhandler
 cmsCloseProfile
