@@ -25,8 +25,27 @@ static void feed(const void* bytes, size_t length)
     }
 }
 
-static void feed_double(double v) { feed(&v, sizeof v); }
-static void feed_float(float v)   { feed(&v, sizeof v); }
+/* A NaN is fed as a marker rather than as its bits.
+ *
+ * IEEE 754 fixes neither the sign nor the payload of a NaN produced by an
+ * invalid operation, and the libraries disagree: log() of a negative
+ * number comes back with one sign on Darwin and the other under glibc, so
+ * the inverse sigmoid outside its domain is a NaN either way but not the
+ * same bits.  Hashing those bits asks a question neither implementation
+ * answers.  That a NaN appeared, and where, is still compared — the
+ * marker is a value no real result can take. */
+static void feed_double(double v)
+{
+    if (v != v) { feed("NaN", 3); return; }
+    feed(&v, sizeof v);
+}
+
+static void feed_float(float v)
+{
+    if (v != v) { feed("NaN", 3); return; }
+    feed(&v, sizeof v);
+}
+
 static void feed_u16(uint16_t v)  { feed(&v, sizeof v); }
 
 static void report(const char* name)

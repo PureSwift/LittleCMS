@@ -161,6 +161,15 @@ So the standard is:
 Verified: the vector and matrix primitives are bit-identical to the
 reference's own `cmsmtrx.c` compiled without contraction.
 
+**A NaN is a NaN.** IEEE 754 fixes neither the sign nor the payload of a
+NaN produced by an invalid operation, and the platform libraries
+disagree: `log()` of a negative number returns a NaN of one sign on
+Darwin and the other under glibc.  So a conformance program compares
+*that* a NaN appeared and where, never which NaN — the probes feed a
+marker in its place.  The inverse sigmoid outside its domain is the case
+that found this; anything reaching `log` or `sqrt` of a negative can hit
+it.
+
 ## Layouts constrained by the upstream testbed
 
 The reference's own `testbed/testcms2.c` is part of this project's
