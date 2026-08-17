@@ -91,14 +91,19 @@ int main(void)
             { 108, { 2.0 } },
             { 109, { 3.0 } },
         };
+        /* One line per type rather than one for all of them: a
+         * fingerprint that covers ten curves says only that something
+         * moved, and the next question is always which. */
         for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
             for (int sign = 1; sign >= -1; sign -= 2) {
+                char label[40];
                 cmsToneCurve* c = cmsBuildParametricToneCurve(NULL, cases[i].type * sign, cases[i].p);
                 feed_curve(c);
                 cmsFreeToneCurve(c);
+                snprintf(label, sizeof label, "parametric type %d", cases[i].type * sign);
+                report(label);
             }
         }
-        report("parametric curves");
 
         /* A type that does not exist has to be refused, not guessed. */
         double p[1] = { 2.2 };
