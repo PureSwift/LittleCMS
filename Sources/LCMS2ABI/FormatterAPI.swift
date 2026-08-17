@@ -842,6 +842,59 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
     return p
 }
 
+/// The word packers reverse in sixteen bits, as their unpackers do.
+@Sendable private func pack1WordReversed(
+    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    UnsafeMutableRawPointer(p).storeBytes(of: 0xFFFF &- values[0], as: cmsUInt16Number.self)
+    p += 2
+    return p
+}
+
+@Sendable private func packWords4Reverse(
+    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    for slot in 0..<4 {
+        UnsafeMutableRawPointer(p).storeBytes(
+            of: 0xFFFF &- values[slot], as: cmsUInt16Number.self
+        )
+        p += 2
+    }
+    return p
+}
+
+/// Both of these step over the extra channel *first*, unlike their
+/// byte counterparts where only one of the pair does.
+@Sendable private func packWords3Skip1SwapFirst(
+    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p += 2
+    for slot in [0, 1, 2] {
+        UnsafeMutableRawPointer(p).storeBytes(of: values[slot], as: cmsUInt16Number.self)
+        p += 2
+    }
+    return p
+}
+
+@Sendable private func packWords3Skip1Swap(
+    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let values, var p = buffer else { return buffer }
+    p += 2
+    for slot in [2, 1, 0] {
+        UnsafeMutableRawPointer(p).storeBytes(of: values[slot], as: cmsUInt16Number.self)
+        p += 2
+    }
+    return p
+}
+
 /// The integer half of the input table, in the reference's order.
 let inputFormatters16: [FormatterEntry] = [
     FormatterEntry(channelsSH(1) | bytesSH(1), Any_.space, unpack: unroll1Byte),
@@ -950,9 +1003,23 @@ let outputFormatters16: [FormatterEntry] = [
         pack: packBytes4SwapSwapFirst
     ),
     FormatterEntry(channelsSH(1) | bytesSH(2), Any_.space, pack: packWords1),
+    FormatterEntry(
+        channelsSH(1) | bytesSH(2) | flavorSH(1), Any_.space, pack: pack1WordReversed
+    ),
     FormatterEntry(channelsSH(3) | bytesSH(2), Any_.space, pack: packWords3),
     FormatterEntry(channelsSH(3) | bytesSH(2) | doSwapSH(1), Any_.space, pack: packWords3Swap),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(2) | extraSH(1) | doSwapSH(1), Any_.space,
+        pack: packWords3Skip1Swap
+    ),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(2) | extraSH(1) | swapFirstSH(1), Any_.space,
+        pack: packWords3Skip1SwapFirst
+    ),
     FormatterEntry(channelsSH(4) | bytesSH(2), Any_.space, pack: packWords4),
+    FormatterEntry(
+        channelsSH(4) | bytesSH(2) | flavorSH(1), Any_.space, pack: packWords4Reverse
+    ),
     FormatterEntry(channelsSH(4) | bytesSH(2) | doSwapSH(1), Any_.space, pack: packWords4Swap),
 ]
 

@@ -13,9 +13,5 @@ RGB_16_SE -- byte-swapped word formatters not ported
 Lab_DBL -- the float half of the table is not ported
 XYZ_DBL -- the float half of the table is not ported
 RGB_FLT -- the float half of the table is not ported
-GRAY_16_REV -- input lands, no reversed one-word packer yet
-CMYK_16_REV -- input lands, no reversed four-word packer yet
-ARGB_16 -- input lands, no three-word-and-skip-one packer yet
-ABGR_16 -- input lands, no three-word-and-skip-one packer yet
 BGRA_16 -- neither direction: the swap-and-swap-first word pair is not ported
 RGBA_16 -- three words plus one extra with no flags has no specific entry either
