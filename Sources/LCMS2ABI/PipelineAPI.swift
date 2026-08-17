@@ -763,3 +763,64 @@ public func _cmsStageAllocIdentityCLut(
     stage(mpe)?.implements = cmsSigIdentityElemType
     return mpe
 }
+
+// The two PCS conversion stages.
+//
+// A pipeline's channels run 0..1, but neither Lab nor XYZ does, so each
+// of these scales into the space, converts, and scales back out.  The
+// XYZ scale is 1 + 32767/32768 — the largest value the 15.16 encoding
+// can hold — so an XYZ channel of 1.0 in a pipeline means that, not one.
+
+private let maximumEncodeableXYZ = 1.0 + 32767.0 / 32768.0
+
+@c @implementation
+public func _cmsStageAllocLab2XYZ(
+    _ ContextID: cmsContext?
+) -> UnsafeMutablePointer<cmsStage>? {
+    let box = StageBox(
+        context: ContextID,
+        type: cmsSigLab2XYZElemType,
+        inputChannels: 3,
+        outputChannels: 3
+    ) { input, output, _ in
+        // Lab arrives with L over a hundred and the two chroma axes
+        // offset by 128 into the unit interval.
+        var lab = cmsCIELab(
+            L: cmsFloat64Number(input[0]) * 100.0,
+            a: cmsFloat64Number(input[1]) * 255.0 - 128.0,
+            b: cmsFloat64Number(input[2]) * 255.0 - 128.0
+        )
+        var xyz = cmsCIEXYZ()
+        cmsLab2XYZ(nil, &xyz, &lab)
+        output[0] = cmsFloat32Number(xyz.X / maximumEncodeableXYZ)
+        output[1] = cmsFloat32Number(xyz.Y / maximumEncodeableXYZ)
+        output[2] = cmsFloat32Number(xyz.Z / maximumEncodeableXYZ)
+    }
+    box.duplicate = { _cmsStageAllocLab2XYZ($0.context) }
+    return handle(box)
+}
+
+@c @implementation
+public func _cmsStageAllocXYZ2Lab(
+    _ ContextID: cmsContext?
+) -> UnsafeMutablePointer<cmsStage>? {
+    let box = StageBox(
+        context: ContextID,
+        type: cmsSigXYZ2LabElemType,
+        inputChannels: 3,
+        outputChannels: 3
+    ) { input, output, _ in
+        var xyz = cmsCIEXYZ(
+            X: cmsFloat64Number(input[0]) * maximumEncodeableXYZ,
+            Y: cmsFloat64Number(input[1]) * maximumEncodeableXYZ,
+            Z: cmsFloat64Number(input[2]) * maximumEncodeableXYZ
+        )
+        var lab = cmsCIELab()
+        cmsXYZ2Lab(nil, &lab, &xyz)
+        output[0] = cmsFloat32Number(lab.L / 100.0)
+        output[1] = cmsFloat32Number((lab.a + 128.0) / 255.0)
+        output[2] = cmsFloat32Number((lab.b + 128.0) / 255.0)
+    }
+    box.duplicate = { _cmsStageAllocXYZ2Lab($0.context) }
+    return handle(box)
+}

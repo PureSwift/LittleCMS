@@ -81,12 +81,6 @@ void _cmsSetTransformUserData(struct _cmstransform_struct *CMMcargo, void* ptr, 
     swift_unimplemented_fatal("_cmsSetTransformUserData");
 }
 
-cmsStage* _cmsStageAllocLab2XYZ(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsStageAllocLab2XYZ is not implemented");
-    return (cmsStage*){0};
-}
-
 cmsStage* _cmsStageAllocNamedColor(cmsNAMEDCOLORLIST* NamedColorList, cmsBool UsePCS)
 {
     swift_unimplemented_fatal("_cmsStageAllocNamedColor");
@@ -95,12 +89,6 @@ cmsStage* _cmsStageAllocNamedColor(cmsNAMEDCOLORLIST* NamedColorList, cmsBool Us
 cmsStage* _cmsStageAllocPlaceholder(cmsContext ContextID, cmsStageSignature Type, cmsUInt32Number InputChannels, cmsUInt32Number OutputChannels, _cmsStageEvalFn EvalPtr, _cmsStageDupElemFn DupElemPtr, _cmsStageFreeElemFn FreePtr, void* Data)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsStageAllocPlaceholder is not implemented");
-    return (cmsStage*){0};
-}
-
-cmsStage* _cmsStageAllocXYZ2Lab(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsStageAllocXYZ2Lab is not implemented");
     return (cmsStage*){0};
 }
 

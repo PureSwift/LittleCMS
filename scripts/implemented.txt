@@ -71,8 +71,10 @@ _cmsRealloc
 _cmsReasonableGridpointsByColorspace
 _cmsStageAllocIdentityCLut
 _cmsStageAllocIdentityCurves
+_cmsStageAllocLab2XYZ
 _cmsStageAllocLabV2ToV4
 _cmsStageAllocLabV4ToV2
+_cmsStageAllocXYZ2Lab
 _cmsUnlockMutex
 _cmsVEC3cross
 _cmsVEC3distance

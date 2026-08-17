@@ -17,6 +17,8 @@ CMSAPI cmsStage* CMSEXPORT _cmsStageAllocLabV2ToV4(cmsContext ContextID);
 CMSAPI cmsStage* CMSEXPORT _cmsStageAllocLabV4ToV2(cmsContext ContextID);
 CMSAPI cmsStage* CMSEXPORT _cmsStageAllocIdentityCLut(cmsContext ContextID,
                                                       cmsUInt32Number nChan);
+CMSAPI cmsStage* CMSEXPORT _cmsStageAllocLab2XYZ(cmsContext ContextID);
+CMSAPI cmsStage* CMSEXPORT _cmsStageAllocXYZ2Lab(cmsContext ContextID);
 CMSAPI cmsUInt32Number CMSEXPORT _cmsReasonableGridpointsByColorspace(
     cmsColorSpaceSignature Colorspace, cmsUInt32Number dwFlags);
 
@@ -334,6 +336,47 @@ int main(void)
                 printf("grid %08x flags %08x -> %u\n",
                        (unsigned) spaces[i], (unsigned) flagsets[j],
                        _cmsReasonableGridpointsByColorspace(spaces[i], flagsets[j]));
+    }
+
+    /* -- the two PCS conversion stages ---------------------------------------- */
+    {
+        /* A pipeline's channels run 0..1 but neither Lab nor XYZ does,
+         * so each stage scales in, converts, and scales back out. The
+         * XYZ scale is the largest value 15.16 can hold, not one. */
+        cmsPipeline* toXYZ = cmsPipelineAlloc(NULL, 3, 3);
+        cmsPipelineInsertStage(toXYZ, cmsAT_END, _cmsStageAllocLab2XYZ(NULL));
+        run(toXYZ, "Lab to XYZ");
+
+        cmsPipeline* toLab = cmsPipelineAlloc(NULL, 3, 3);
+        cmsPipelineInsertStage(toLab, cmsAT_END, _cmsStageAllocXYZ2Lab(NULL));
+        run(toLab, "XYZ to Lab");
+
+        /* Through both, which should return very nearly what went in --
+         * the point being that "very nearly" is identical in both
+         * libraries, down to the last bit. */
+        cmsPipelineInsertStage(toXYZ, cmsAT_END, _cmsStageAllocXYZ2Lab(NULL));
+        run(toXYZ, "Lab to XYZ and back");
+
+        /* Named landmarks rather than random input, so a divergence
+         * says which colour moved. */
+        static const cmsFloat32Number probes[5][3] = {
+            { 1.0f, 0.5f, 0.5f },        /* white */
+            { 0.0f, 0.5f, 0.5f },        /* black */
+            { 0.5f, 0.5f, 0.5f },        /* mid grey */
+            { 0.53f, 0.82f, 0.75f },     /* a saturated red */
+            { 0.87f, 0.29f, 0.94f }      /* a saturated yellow */
+        };
+        for (int i = 0; i < 5; i++) {
+            cmsFloat32Number out[3];
+            memset(out, 0, sizeof out);
+            cmsPipelineEvalFloat(probes[i], out, toXYZ);
+            printf("  round trip %d: %.6f %.6f %.6f -> %.6f %.6f %.6f\n", i,
+                   probes[i][0], probes[i][1], probes[i][2],
+                   out[0], out[1], out[2]);
+        }
+
+        cmsPipelineFree(toXYZ);
+        cmsPipelineFree(toLab);
     }
 
     printf("pipeline probe OK\n");
