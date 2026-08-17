@@ -481,6 +481,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     table[cmsSigLut16Type] = lut16TagType
     table[cmsSigLutAtoBType] = lutAtoBTagType
     table[cmsSigLutBtoAType] = lutBtoATagType
+    table.merge(structuralTagTypes) { existing, _ in existing }
 
     return table
 }()
@@ -2027,3 +2028,211 @@ let lutBtoATagType = TagTypeHandler(
     signature: cmsSigLutBtoAType, read: readLUTBtoA, write: writeLUTBtoA,
     duplicate: pipelineDuplicate, free: pipelineFree
 )
+
+// -- the measurement and viewing-condition structs -------------------------------
+
+@Sendable private func readMeasurement(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    var mc = cmsICCMeasurementConditions()
+    if _cmsReadUInt32Number(io, &mc.Observer) == 0 { return nil }
+    if _cmsReadXYZNumber(io, &mc.Backing) == 0 { return nil }
+    if _cmsReadUInt32Number(io, &mc.Geometry) == 0 { return nil }
+    if _cmsRead15Fixed16Number(io, &mc.Flare) == 0 { return nil }
+    if _cmsReadUInt32Number(io, &mc.IlluminantType) == 0 { return nil }
+    items = 1
+    return _cmsDupMem(
+        context, &mc, cmsUInt32Number(MemoryLayout<cmsICCMeasurementConditions>.size)
+    )
+}
+
+@Sendable private func writeMeasurement(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+) -> Bool {
+    let mc = object.assumingMemoryBound(to: cmsICCMeasurementConditions.self)
+    if _cmsWriteUInt32Number(io, mc.pointee.Observer) == 0 { return false }
+    if _cmsWriteXYZNumber(io, &mc.pointee.Backing) == 0 { return false }
+    if _cmsWriteUInt32Number(io, mc.pointee.Geometry) == 0 { return false }
+    if _cmsWrite15Fixed16Number(io, mc.pointee.Flare) == 0 { return false }
+    return _cmsWriteUInt32Number(io, mc.pointee.IlluminantType) != 0
+}
+
+@Sendable private func readViewingConditions(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    guard let raw = _cmsMallocZero(
+        context, cmsUInt32Number(MemoryLayout<cmsICCViewingConditions>.size)
+    ) else { return nil }
+    let vc = raw.assumingMemoryBound(to: cmsICCViewingConditions.self)
+
+    func fail() -> UnsafeMutableRawPointer? {
+        _cmsFree(context, raw)
+        return nil
+    }
+    if _cmsReadXYZNumber(io, &vc.pointee.IlluminantXYZ) == 0 { return fail() }
+    if _cmsReadXYZNumber(io, &vc.pointee.SurroundXYZ) == 0 { return fail() }
+    if _cmsReadUInt32Number(io, &vc.pointee.IlluminantType) == 0 { return fail() }
+    items = 1
+    return raw
+}
+
+@Sendable private func writeViewingConditions(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+) -> Bool {
+    let vc = object.assumingMemoryBound(to: cmsICCViewingConditions.self)
+    if _cmsWriteXYZNumber(io, &vc.pointee.IlluminantXYZ) == 0 { return false }
+    if _cmsWriteXYZNumber(io, &vc.pointee.SurroundXYZ) == 0 { return false }
+    return _cmsWriteUInt32Number(io, vc.pointee.IlluminantType) != 0
+}
+
+/// `cicp`: four bytes naming a video signal, and nothing else — a tag of
+/// any other length is refused rather than read short.
+@Sendable private func readVideoSignal(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    if sizeOfTag != 4 { return nil }
+    guard let raw = _cmsCalloc(
+        context, 1, cmsUInt32Number(MemoryLayout<cmsVideoSignalType>.size)
+    ) else { return nil }
+    let cicp = raw.assumingMemoryBound(to: cmsVideoSignalType.self)
+
+    func fail() -> UnsafeMutableRawPointer? {
+        _cmsFree(context, raw)
+        return nil
+    }
+    if _cmsReadUInt8Number(io, &cicp.pointee.ColourPrimaries) == 0 { return fail() }
+    if _cmsReadUInt8Number(io, &cicp.pointee.TransferCharacteristics) == 0 { return fail() }
+    if _cmsReadUInt8Number(io, &cicp.pointee.MatrixCoefficients) == 0 { return fail() }
+    if _cmsReadUInt8Number(io, &cicp.pointee.VideoFullRangeFlag) == 0 { return fail() }
+    items = 1
+    return raw
+}
+
+@Sendable private func writeVideoSignal(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+) -> Bool {
+    let cicp = object.assumingMemoryBound(to: cmsVideoSignalType.self)
+    if _cmsWriteUInt8Number(io, cicp.pointee.ColourPrimaries) == 0 { return false }
+    if _cmsWriteUInt8Number(io, cicp.pointee.TransferCharacteristics) == 0 { return false }
+    if _cmsWriteUInt8Number(io, cicp.pointee.MatrixCoefficients) == 0 { return false }
+    return _cmsWriteUInt8Number(io, cicp.pointee.VideoFullRangeFlag) != 0
+}
+
+/// `clrt`: a colorant table, which is a named-colour list where each
+/// entry carries a 32-byte name and its PCS coordinates and nothing
+/// else.  The name is truncated at 32 bytes on the way out, so a longer
+/// one set through the named-colour API does not survive a save.
+@Sendable private func readColorantTable(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+) -> UnsafeMutableRawPointer? {
+    items = 0
+    var count: cmsUInt32Number = 0
+    if _cmsReadUInt32Number(io, &count) == 0 { return nil }
+    if count > cmsUInt32Number(cmsMAXCHANNELS) {
+        report(cmsUInt32Number(cmsERROR_RANGE), "Too many colorants '\(count)'", to: context)
+        return nil
+    }
+
+    guard let list = cmsAllocNamedColorList(context, count, 0, "", ""),
+          let read = io.pointee.Read
+    else { return nil }
+
+    func fail() -> UnsafeMutableRawPointer? {
+        cmsFreeNamedColorList(list)
+        return nil
+    }
+
+    var name = [CChar](repeating: 0, count: 34)
+    var pcs = [cmsUInt16Number](repeating: 0, count: 3)
+    for _ in 0..<Int(count) {
+        let got = name.withUnsafeMutableBufferPointer { buffer in
+            read(io, buffer.baseAddress, 32, 1)
+        }
+        if got != 1 { return fail() }
+        name[32] = 0
+        if _cmsReadUInt16Array(io, 3, &pcs) == 0 { return fail() }
+        if cmsAppendNamedColor(list, &name, &pcs, nil) == 0 { return fail() }
+    }
+
+    items = 1
+    return UnsafeMutableRawPointer(list)
+}
+
+@Sendable private func writeColorantTable(
+    _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
+    _ object: UnsafeMutableRawPointer, _ items: cmsUInt32Number
+) -> Bool {
+    guard let write = io.pointee.Write else { return false }
+    let list = object.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self)
+    let count = cmsNamedColorCount(list)
+
+    if _cmsWriteUInt32Number(io, count) == 0 { return false }
+
+    for i in 0..<count {
+        var name = [CChar](repeating: 0, count: Int(cmsMAX_PATH))
+        var pcs = [cmsUInt16Number](repeating: 0, count: 3)
+        if cmsNamedColorInfo(list, i, &name, nil, nil, &pcs, nil) == 0 { return false }
+        name[32] = 0
+
+        let wrote = name.withUnsafeBufferPointer { buffer in
+            write(io, 32, buffer.baseAddress)
+        }
+        if wrote == 0 { return false }
+        if _cmsWriteUInt16Array(io, 3, &pcs) == 0 { return false }
+    }
+    return true
+}
+
+let structuralTagTypes: [cmsTagTypeSignature: TagTypeHandler] = [
+    cmsSigMeasurementType: TagTypeHandler(
+        signature: cmsSigMeasurementType,
+        read: readMeasurement, write: writeMeasurement,
+        duplicate: { context, pointer, _ in
+            _cmsDupMem(
+                context, pointer,
+                cmsUInt32Number(MemoryLayout<cmsICCMeasurementConditions>.size)
+            )
+        },
+        free: freePlainBlock
+    ),
+    cmsSigViewingConditionsType: TagTypeHandler(
+        signature: cmsSigViewingConditionsType,
+        read: readViewingConditions, write: writeViewingConditions,
+        duplicate: { context, pointer, _ in
+            _cmsDupMem(
+                context, pointer, cmsUInt32Number(MemoryLayout<cmsICCViewingConditions>.size)
+            )
+        },
+        free: freePlainBlock
+    ),
+    cmsSigcicpType: TagTypeHandler(
+        signature: cmsSigcicpType,
+        read: readVideoSignal, write: writeVideoSignal,
+        duplicate: { context, pointer, _ in
+            _cmsDupMem(context, pointer, cmsUInt32Number(MemoryLayout<cmsVideoSignalType>.size))
+        },
+        free: freePlainBlock
+    ),
+    cmsSigColorantTableType: TagTypeHandler(
+        signature: cmsSigColorantTableType,
+        read: readColorantTable, write: writeColorantTable,
+        duplicate: { _, pointer, _ in
+            UnsafeMutableRawPointer(cmsDupNamedColorList(
+                UnsafeMutablePointer(mutating: pointer.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self))
+            ))
+        },
+        free: { _, object in
+            cmsFreeNamedColorList(object.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self))
+        }
+    ),
+]

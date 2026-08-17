@@ -256,6 +256,13 @@ Legend — **owner**: who frees a returned pointer, and with which function.
 - Curves inside these types are written as whichever curve type can hold
   them: tabulated or inverted curves fall back to `curv` even on a
   version 4 profile, since `para` cannot spell either.
+- The fixed-layout structs (`meas`, `view`, `cicp`) are plain blocks the
+  caller owns a copy of. `cicp` refuses a tag that is not exactly four
+  bytes rather than reading a short one.
+- `clrt` is a named-colour list in which each entry is a 32-byte name
+  and its PCS coordinates. The name is **truncated at 32 bytes on the
+  way out**, so a longer one set through the named-colour API does not
+  survive a save.
 - Two reference leaks are **not** reproduced (`Type_Signature_Read` and
   `Type_DateTime_Read` drop their block on a failed read). A leak is not
   observable through the ABI.

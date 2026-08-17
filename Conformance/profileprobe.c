@@ -1066,6 +1066,111 @@ int main(void)
         }
     }
 
+    /* -- the structural tag types ------------------------------------------- */
+    {
+        cmsHPROFILE h = cmsCreateProfilePlaceholder(NULL);
+        cmsSetProfileVersion(h, 4.3);
+        cmsSetColorSpace(h, cmsSigCmykData);
+
+        cmsICCMeasurementConditions mc;
+        memset(&mc, 0, sizeof mc);
+        mc.Observer = 1;
+        mc.Backing.X = 0.1; mc.Backing.Y = 0.2; mc.Backing.Z = 0.3;
+        mc.Geometry = 2;
+        mc.Flare = 0.125;
+        mc.IlluminantType = cmsILLUMINANT_TYPE_D50;
+        printf("measurement write %d\n", cmsWriteTag(h, cmsSigMeasurementTag, &mc));
+
+        cmsICCViewingConditions vc;
+        memset(&vc, 0, sizeof vc);
+        vc.IlluminantXYZ.X = 0.9642; vc.IlluminantXYZ.Y = 1.0; vc.IlluminantXYZ.Z = 0.8249;
+        vc.SurroundXYZ.X = 0.05; vc.SurroundXYZ.Y = 0.06; vc.SurroundXYZ.Z = 0.07;
+        vc.IlluminantType = cmsILLUMINANT_TYPE_D65;
+        printf("viewing write %d\n", cmsWriteTag(h, cmsSigViewingConditionsTag, &vc));
+
+        cmsVideoSignalType cicp;
+        memset(&cicp, 0, sizeof cicp);
+        cicp.ColourPrimaries = 9;
+        cicp.TransferCharacteristics = 16;
+        cicp.MatrixCoefficients = 9;
+        cicp.VideoFullRangeFlag = 1;
+        printf("cicp write %d\n", cmsWriteTag(h, cmsSigcicpTag, &cicp));
+
+        /* A colorant table, whose names are cut to 32 bytes on the way
+         * out however long they were set. */
+        cmsNAMEDCOLORLIST* colorants = cmsAllocNamedColorList(NULL, 4, 0, "", "");
+        static const char* inks[4] = {
+            "Cyan", "Magenta", "Yellow",
+            "a colorant name that is far longer than thirty-two bytes"
+        };
+        for (int i = 0; i < 4; i++) {
+            cmsUInt16Number pcs[3] = {
+                (cmsUInt16Number) (i * 8000), (cmsUInt16Number) (i * 4000),
+                (cmsUInt16Number) (i * 2000)
+            };
+            cmsAppendNamedColor(colorants, inks[i], pcs, NULL);
+        }
+        printf("colorants write %d\n", cmsWriteTag(h, cmsSigColorantTableTag, colorants));
+        cmsFreeNamedColorList(colorants);
+
+        cmsUInt32Number needed = 0;
+        cmsSaveProfileToMem(h, NULL, &needed);
+        unsigned char* out = (unsigned char*) calloc(1, needed ? needed : 1);
+        cmsUInt32Number room = needed;
+        cmsSaveProfileToMem(h, out, &room);
+        feed_saved(out, needed);
+        printf("structural saved %u\n", needed);
+
+        cmsHPROFILE back = cmsOpenProfileFromMem(out, needed);
+        cmsICCMeasurementConditions* rmc =
+            (cmsICCMeasurementConditions*) cmsReadTag(back, cmsSigMeasurementTag);
+        if (rmc)
+            printf("  measurement obs %u geom %u flare %.6f illum %u backing %.6f\n",
+                   rmc->Observer, rmc->Geometry, rmc->Flare, rmc->IlluminantType,
+                   rmc->Backing.X);
+
+        cmsICCViewingConditions* rvc =
+            (cmsICCViewingConditions*) cmsReadTag(back, cmsSigViewingConditionsTag);
+        if (rvc)
+            printf("  viewing illum %.6f %.6f %.6f surround %.6f type %u\n",
+                   rvc->IlluminantXYZ.X, rvc->IlluminantXYZ.Y, rvc->IlluminantXYZ.Z,
+                   rvc->SurroundXYZ.X, rvc->IlluminantType);
+
+        cmsVideoSignalType* rcicp =
+            (cmsVideoSignalType*) cmsReadTag(back, cmsSigcicpTag);
+        if (rcicp)
+            printf("  cicp %u %u %u %u\n", rcicp->ColourPrimaries,
+                   rcicp->TransferCharacteristics, rcicp->MatrixCoefficients,
+                   rcicp->VideoFullRangeFlag);
+
+        cmsNAMEDCOLORLIST* rlist =
+            (cmsNAMEDCOLORLIST*) cmsReadTag(back, cmsSigColorantTableTag);
+        if (rlist) {
+            printf("  colorants %u\n", cmsNamedColorCount(rlist));
+            for (cmsUInt32Number i = 0; i < cmsNamedColorCount(rlist); i++) {
+                char name[64];
+                cmsUInt16Number pcs[3];
+                memset(name, 0, sizeof name);
+                cmsNamedColorInfo(rlist, i, name, NULL, NULL, pcs, NULL);
+                printf("    %u '%s' %u %u %u\n", i, name, pcs[0], pcs[1], pcs[2]);
+            }
+        }
+        report("structural tags");
+
+        cmsUInt32Number again = 0;
+        cmsSaveProfileToMem(back, NULL, &again);
+        unsigned char* twice = (unsigned char*) calloc(1, again ? again : 1);
+        cmsUInt32Number room2 = again;
+        cmsSaveProfileToMem(back, twice, &room2);
+        printf("structural re-saved %u identical %d\n", again,
+               again == needed && memcmp(out, twice, again) == 0);
+
+        free(twice);
+        cmsCloseProfile(back);
+        free(out);
+        cmsCloseProfile(h);
+    }
+
     printf("profile probe OK\n");
     return 0;
 }
