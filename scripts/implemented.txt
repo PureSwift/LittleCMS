@@ -68,6 +68,9 @@ _cmsReadUInt64Number
 _cmsReadUInt8Number
 _cmsReadXYZNumber
 _cmsRealloc
+_cmsStageAllocIdentityCurves
+_cmsStageAllocLabV2ToV4
+_cmsStageAllocLabV4ToV2
 _cmsUnlockMutex
 _cmsVEC3cross
 _cmsVEC3distance

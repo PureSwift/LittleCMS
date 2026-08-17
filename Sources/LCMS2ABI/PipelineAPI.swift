@@ -687,3 +687,46 @@ public func cmsPipelineEvalReverseFloat(
 
     return 1
 }
+
+// -- stages the library builds for itself -------------------------------------
+
+// These are the ordinary allocators with `Implements` set afterwards.
+// The distinction matters: a stage *is* a matrix or a curve set, and
+// separately it *stands for* something — a Lab version conversion, an
+// identity — which the optimizer reads to recognise work it can drop.
+// `cmsStageType` still answers with what the stage is.
+
+@c @implementation
+public func _cmsStageAllocIdentityCurves(
+    _ ContextID: cmsContext?,
+    _ nChannels: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsStage>? {
+    guard let mpe = cmsStageAllocToneCurves(ContextID, nChannels, nil) else { return nil }
+    stage(mpe)?.implements = cmsSigIdentityElemType
+    return mpe
+}
+
+/// Version 2 encoded Lab counts to 0xFF00 where version 4 counts to
+/// 0xFFFF, so converting between them is a scale by 65535/65280 — near
+/// enough to one that it looks like rounding noise and is not.
+@c @implementation
+public func _cmsStageAllocLabV2ToV4(
+    _ ContextID: cmsContext?
+) -> UnsafeMutablePointer<cmsStage>? {
+    let scale = 65535.0 / 65280.0
+    let matrix: [cmsFloat64Number] = [scale, 0, 0, 0, scale, 0, 0, 0, scale]
+    guard let mpe = cmsStageAllocMatrix(ContextID, 3, 3, matrix, nil) else { return nil }
+    stage(mpe)?.implements = cmsSigLabV2toV4
+    return mpe
+}
+
+@c @implementation
+public func _cmsStageAllocLabV4ToV2(
+    _ ContextID: cmsContext?
+) -> UnsafeMutablePointer<cmsStage>? {
+    let scale = 65280.0 / 65535.0
+    let matrix: [cmsFloat64Number] = [scale, 0, 0, 0, scale, 0, 0, 0, scale]
+    guard let mpe = cmsStageAllocMatrix(ContextID, 3, 3, matrix, nil) else { return nil }
+    stage(mpe)?.implements = cmsSigLabV4toV2
+    return mpe
+}

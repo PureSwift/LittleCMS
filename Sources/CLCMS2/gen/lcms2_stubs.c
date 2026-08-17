@@ -92,27 +92,9 @@ cmsStage* _cmsStageAllocIdentityCLut(cmsContext ContextID, cmsUInt32Number nChan
     return (cmsStage*){0};
 }
 
-cmsStage* _cmsStageAllocIdentityCurves(cmsContext ContextID, cmsUInt32Number nChannels)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsStageAllocIdentityCurves is not implemented");
-    return (cmsStage*){0};
-}
-
 cmsStage* _cmsStageAllocLab2XYZ(cmsContext ContextID)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsStageAllocLab2XYZ is not implemented");
-    return (cmsStage*){0};
-}
-
-cmsStage* _cmsStageAllocLabV2ToV4(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsStageAllocLabV2ToV4 is not implemented");
-    return (cmsStage*){0};
-}
-
-cmsStage* _cmsStageAllocLabV4ToV2(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsStageAllocLabV4ToV2 is not implemented");
     return (cmsStage*){0};
 }
 

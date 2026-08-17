@@ -9,6 +9,13 @@
 #include "lcms2.h"
 #include "lcms2_plugin.h"
 
+/* Declared in no shipped header, but exported all the same -- part of
+ * the de-facto ABI a plugin links against. */
+CMSAPI cmsStage* CMSEXPORT _cmsStageAllocIdentityCurves(cmsContext ContextID,
+                                                        cmsUInt32Number nChannels);
+CMSAPI cmsStage* CMSEXPORT _cmsStageAllocLabV2ToV4(cmsContext ContextID);
+CMSAPI cmsStage* CMSEXPORT _cmsStageAllocLabV4ToV2(cmsContext ContextID);
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -255,6 +262,37 @@ int main(void)
         cmsPipelineFree(empty);
 
         cmsPipelineFree(lut);
+    }
+
+    /* -- stages the library builds for itself --------------------------------- */
+    {
+        /* Version 2 Lab counts to 0xFF00 and version 4 to 0xFFFF, so the
+         * conversion between them is a scale so close to one that it
+         * looks like noise. Round-tripping through both is the check. */
+        cmsPipeline* lut = cmsPipelineAlloc(NULL, 3, 3);
+        cmsPipelineInsertStage(lut, cmsAT_END, _cmsStageAllocLabV2ToV4(NULL));
+        run(lut, "Lab v2 to v4");
+
+        cmsPipelineInsertStage(lut, cmsAT_END, _cmsStageAllocLabV4ToV2(NULL));
+        run(lut, "Lab v2 to v4 and back");
+        cmsPipelineFree(lut);
+
+        /* Identity curves are a curve set that stands for an identity;
+         * the type says what it is, not what it means. */
+        cmsPipeline* ident = cmsPipelineAlloc(NULL, 4, 4);
+        cmsStage* curves = _cmsStageAllocIdentityCurves(NULL, 4);
+        printf("identity curves type %08x in %u out %u\n",
+               (unsigned) cmsStageType(curves),
+               cmsStageInputChannels(curves), cmsStageOutputChannels(curves));
+        cmsPipelineInsertStage(ident, cmsAT_END, curves);
+        run(ident, "identity curves");
+
+        /* Duplicating must carry what the stage stands for, not just
+         * what it is. */
+        cmsPipeline* copy = cmsPipelineDup(ident);
+        run(copy, "identity curves duplicated");
+        cmsPipelineFree(copy);
+        cmsPipelineFree(ident);
     }
 
     printf("pipeline probe OK\n");
