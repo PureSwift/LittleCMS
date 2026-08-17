@@ -410,6 +410,32 @@ A related discipline for probes themselves: a lifetime test that frees
 the caller's copy only at the end cannot tell a copy from a kept
 pointer. Free first, then read.
 
+### Formatters (`_cmsGetFormatter`, `cmsFormatterForColorspaceOfProfile`, …) — *specific-entry integer formatters implemented*
+
+- A formatter is chosen by walking an ordered table and taking the first
+  entry matching `(format & ~mask) == type`. **Order is behaviour.**
+  Omitting an entry is safe only when no layout it would catch matches a
+  later entry that is present — which holds between the float and
+  integer halves, since no integer entry masks the float bit away.
+- The table has two kinds of entry. A **specific** one names a layout and
+  its function ignores the transform entirely. A **generic** one stands
+  for a family and reads the layout out of `info->InputFormat`, so it
+  cannot run without a live transform — passing null crashes the
+  reference.
+- **Everything left to port is generic.** `RGBA_8` and `KCMY_16` have no
+  specific entry in the reference either; planar, byte-swapped words and
+  the whole float half go through generic handlers. So the formatter
+  layer resumes after the transform exists, not before: the remaining
+  functions need something to ask about the format, and the transform is
+  what holds it.
+- A consequence for probes: which formatter is *selected* can be asked
+  for any layout, but running one is only defined where the entry is
+  specific. The two questions are asked separately.
+- The reference is inconsistent about reversal order —
+  `Pack1ByteReversed` reverses in 16 bits then narrows, `Pack4BytesReverse`
+  narrows then reverses in 8 — and the two do not agree for every value.
+  Neither is a mistake to tidy up; each is reproduced as it stands.
+
 ## Floating point: what "agreement" means
 
 Swift's arithmetic is IEEE-strict: it never contracts `a*b + c*d` into a
