@@ -363,6 +363,20 @@ our allocator produced.
 
 ## The three variadics (permanent C)
 
+`cmsPipelineCheckAndRetreiveStages` takes `n` stage-type signatures
+followed by `n` `cmsStage**` out-pointers as **one** variadic list, read
+in two passes over the same `va_list` — so the two groups cannot be
+interleaved.  Nothing is written unless every type matches, which is what
+lets a caller try several shapes in turn against the same pointers and
+have only the fitting one fill them; the `mAB` writer uses exactly that
+to decide which of its four layouts a pipeline has.  A null out-pointer
+is skipped.  An empty pipeline matches only a count of zero.
+
+Implementing it made the C floor stop being standalone: it now reaches
+the pipeline through the exported accessors, which the Swift boundary
+defines.  Anything linking `CLCMS2` must link `LCMS2ABI` too.
+
+
 | Symbol | Declared | Notes |
 |---|---|---|
 | `cmsPipelineCheckAndRetreiveStages` | lcms2.h:1308 | `n` sig args then `n` `cmsStage**` out-args |

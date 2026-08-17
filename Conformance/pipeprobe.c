@@ -196,6 +196,67 @@ int main(void)
         cmsPipelineFree(lut);
     }
 
+    /* -- matching a pipeline against a shape -------------------------------- */
+    {
+        /* cmsPipelineCheckAndRetreiveStages takes n type signatures and
+         * then n out-pointers as one variadic list.  Nothing is written
+         * unless every type matches, so a caller can try several shapes
+         * in turn against the same pointers and only the one that fits
+         * fills them -- which is how the LutAToB writer decides which
+         * layout a pipeline has. */
+        cmsPipeline* lut = cmsPipelineAlloc(NULL, 3, 3);
+        cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, NULL));
+        cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocIdentity(NULL, 3));
+        cmsPipelineInsertStage(lut, cmsAT_END, cmsStageAllocToneCurves(NULL, 3, NULL));
+
+        cmsStage *a = NULL, *b = NULL, *c = NULL;
+
+        /* Wrong count. */
+        printf("count 2 -> %d\n",
+               cmsPipelineCheckAndRetreiveStages(lut, 2,
+                   cmsSigCurveSetElemType, cmsSigCurveSetElemType, &a, &b));
+        printf("  untouched %d %d\n", a == NULL, b == NULL);
+
+        /* Right count, wrong types: the pointers must stay untouched. */
+        printf("wrong types -> %d\n",
+               cmsPipelineCheckAndRetreiveStages(lut, 3,
+                   cmsSigCurveSetElemType, cmsSigMatrixElemType, cmsSigCurveSetElemType,
+                   &a, &b, &c));
+        printf("  untouched %d %d %d\n", a == NULL, b == NULL, c == NULL);
+
+        /* The shape it actually has. */
+        printf("right shape -> %d\n",
+               cmsPipelineCheckAndRetreiveStages(lut, 3,
+                   cmsSigCurveSetElemType, cmsSigIdentityElemType, cmsSigCurveSetElemType,
+                   &a, &b, &c));
+        printf("  filled %d %d %d types %08x %08x %08x\n",
+               a != NULL, b != NULL, c != NULL,
+               a ? (unsigned) cmsStageType(a) : 0,
+               b ? (unsigned) cmsStageType(b) : 0,
+               c ? (unsigned) cmsStageType(c) : 0);
+        printf("  first is head %d last is tail %d\n",
+               a == cmsPipelineGetPtrToFirstStage(lut),
+               c == cmsPipelineGetPtrToLastStage(lut));
+
+        /* A null out-pointer is skipped rather than crashed on. */
+        cmsStage* only = NULL;
+        printf("null slots -> %d, middle %d\n",
+               cmsPipelineCheckAndRetreiveStages(lut, 3,
+                   cmsSigCurveSetElemType, cmsSigIdentityElemType, cmsSigCurveSetElemType,
+                   NULL, &only, NULL),
+               only != NULL);
+
+        /* An empty pipeline matches only a count of zero. */
+        cmsPipeline* empty = cmsPipelineAlloc(NULL, 3, 3);
+        printf("empty vs 1 -> %d\n",
+               cmsPipelineCheckAndRetreiveStages(empty, 1, cmsSigCurveSetElemType, &a));
+        printf("empty vs 0 -> %d\n",
+               cmsPipelineCheckAndRetreiveStages(empty, 0));
+        cmsPipelineFree(empty);
+
+        cmsPipelineFree(lut);
+    }
+
     printf("pipeline probe OK\n");
     return 0;
 }

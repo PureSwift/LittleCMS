@@ -62,9 +62,14 @@ let package = Package(
         // Depends on CLCMS2 as well as the engine: some of what the engine
         // must guarantee is agreement with a C layout, and the only honest
         // way to check that is against the imported C type itself.
+        //
+        // LCMS2ABI comes along because CLCMS2 is not standalone: the three
+        // variadics are C, and one of them walks a pipeline through the
+        // exported accessors, which the boundary defines.  Linking the C
+        // floor without the boundary leaves those undefined.
         .testTarget(
             name: "LittleCMSTests",
-            dependencies: ["LittleCMS", "CLCMS2"],
+            dependencies: ["LittleCMS", "CLCMS2", "LCMS2ABI"],
             path: "Tests/LittleCMSTests"
         ),
     ],

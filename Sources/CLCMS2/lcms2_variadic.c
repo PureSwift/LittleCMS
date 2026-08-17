@@ -60,14 +60,50 @@ cmsBool CMSEXPORT _cmsIOPrintf(cmsIOHANDLER* io, const char* frm, ...)
 
 cmsBool CMSEXPORT cmsPipelineCheckAndRetreiveStages(const cmsPipeline* Lut, cmsUInt32Number n, ...)
 {
-    /* The va_list here is `n` stage-type signatures followed by `n`
-     * cmsStage** out-pointers; walking it needs the pipeline engine, so
-     * until stages exist this reports through the normal error path.  It
-     * signals on the global context because reaching the pipeline's
-     * context is itself part of what is not implemented yet. */
-    (void) Lut;
-    (void) n;
-    swift_c_signal_error(NULL, cmsERROR_NOT_SUITABLE,
-                         "cmsPipelineCheckAndRetreiveStages is not implemented");
-    return FALSE;
+    /* The variable arguments are `n` stage-type signatures followed by
+     * `n` cmsStage** out-pointers -- one list, read in two passes.  The
+     * second pass continues the same va_list rather than restarting it,
+     * which is why the two groups cannot be interleaved.
+     *
+     * Nothing is written unless every type matches, so a caller may try
+     * several shapes in turn against the same out-pointers and only the
+     * shape that fits will fill them.  That is how the LutAToB writer
+     * decides which of its four layouts a pipeline has.
+     *
+     * Stays hand-written C forever: a variadic function cannot be
+     * defined in Swift.  It reaches the pipeline only through exported
+     * accessors, so the engine behind them is still Swift. */
+    va_list args;
+    cmsUInt32Number i;
+    cmsStage* mpe;
+
+    if (cmsPipelineStageCount(Lut) != n) return FALSE;
+
+    va_start(args, n);
+
+    mpe = cmsPipelineGetPtrToFirstStage(Lut);
+    for (i = 0; i < n; i++) {
+
+        /* cmsStageSignature is promoted to int through the ellipsis. */
+        cmsStageSignature Type = (cmsStageSignature) va_arg(args, int);
+
+        if (mpe == NULL || cmsStageType(mpe) != Type) {
+            va_end(args);
+            return FALSE;
+        }
+        mpe = cmsStageNext(mpe);
+    }
+
+    mpe = cmsPipelineGetPtrToFirstStage(Lut);
+    for (i = 0; i < n; i++) {
+
+        void** ElemPtr = va_arg(args, void**);
+        if (ElemPtr != NULL)
+            *ElemPtr = mpe;
+
+        mpe = cmsStageNext(mpe);
+    }
+
+    va_end(args);
+    return TRUE;
 }
