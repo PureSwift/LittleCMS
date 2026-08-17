@@ -50,6 +50,13 @@ int main(void)
         cmsDictAddEntry(dict, L"second", L"2", display, NULL);
         cmsDictAddEntry(dict, L"third", NULL, NULL, display);
 
+        /* Freed here, not at the end: an entry takes a copy of the
+         * display name it is given, so the caller still owns what it
+         * passed.  Freeing before the walks is what distinguishes a
+         * copy from a kept pointer -- freeing afterwards would pass
+         * either way. */
+        cmsMLUfree(display);
+
         /* The order matters and is not the order they went in: entries
          * are prepended, so walking gives the newest first. */
         walk(dict, "three entries");
@@ -63,8 +70,6 @@ int main(void)
         cmsDictFree(dict);
         walk(copy, "duplicate after original freed");
         cmsDictFree(copy);
-
-        cmsMLUfree(display);
 
         /* An entry with no value at all is still an entry. */
         cmsHANDLE bare = cmsDictAlloc(NULL);

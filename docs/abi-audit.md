@@ -29,6 +29,18 @@ Legend — **owner**: who frees a returned pointer, and with which function.
 - Handles returned by `cmsOpenProfile*`/`cmsCreate*`/`cms*Alloc` are freed
   only by their named counterparts (`cmsCloseProfile`, `cmsDeleteTransform`,
   `cms*Free`); nothing is freed by `free(3)` in the client's hands.
+- **Every entry point that takes a pointer copies what it is given.**
+  Swept across the implemented families and confirmed against the
+  reference: tone curves (tables and segments, including sampled
+  points), matrices, CLUT tables, multi-localized strings, named-colour
+  names (`strncpy`, so truncated rather than refused), dictionary names,
+  values and display MLUs (`cmsMLUdup`), tag payloads (through the type
+  handler's duplicate), and alarm codes. The two exceptions are
+  deliberate and documented where they occur: `cmsPipelineInsertStage`
+  *adopts* the stage, and `_cmsComputeInterpParams` *borrows* the table
+  it is pointed at for the life of the parameters.
+  A probe that frees the caller's copy only at the end cannot tell a
+  copy from a kept pointer, so the probes free before they read.
 - Objects are not thread-safe except: concurrent `cmsDoTransform` on one
   transform is legal (transform is immutable after creation), and the
   profile's tag directory is internally serialized (UsrMutex in the
