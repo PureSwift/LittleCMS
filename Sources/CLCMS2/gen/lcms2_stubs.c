@@ -61,35 +61,9 @@ void _cmsPipelineSetOptimizationParameters(cmsPipeline* Lut, _cmsPipelineEval16F
     swift_unimplemented_fatal("_cmsPipelineSetOptimizationParameters");
 }
 
-cmsPipeline* _cmsReadDevicelinkLUT(cmsHPROFILE hProfile, cmsUInt32Number Intent)
-{
-    swift_unimplemented_fatal("_cmsReadDevicelinkLUT");
-}
-
-cmsPipeline* _cmsReadInputLUT(cmsHPROFILE hProfile, cmsUInt32Number Intent)
-{
-    swift_unimplemented_fatal("_cmsReadInputLUT");
-}
-
-cmsPipeline* _cmsReadOutputLUT(cmsHPROFILE hProfile, cmsUInt32Number Intent)
-{
-    swift_unimplemented_fatal("_cmsReadOutputLUT");
-}
-
 void _cmsSetTransformUserData(struct _cmstransform_struct *CMMcargo, void* ptr, _cmsFreeUserDataFn FreePrivateDataFn)
 {
     swift_unimplemented_fatal("_cmsSetTransformUserData");
-}
-
-cmsStage* _cmsStageAllocNamedColor(cmsNAMEDCOLORLIST* NamedColorList, cmsBool UsePCS)
-{
-    swift_unimplemented_fatal("_cmsStageAllocNamedColor");
-}
-
-cmsStage* _cmsStageAllocPlaceholder(cmsContext ContextID, cmsStageSignature Type, cmsUInt32Number InputChannels, cmsUInt32Number OutputChannels, _cmsStageEvalFn EvalPtr, _cmsStageDupElemFn DupElemPtr, _cmsStageFreeElemFn FreePtr, void* Data)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsStageAllocPlaceholder is not implemented");
-    return (cmsStage*){0};
 }
 
 void cmsCIECAM02Done(cmsHANDLE hModel)
@@ -383,21 +357,6 @@ cmsUInt32Number cmsGetPostScriptColorResource(cmsContext ContextID, cmsPSResourc
     return (cmsUInt32Number){0};
 }
 
-cmsUInt32Number cmsGetProfileInfo(cmsHPROFILE hProfile, cmsInfoType Info, const char LanguageCode[3], const char CountryCode[3], wchar_t* Buffer, cmsUInt32Number BufferSize)
-{
-    swift_unimplemented_fatal("cmsGetProfileInfo");
-}
-
-cmsUInt32Number cmsGetProfileInfoASCII(cmsHPROFILE hProfile, cmsInfoType Info, const char LanguageCode[3], const char CountryCode[3], char* Buffer, cmsUInt32Number BufferSize)
-{
-    swift_unimplemented_fatal("cmsGetProfileInfoASCII");
-}
-
-cmsUInt32Number cmsGetProfileInfoUTF8(cmsHPROFILE hProfile, cmsInfoType Info, const char LanguageCode[3], const char CountryCode[3], char* Buffer, cmsUInt32Number BufferSize)
-{
-    swift_unimplemented_fatal("cmsGetProfileInfoUTF8");
-}
-
 cmsUInt32Number cmsGetSupportedIntents(cmsUInt32Number nMax, cmsUInt32Number* Codes, char** Descriptions)
 {
     swift_unimplemented_fatal("cmsGetSupportedIntents");
@@ -630,21 +589,6 @@ int cmsIT8SetTableByLabel(cmsHANDLE hIT8, const char* cSet, const char* cField, 
 cmsUInt32Number cmsIT8TableCount(cmsHANDLE hIT8)
 {
     swift_unimplemented_fatal("cmsIT8TableCount");
-}
-
-cmsBool cmsIsCLUT(cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number UsedDirection)
-{
-    swift_unimplemented_fatal("cmsIsCLUT");
-}
-
-cmsBool cmsIsIntentSupported(cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number UsedDirection)
-{
-    swift_unimplemented_fatal("cmsIsIntentSupported");
-}
-
-cmsBool cmsIsMatrixShaper(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsIsMatrixShaper");
 }
 
 cmsBool cmsPlugin(void* Plugin)

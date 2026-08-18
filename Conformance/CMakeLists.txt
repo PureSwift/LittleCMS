@@ -177,6 +177,15 @@ set_tests_properties(stub_behavior PROPERTIES
     PASS_REGULAR_EXPRESSION "is not implemented"
     FAIL_REGULAR_EXPRESSION "stub returned")
 
+# The same courtesy as the reference: if the upstream checkout is where
+# scripts/build_reference.sh leaves its source, use it without being
+# told. Silently running three fewer tests than yesterday is its own
+# kind of wrong answer.  Decided here, before the differentials, because
+# the profile-reading ones want the testbed's profiles too.
+if(NOT SLCMS_UPSTREAM_DIR AND EXISTS "${CMAKE_SOURCE_DIR}/build/reference/src/testbed/testcms2.c")
+    set(SLCMS_UPSTREAM_DIR "${CMAKE_SOURCE_DIR}/build/reference/src")
+endif()
+
 # -- against the reference ---------------------------------------------------
 
 if(SLCMS_REFERENCE_FOUND)
@@ -340,6 +349,33 @@ if(SLCMS_REFERENCE_FOUND)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/corpus)
     add_test(NAME corpus
         COMMAND make_corpus ${CMAKE_CURRENT_BINARY_DIR}/corpus)
+    # Tests that read the corpus say so, so ctest orders them after it
+    # and does not run them at all when it could not be made.
+    set_tests_properties(corpus PROPERTIES FIXTURES_SETUP corpus)
+
+    # The differentials that read profiles.  Both sides read the same
+    # bytes: the corpus is the reference's own output, and the testbed's
+    # profiles are checked in upstream.  When the upstream checkout is
+    # present those come along too, since they are the LUT-based CMYK
+    # profiles the corpus does not have.
+    if(SLCMS_UPSTREAM_DIR)
+        set(SLCMS_PROFILE_ARGS ${CMAKE_CURRENT_BINARY_DIR}/corpus ${SLCMS_UPSTREAM_DIR}/testbed)
+    else()
+        set(SLCMS_PROFILE_ARGS ${CMAKE_CURRENT_BINARY_DIR}/corpus)
+    endif()
+
+    add_executable(lutprobe_ours lutprobe.c)
+    target_link_libraries(lutprobe_ours PRIVATE lcms2)
+    add_executable(lutprobe_reference lutprobe.c)
+    target_link_libraries(lutprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME lut_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:lutprobe_ours>
+                $<TARGET_FILE:lutprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt
+                ${SLCMS_PROFILE_ARGS})
+    set_tests_properties(lut_differential PROPERTIES FIXTURES_REQUIRED corpus)
 elseif(SLCMS_REQUIRE_REFERENCE)
     message(FATAL_ERROR
         "No reference lcms2 found via pkg-config, and SLCMS_REQUIRE_REFERENCE "
@@ -361,14 +397,6 @@ endif()
 # upstream tree's headers — the public ones are byte-identical to our
 # vendored copies — while the link is against us: whatever the testbed
 # binds must come out of our 382 exports, which is the point.
-
-# The same courtesy as the reference: if the upstream checkout is where
-# scripts/build_reference.sh leaves its source, use it without being
-# told. Silently running three fewer tests than yesterday is its own
-# kind of wrong answer.
-if(NOT SLCMS_UPSTREAM_DIR AND EXISTS "${CMAKE_SOURCE_DIR}/build/reference/src/testbed/testcms2.c")
-    set(SLCMS_UPSTREAM_DIR "${CMAKE_SOURCE_DIR}/build/reference/src")
-endif()
 
 if(NOT SLCMS_UPSTREAM_DIR)
     message(STATUS

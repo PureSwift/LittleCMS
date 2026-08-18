@@ -224,7 +224,10 @@ public func cmsMLUgetUTF8(
 ) -> cmsUInt32Number {
     guard let entry = found(mlu, LanguageCode, CountryCode) else { return 0 }
 
-    let utf8 = Array(String(decoding: entry.text, as: UTF16.self).utf8)
+    // The reference's encoder stops at the first NUL, whatever the stored
+    // length says; a translation read from a profile usually carries one.
+    let units = entry.text.prefix { $0 != 0 }
+    let utf8 = Array(String(decoding: units, as: UTF16.self).utf8)
     guard let Buffer else { return cmsUInt32Number(utf8.count + 1) }
     if BufferSize == 0 { return 0 }
 

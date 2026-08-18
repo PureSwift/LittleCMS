@@ -32,9 +32,8 @@
  *                         _cmsGetFormatter returns, so the head of the
  *                         struct through OutputFormat is constrained too.
  *
- * Neither object exists yet.  The phase that first allocates one takes the
- * upstream layout with it; the layouts below are free of that constraint
- * only because nothing reaches into them.
+ * The other layouts below are free of that constraint only because
+ * nothing reaches into them.
  *
  * lcms2 has no setjmp/longjmp contract — errors are a logger callback plus
  * NULL/FALSE returns — so unlike a libpng-style boundary there is no jump
@@ -86,9 +85,22 @@ struct _cmsStage_struct            { void* swift_ctx; };
 struct _cms_MLU_struct             { void* swift_ctx; };
 struct _cms_NAMEDCOLORLIST_struct  { void* swift_ctx; };
 
-/* cmsHPROFILE, cmsHTRANSFORM, and cmsHANDLE are plain void* in the public
- * header; the structs backing them are declared here when the engine first
- * allocates them.
+/* The transform.  Only the head is contract: the reference's testbed
+ * stack-allocates one of these at upstream sizeof, writes InputFormat and
+ * OutputFormat, and hands it to the formatters _cmsGetFormatter returns,
+ * so those two fields sit where upstream puts them and the formatters read
+ * nothing past them.  Everything else a transform is — pipeline, cache
+ * seed, colorants, white points — is Swift, behind swift_ctx.  A formatter
+ * handed a foreign struct never looks at swift_ctx; only the entry points
+ * that took a handle we allocated do. */
+struct _cmstransform_struct {
+    cmsUInt32Number InputFormat, OutputFormat;
+    void* swift_ctx;                  /* retained Unmanaged<TransformBox> */
+};
+
+/* cmsHPROFILE and cmsHANDLE are plain void* in the public header; the
+ * structs backing them are declared here when the engine first allocates
+ * them.
  *
  * Deliberately NOT completed here: cmsIOHANDLER, cmsInterpParams, and
  * cmsDICTentry.  Their layouts are public in the vendored headers — they

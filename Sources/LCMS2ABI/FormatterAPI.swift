@@ -88,11 +88,12 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 // client's buffer, and the plane stride, and returns the client's
 // pointer advanced past one pixel.  The stride matters only to the
 // planar formatters; the interleaved ones ignore it, and so does the
-// transform pointer, which exists for the few that need to ask about
-// alpha.  That pointer is opaque even to plugins -- the struct is
-// forward-declared and never defined in either shipped header -- so it
-// arrives as an OpaquePointer and the formatters that need it will go
-// through the accessors the plugin API provides.
+// transform pointer, which exists for the ones that must know the layout
+// they were chosen for -- the generic entries that stand for a family of
+// layouts read it back from `info->InputFormat` or `OutputFormat`.  The
+// struct is opaque to plugins, but its head is fixed by the reference's
+// testbed, which builds one on the stack and calls a formatter with it;
+// so a formatter reads those two fields and nothing else.
 //
 // Widening a byte replicates it rather than shifting: 0xFF becomes
 // 0xFFFF, so white stays white.  Narrowing is the reference's rounding
@@ -112,7 +113,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 /// treated as a lightness, and the two it is padded with are what the
 /// rest of the pipeline expects to find.
 @Sendable private func unroll1Byte(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ wIn: UnsafeMutablePointer<cmsUInt16Number>?,
     _ accum: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -127,7 +128,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unroll1ByteReversed(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ wIn: UnsafeMutablePointer<cmsUInt16Number>?,
     _ accum: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -142,7 +143,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unroll1Word(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ wIn: UnsafeMutablePointer<cmsUInt16Number>?,
     _ accum: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -185,7 +186,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 // are a hundred and twenty-four of them.
 
 @Sendable private func unrollBytes3(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -201,7 +202,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollBytes3Swap(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -217,7 +218,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollBytes3Skip1Swap(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -234,7 +235,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollBytes3Skip1SwapFirst(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -251,7 +252,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollBytes4(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -269,7 +270,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollBytes4Reverse(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -287,7 +288,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollBytes4SwapFirst(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -305,7 +306,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollBytes4Swap(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -323,7 +324,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollBytes4SwapSwapFirst(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -341,7 +342,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollWords2(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -355,7 +356,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollWords3(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -371,7 +372,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollWords3Swap(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -387,7 +388,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollWords4(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -405,7 +406,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollWords4Swap(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -423,7 +424,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollWords4SwapFirst(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -441,7 +442,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollWords4SwapSwapFirst(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -459,7 +460,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes1(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -471,7 +472,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes3(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -487,7 +488,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes3Swap(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -503,7 +504,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes4(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -521,7 +522,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes4Reverse(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -539,7 +540,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes4Swap(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -557,7 +558,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes4SwapFirst(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -575,7 +576,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes4SwapSwapFirst(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -593,7 +594,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packWords1(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -605,7 +606,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packWords3(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -621,7 +622,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packWords3Swap(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -637,7 +638,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packWords4(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -655,7 +656,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packWords4Swap(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -677,7 +678,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 /// reference is inconsistent between the two, and the two do not agree
 /// for every value, so each follows the one it mirrors.
 @Sendable private func pack1ByteReversed(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -689,7 +690,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes3Skip1(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -706,7 +707,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes3Skip1SwapFirst(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -723,7 +724,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes3Skip1SwapSwapFirst(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -740,7 +741,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packBytes3Skip1Swap(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -757,7 +758,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollBytes3Skip1SwapSwapFirst(
-    _ info: OpaquePointer?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
     _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?,
     _ stride: cmsUInt32Number
@@ -777,7 +778,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 
 /// Reversal in sixteen bits, matching the packers that do the same.
 @Sendable private func unroll1WordReversed(
-    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
 ) -> UnsafeMutablePointer<cmsUInt8Number>? {
     guard let values, var p = buffer else { return buffer }
@@ -792,7 +793,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 /// One word read, then four skipped: the layout carries three extra
 /// channels the colour does not use.
 @Sendable private func unroll1WordSkip3(
-    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
 ) -> UnsafeMutablePointer<cmsUInt8Number>? {
     guard let values, var p = buffer else { return buffer }
@@ -805,7 +806,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollWords3Skip1Swap(
-    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
 ) -> UnsafeMutablePointer<cmsUInt8Number>? {
     guard let values, var p = buffer else { return buffer }
@@ -818,7 +819,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollWords3Skip1SwapFirst(
-    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
 ) -> UnsafeMutablePointer<cmsUInt8Number>? {
     guard let values, var p = buffer else { return buffer }
@@ -831,7 +832,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func unrollWords4Reverse(
-    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
 ) -> UnsafeMutablePointer<cmsUInt8Number>? {
     guard let values, var p = buffer else { return buffer }
@@ -844,7 +845,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 
 /// The word packers reverse in sixteen bits, as their unpackers do.
 @Sendable private func pack1WordReversed(
-    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
 ) -> UnsafeMutablePointer<cmsUInt8Number>? {
     guard let values, var p = buffer else { return buffer }
@@ -854,7 +855,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packWords4Reverse(
-    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
 ) -> UnsafeMutablePointer<cmsUInt8Number>? {
     guard let values, var p = buffer else { return buffer }
@@ -870,7 +871,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 /// Both of these step over the extra channel *first*, unlike their
 /// byte counterparts where only one of the pair does.
 @Sendable private func packWords3Skip1SwapFirst(
-    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
 ) -> UnsafeMutablePointer<cmsUInt8Number>? {
     guard let values, var p = buffer else { return buffer }
@@ -883,7 +884,7 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 }
 
 @Sendable private func packWords3Skip1Swap(
-    _ info: OpaquePointer?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?, _ values: UnsafeMutablePointer<cmsUInt16Number>?,
     _ buffer: UnsafeMutablePointer<cmsUInt8Number>?, _ stride: cmsUInt32Number
 ) -> UnsafeMutablePointer<cmsUInt8Number>? {
     guard let values, var p = buffer else { return buffer }

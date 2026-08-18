@@ -31,6 +31,11 @@ final class StageBox: HandleBox {
     /// that here it rebuilds the whole stage rather than only its data,
     /// because the evaluator is a closure rather than a function pointer.
     var duplicate: ((StageBox) -> UnsafeMutablePointer<cmsStage>?)?
+    /// Releases the data, for a stage whose block is not one of the
+    /// published shapes cmsStageFree knows how to take apart.  When set,
+    /// it is the whole of the release: cmsStageFree calls it and nothing
+    /// else.
+    var freeData: ((StageBox) -> Void)?
     /// The next stage in the pipeline, or nil at the end.
     var next: UnsafeMutablePointer<cmsStage>?
 
@@ -293,7 +298,9 @@ public func cmsStageFree(_ mpe: UnsafeMutablePointer<cmsStage>?) {
     guard let mpe, let box = stage(mpe) else { return }
 
     // The published block and whatever hangs off it.
-    if let data = box.data {
+    if let freeData = box.freeData {
+        freeData(box)
+    } else if let data = box.data {
         switch box.type {
         case cmsSigCurveSetElemType:
             let curves = data.assumingMemoryBound(to: _cmsStageToneCurvesData.self)
@@ -771,7 +778,7 @@ public func _cmsStageAllocIdentityCLut(
 // XYZ scale is 1 + 32767/32768 — the largest value the 15.16 encoding
 // can hold — so an XYZ channel of 1.0 in a pipeline means that, not one.
 
-private let maximumEncodeableXYZ = 1.0 + 32767.0 / 32768.0
+let maximumEncodeableXYZ = 1.0 + 32767.0 / 32768.0
 
 @c @implementation
 public func _cmsStageAllocLab2XYZ(
@@ -822,5 +829,152 @@ public func _cmsStageAllocXYZ2Lab(
         output[2] = cmsFloat32Number((lab.b + 128.0) / 255.0)
     }
     box.duplicate = { _cmsStageAllocXYZ2Lab($0.context) }
+    return handle(box)
+}
+
+// -- placeholder stages ------------------------------------------------------
+
+/// A stage built from C function pointers, which is how a plugin defines
+/// one and how the reference defines every stage.  Here the evaluator is
+/// wrapped in a closure and the data hangs off the box as it does for
+/// any other stage; the duplicate and free hooks are forwarded when
+/// given.  The C evaluator sees the stage as an opaque handle, so what it
+/// can reach is what cmsStageData and the channel accessors return.
+@c @implementation
+public func _cmsStageAllocPlaceholder(
+    _ ContextID: cmsContext?,
+    _ Type: cmsStageSignature,
+    _ InputChannels: cmsUInt32Number,
+    _ OutputChannels: cmsUInt32Number,
+    _ EvalPtr: _cmsStageEvalFn?,
+    _ DupElemPtr: _cmsStageDupElemFn?,
+    _ FreePtr: _cmsStageFreeElemFn?,
+    _ Data: UnsafeMutableRawPointer?
+) -> UnsafeMutablePointer<cmsStage>? {
+    let box = StageBox(
+        context: ContextID, type: Type,
+        inputChannels: Int(InputChannels), outputChannels: Int(OutputChannels)
+    ) { input, output, stage in
+        EvalPtr?(input, output, stageHandle(stage))
+    }
+    box.data = Data
+    // A missing free hook means the data is not the stage's to release
+    // — the reference frees nothing either — but the closure must exist,
+    // or cmsStageFree would try the published shapes on a block that is
+    // none of them.
+    box.freeData = { stage in
+        FreePtr?(stageHandle(stage))
+    }
+    box.duplicate = { source in
+        // The reference builds the copy first and asks the hook for its
+        // data second, so the hook sees the original.  Nothing here reads
+        // the copy before its data is in place, so the order can be the
+        // convenient one.
+        var copied: UnsafeMutableRawPointer? = nil
+        if let DupElemPtr {
+            copied = DupElemPtr(stageHandle(source))
+            if copied == nil { return nil }
+        }
+        return _cmsStageAllocPlaceholder(
+            source.context, source.type,
+            cmsUInt32Number(source.inputChannels), cmsUInt32Number(source.outputChannels),
+            EvalPtr, DupElemPtr, FreePtr, copied
+        )
+    }
+    return handle(box)
+}
+
+// -- the float PCS normalisations --------------------------------------------
+
+// A pipeline works in the 0..1 encoding the formatters deliver, but a
+// floating-point tag (DToB, BToD) speaks in the space's own units — L*
+// 0..100 and a*b* -128..127, or XYZ up to the encodeable maximum.  These
+// four matrix stages convert at the two ends of such a tag, and each is
+// marked with what it implements so the optimizer can recognise and
+// cancel a facing pair.
+
+private func normalizingMatrix(
+    _ ContextID: cmsContext?,
+    _ values: [cmsFloat64Number], _ offset: [cmsFloat64Number]?,
+    implements: cmsStageSignature
+) -> UnsafeMutablePointer<cmsStage>? {
+    let mpe = values.withUnsafeBufferPointer { m -> UnsafeMutablePointer<cmsStage>? in
+        if let offset {
+            return offset.withUnsafeBufferPointer { o in
+                cmsStageAllocMatrix(ContextID, 3, 3, m.baseAddress, o.baseAddress)
+            }
+        }
+        return cmsStageAllocMatrix(ContextID, 3, 3, m.baseAddress, nil)
+    }
+    guard let mpe else { return nil }
+    stage(mpe)?.implements = implements
+    return mpe
+}
+
+/// L* 0..100 → 0..1, a*b* -128..127 → 0..1.
+func _cmsStageNormalizeFromLabFloat(_ ContextID: cmsContext?) -> UnsafeMutablePointer<cmsStage>? {
+    normalizingMatrix(
+        ContextID,
+        [1.0 / 100.0, 0, 0,
+         0, 1.0 / 255.0, 0,
+         0, 0, 1.0 / 255.0],
+        [0, 128.0 / 255.0, 128.0 / 255.0],
+        implements: cmsSigLab2FloatPCS
+    )
+}
+
+/// XYZ in its own units → the 0..1 encoding.
+func _cmsStageNormalizeFromXyzFloat(_ ContextID: cmsContext?) -> UnsafeMutablePointer<cmsStage>? {
+    let n = 32768.0 / 65535.0
+    return normalizingMatrix(
+        ContextID,
+        [n, 0, 0,
+         0, n, 0,
+         0, 0, n],
+        nil,
+        implements: cmsSigXYZ2FloatPCS
+    )
+}
+
+/// 0..1 → L* 0..100, a*b* -128..127.
+func _cmsStageNormalizeToLabFloat(_ ContextID: cmsContext?) -> UnsafeMutablePointer<cmsStage>? {
+    normalizingMatrix(
+        ContextID,
+        [100.0, 0, 0,
+         0, 255.0, 0,
+         0, 0, 255.0],
+        [0, -128.0, -128.0],
+        implements: cmsSigFloatPCS2Lab
+    )
+}
+
+/// The 0..1 encoding → XYZ in its own units.
+func _cmsStageNormalizeToXyzFloat(_ ContextID: cmsContext?) -> UnsafeMutablePointer<cmsStage>? {
+    let n = 65535.0 / 32768.0
+    return normalizingMatrix(
+        ContextID,
+        [n, 0, 0,
+         0, n, 0,
+         0, 0, n],
+        nil,
+        implements: cmsSigFloatPCS2XYZ
+    )
+}
+
+/// Clamps each channel at zero from below and leaves the rest alone —
+/// what cmsFLAGS_NONEGATIVES appends to a transform into a device space.
+func _cmsStageClipNegatives(
+    _ ContextID: cmsContext?, _ nChannels: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsStage>? {
+    let box = StageBox(
+        context: ContextID, type: cmsSigClipNegativesElemType,
+        inputChannels: Int(nChannels), outputChannels: Int(nChannels)
+    ) { input, output, stage in
+        for i in 0..<stage.inputChannels {
+            let n = input[i]
+            output[i] = n < 0 ? 0 : n
+        }
+    }
+    box.duplicate = { _cmsStageClipNegatives($0.context, cmsUInt32Number($0.inputChannels)) }
     return handle(box)
 }

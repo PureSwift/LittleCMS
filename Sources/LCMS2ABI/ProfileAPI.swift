@@ -1524,3 +1524,11 @@ func signatureText(_ value: cmsUInt32Number) -> String {
     ]
     return String(decoding: bytes, as: UTF8.self)
 }
+
+/// `_cmsGetTagTrueType`: the type the tag was actually stored as, known
+/// once it has been read, or zero when it has not been or is absent.
+func _cmsGetTagTrueType(_ hProfile: cmsHPROFILE?, _ sig: cmsTagSignature) -> cmsTagTypeSignature {
+    guard let box = profile(hProfile), let n = box.search(sig, followLinks: true)
+    else { return cmsTagTypeSignature(0) }
+    return box.tagTypes[n]
+}

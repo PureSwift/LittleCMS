@@ -172,3 +172,56 @@ public func cmsstrcasecmp(_ s1: UnsafePointer<CChar>?, _ s2: UnsafePointer<CChar
         bytes(s2, limit: Int.max)
     )
 }
+
+// -- the named colour stage ---------------------------------------------------
+
+/// A stage that looks a colour up by index: the single input channel is
+/// the index in 0..1 encoding, and the output is either the colour's PCS
+/// value (always Lab, three channels) or its device colorant.  The stage
+/// keeps its own copy of the list, which is what cmsStageData hands out.
+@c @implementation
+public func _cmsStageAllocNamedColor(
+    _ NamedColorList: UnsafeMutablePointer<cmsNAMEDCOLORLIST>?,
+    _ UsePCS: cmsBool
+) -> UnsafeMutablePointer<cmsStage>? {
+    guard let NamedColorList, let source = box(NamedColorList),
+          let copy = cmsDupNamedColorList(NamedColorList)
+    else { return nil }
+    let usePCS = UsePCS != 0
+    let outputs = usePCS ? 3 : source.list.colorantCount
+
+    let stage = StageBox(
+        context: source.context, type: cmsSigNamedColorElemType,
+        inputChannels: 1, outputChannels: outputs
+    ) { input, output, stage in
+        guard let data = stage.data else { return }
+        let list = namedColorBox(data.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self)).list
+        let index = Int(quickSaturateWord(Double(input[0]) * 65535.0))
+
+        guard index < list.colors.count else {
+            report(cmsUInt32Number(cmsERROR_RANGE), "Color \(index) out of range", to: stage.context)
+            for j in 0..<stage.outputChannels { output[j] = 0 }
+            return
+        }
+        let color = list.colors[index]
+        if usePCS {
+            output[0] = cmsFloat32Number(Double(color.pcs.0) / 65535.0)
+            output[1] = cmsFloat32Number(Double(color.pcs.1) / 65535.0)
+            output[2] = cmsFloat32Number(Double(color.pcs.2) / 65535.0)
+        } else {
+            for j in 0..<list.colorantCount {
+                output[j] = cmsFloat32Number(Double(color.colorant[j]) / 65535.0)
+            }
+        }
+    }
+    stage.data = UnsafeMutableRawPointer(copy)
+    stage.freeData = { stage in
+        cmsFreeNamedColorList(stage.data?.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self))
+    }
+    stage.duplicate = { source in
+        _cmsStageAllocNamedColor(
+            source.data?.assumingMemoryBound(to: cmsNAMEDCOLORLIST.self), UsePCS
+        )
+    }
+    return stageHandle(stage)
+}
