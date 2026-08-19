@@ -65,6 +65,14 @@ struct _cmsContext_struct {
     void* calloc_fn;
     void* dup_fn;
 
+    /* The free function this struct itself was allocated with, or NULL
+     * for the Swift allocator.  As in the reference, a context created
+     * with a memory-handler plugin is allocated *through* that plugin —
+     * its testbed writes into the plugin's own header just before the
+     * handle — and must be released the same way even after the plugin
+     * has been unregistered from the context. */
+    void* handle_free_fn;
+
     /* The pool of live contexts, as in the reference: a handle is looked
      * up in it, and one that is not there — a stale one, or the small
      * integers the reference's testbed passes on purpose — resolves to

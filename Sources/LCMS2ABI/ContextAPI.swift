@@ -22,20 +22,70 @@ extension Context {
     }
 }
 
+/// The context struct, allocated through a memory plugin's functions
+/// when there are any — the reference does this too, and its testbed
+/// relies on it: it marks the block through the plugin's own header
+/// just before the handle.  Zeroed either way; nil when the plugin
+/// refuses.
+private func allocateContextStruct(
+    malloc: UnsafeMutableRawPointer?, mallocZero: UnsafeMutableRawPointer?, free: UnsafeMutableRawPointer?
+) -> UnsafeMutablePointer<_cmsContext_struct>? {
+    let size = cmsUInt32Number(MemoryLayout<_cmsContext_struct>.size)
+    let raw: UnsafeMutableRawPointer?
+    if let mallocZero {
+        raw = unsafeBitCast(mallocZero, to: _cmsMalloZerocFnPtrType.self)(nil, size)
+    } else if let malloc {
+        raw = unsafeBitCast(malloc, to: _cmsMallocFnPtrType.self)(nil, size)
+        if let raw { memset(raw, 0, Int(size)) }
+    } else {
+        // Without a plugin the struct still gets a header's worth of
+        // slack in front of it: the reference's testbed marks a context
+        // by writing just before the handle, assuming a memory plugin's
+        // header is there, and does so on contexts it created without
+        // one.  With the reference that write lands in malloc slack;
+        // here it lands in ours.
+        let block = UnsafeMutableRawPointer.allocate(byteCount: contextSlack + Int(size), alignment: 16)
+        block.initializeMemory(as: UInt8.self, repeating: 0, count: contextSlack + Int(size))
+        raw = block + contextSlack
+    }
+    guard let raw else { return nil }
+    let handle = raw.bindMemory(to: _cmsContext_struct.self, capacity: 1)
+    handle.pointee.handle_free_fn = (malloc != nil || mallocZero != nil) ? free : nil
+    return handle
+}
+
+/// Releases a context struct the way it was allocated.
+private func releaseContextStruct(_ handle: UnsafeMutablePointer<_cmsContext_struct>) {
+    if let free = handle.pointee.handle_free_fn {
+        unsafeBitCast(free, to: _cmsFreeFnPtrType.self)(nil, UnsafeMutableRawPointer(handle))
+    } else {
+        (UnsafeMutableRawPointer(handle) - contextSlack).deallocate()
+    }
+}
+
+/// Room left in front of a context struct we allocate ourselves; see
+/// `allocateContextStruct`.  The reference testbed's header is 32 bytes.
+private let contextSlack = 32
+
 @c @implementation
 public func cmsCreateContext(_ Plugin: UnsafeMutableRawPointer?, _ UserData: UnsafeMutableRawPointer?) -> cmsContext? {
-    let handle = UnsafeMutablePointer<_cmsContext_struct>.allocate(capacity: 1)
-    handle.initialize(to: _cmsContext_struct())
+    // The memory handler, when the chain has one, is found before
+    // anything else: the context's own storage comes through it.
+    let memory = Plugin.flatMap { findMemoryPlugin($0) }
+    guard let handle = allocateContextStruct(
+        malloc: memory?.pointee.MallocPtr.map { unsafeBitCast($0, to: UnsafeMutableRawPointer.self) },
+        mallocZero: memory?.pointee.MallocZeroPtr.map { unsafeBitCast($0, to: UnsafeMutableRawPointer.self) },
+        free: memory?.pointee.FreePtr.map { unsafeBitCast($0, to: UnsafeMutableRawPointer.self) }
+    ) else { return nil }
     handle.pointee.user_data = UserData
     handle.pointee.swift_ctx = ContextBox.handle(for: ContextBox(copying: nil))
     swift_c_register_context(handle)
 
     // The reference registers the plugins before returning the context,
-    // and returns NULL if that fails.  The memory handler, when the chain
-    // has one, goes in first: it is what the context's own storage is
-    // allocated through.
+    // and returns NULL if that fails.  The memory handler goes in first,
+    // so the rest of the registration allocates through it.
     if let Plugin {
-        if let memory = findMemoryPlugin(Plugin) {
+        if let memory {
             _ = cmsPluginTHR(handle, UnsafeMutableRawPointer(memory))
         }
         if cmsPluginTHR(handle, Plugin) == 0 {
@@ -57,8 +107,11 @@ public func cmsDupContext(_ ContextID: cmsContext?, _ NewUserData: UnsafeMutable
     let userData = NewUserData ?? resolved.pointee.user_data
     let logger = resolved.pointee.error_logger
 
-    let handle = UnsafeMutablePointer<_cmsContext_struct>.allocate(capacity: 1)
-    handle.initialize(to: _cmsContext_struct())
+    // Allocated through the source's memory handler, as the reference
+    // does — the copy inherits that handler, so it can release itself.
+    guard let handle = allocateContextStruct(
+        malloc: resolved.pointee.malloc_fn, mallocZero: resolved.pointee.malloc_zero_fn, free: resolved.pointee.free_fn
+    ) else { return nil }
     handle.pointee.error_logger = logger
     handle.pointee.user_data = userData
     handle.pointee.swift_ctx = ContextBox.handle(
@@ -78,8 +131,7 @@ public func cmsDeleteContext(_ ContextID: cmsContext?) {
     // reference walks its pool and ignores what it does not find.
     guard let ContextID, swift_c_unregister_context(ContextID) != 0 else { return }
     _ = ContextBox.consume(ContextID.pointee.swift_ctx)
-    ContextID.deinitialize(count: 1)
-    ContextID.deallocate()
+    releaseContextStruct(ContextID)
 }
 
 @c @implementation
