@@ -21,11 +21,10 @@ int main(void)
     cmsSetLogErrorHandler(logger);
 
     /* Any context-carrying, still-stubbed entry point serves; the
-     * PostScript generator is outside the first milestone's scope, so it
-     * will stay one for a while. */
-    cmsUInt32Number n = cmsGetPostScriptCSA(NULL, NULL, 0, 0, NULL, 0);
-    if (n != 0) {
-        fprintf(stderr, "stub returned a non-zero count\n");
+     * colour appearance model is the last family in line. */
+    cmsHANDLE h = cmsCIECAM02Init(NULL, NULL);
+    if (h != NULL) {
+        fprintf(stderr, "stub returned a non-NULL handle\n");
         return 1;
     }
 
