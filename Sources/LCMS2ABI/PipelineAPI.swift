@@ -504,26 +504,38 @@ public func cmsPipelineEvalFloat(
     _ lut: UnsafePointer<cmsPipeline>?
 ) {
     guard let In, let Out, let box = pipeline(lut) else { return }
+    evaluateFloat(box, In, Out)
+}
 
-    // Two buffers ping-ponged through the chain, as the reference does.
-    var storage = [[Float]](
-        repeating: [Float](repeating: 0, count: maximumStageChannels), count: 2
-    )
-    for i in 0..<box.inputChannels { storage[0][i] = In[i] }
+/// Two buffers ping-ponged through the chain, as the reference does —
+/// on the stack, since this runs once per pixel.
+@inline(__always)
+func evaluateFloat(
+    _ box: PipelineBox,
+    _ In: UnsafePointer<cmsFloat32Number>,
+    _ Out: UnsafeMutablePointer<cmsFloat32Number>
+) {
+    // Left uninitialised past what is written: each stage writes its
+    // outputs and the next reads exactly those, and clearing 128 floats
+    // per pixel showed up in the profile.
+    withUnsafeTemporaryAllocation(of: Float.self, capacity: 2 * maximumStageChannels) { storage in
+        let base = storage.baseAddress!
+        let a = base
+        let b = base + maximumStageChannels
+        for i in 0..<box.inputChannels { a[i] = In[i] }
 
-    var phase = 0
-    for s in box.stages {
-        guard let stageBox = stage(s) else { continue }
-        let next = phase ^ 1
-        storage[phase].withUnsafeBufferPointer { source in
-            storage[next].withUnsafeMutableBufferPointer { destination in
-                stageBox.evaluate(source.baseAddress!, destination.baseAddress!, stageBox)
+        var source = a
+        var destination = b
+        // The stage boxes are borrowed for the call rather than retained
+        // and released once per stage per pixel, which the profile showed.
+        for s in box.stages {
+            Unmanaged<StageBox>.fromOpaque(UnsafeRawPointer(s))._withUnsafeGuaranteedRef { stageBox in
+                stageBox.evaluate(source, destination, stageBox)
             }
+            swap(&source, &destination)
         }
-        phase = next
+        for i in 0..<box.outputChannels { Out[i] = source[i] }
     }
-
-    for i in 0..<box.outputChannels { Out[i] = storage[phase][i] }
 }
 
 @c @implementation
@@ -533,30 +545,32 @@ public func cmsPipelineEval16(
     _ lut: UnsafePointer<cmsPipeline>?
 ) {
     guard let In, let Out, let box = pipeline(lut) else { return }
+    evaluate16(box, In, Out)
+}
 
-    // An optimizer's evaluator, when one has been installed, is the
-    // whole answer.
+/// An optimizer's evaluator when one is installed; otherwise widened on
+/// the way in and narrowed on the way out — a pipeline is evaluated in
+/// floating point whatever precision it was asked in.
+@inline(__always)
+func evaluate16(
+    _ box: PipelineBox,
+    _ In: UnsafePointer<cmsUInt16Number>,
+    _ Out: UnsafeMutablePointer<cmsUInt16Number>
+) {
     if let eval16 = box.eval16 {
         eval16(In, Out, box.optimizationData)
         return
     }
-
-    // Widened on the way in and narrowed on the way out: a pipeline is
-    // evaluated in floating point whatever precision it was asked in.
-    var input = [Float](repeating: 0, count: maximumStageChannels)
-    var output = [Float](repeating: 0, count: maximumStageChannels)
-    for i in 0..<box.inputChannels {
-        input[i] = cmsFloat32Number(In[i]) / 65535.0
-    }
-
-    input.withUnsafeBufferPointer { source in
-        output.withUnsafeMutableBufferPointer { destination in
-            cmsPipelineEvalFloat(source.baseAddress!, destination.baseAddress!, lut)
+    withUnsafeTemporaryAllocation(of: Float.self, capacity: 2 * maximumStageChannels) { storage in
+        let input = storage.baseAddress!
+        let output = input + maximumStageChannels
+        for i in 0..<box.inputChannels {
+            input[i] = cmsFloat32Number(In[i]) / 65535.0
         }
-    }
-
-    for i in 0..<box.outputChannels {
-        Out[i] = quickSaturateWord(cmsFloat64Number(output[i]) * 65535.0)
+        evaluateFloat(box, input, output)
+        for i in 0..<box.outputChannels {
+            Out[i] = quickSaturateWord(cmsFloat64Number(output[i]) * 65535.0)
+        }
     }
 }
 

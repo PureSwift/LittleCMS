@@ -13,25 +13,17 @@ import LittleCMS
 /// `MAX_INPUT_DIMENSIONS`, as a count rather than the macro's Int32.
 private let maximumInputDimensions = Int(MAX_INPUT_DIMENSIONS)
 
+/// The parameters' domain and stride tables, borrowed in place: the
+/// grid holds pointers into the struct, which outlives the call.
 @inline(__always)
 private func grid(_ p: UnsafePointer<cmsInterpParams>) -> InterpolationGrid {
-    let inputs = Int(p.pointee.nInputs)
-    var domain = [UInt32](repeating: 0, count: maximumInputDimensions)
-    var opta = [UInt32](repeating: 0, count: maximumInputDimensions)
-
-    withUnsafeBytes(of: p.pointee.Domain) { source in
-        source.withMemoryRebound(to: cmsUInt32Number.self) { values in
-            for i in 0..<maximumInputDimensions { domain[i] = values[i] }
-        }
-    }
-    withUnsafeBytes(of: p.pointee.opta) { source in
-        source.withMemoryRebound(to: cmsUInt32Number.self) { values in
-            for i in 0..<maximumInputDimensions { opta[i] = values[i] }
-        }
-    }
-
+    let raw = UnsafeRawPointer(p)
+    let domain = raw.advanced(by: MemoryLayout<cmsInterpParams>.offset(of: \.Domain)!)
+        .assumingMemoryBound(to: UInt32.self)
+    let opta = raw.advanced(by: MemoryLayout<cmsInterpParams>.offset(of: \.opta)!)
+        .assumingMemoryBound(to: UInt32.self)
     return InterpolationGrid(
-        domain: domain, opta: opta, inputs: inputs, outputs: Int(p.pointee.nOutputs)
+        domain: domain, opta: opta, inputs: Int(p.pointee.nInputs), outputs: Int(p.pointee.nOutputs)
     )
 }
 

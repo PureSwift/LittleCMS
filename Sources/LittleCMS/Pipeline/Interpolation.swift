@@ -22,12 +22,16 @@ public let maximumStageChannels = 128
 /// Mirrors the published `cmsInterpParams` field for field; the boundary
 /// hands one of these straight across.
 public struct InterpolationGrid {
-    public var domain: [UInt32]      // nodes per input, minus one
-    public var opta: [UInt32]        // strides, opta[0] = output channels
+    /// Nodes per input, minus one.  Borrowed: points into the caller's
+    /// parameters for the duration of the call, so that no evaluation
+    /// allocates.
+    public var domain: UnsafePointer<UInt32>
+    /// Strides, `opta[0]` being the output channel count.  Borrowed as above.
+    public var opta: UnsafePointer<UInt32>
     public var inputs: Int
     public var outputs: Int
 
-    public init(domain: [UInt32], opta: [UInt32], inputs: Int, outputs: Int) {
+    public init(domain: UnsafePointer<UInt32>, opta: UnsafePointer<UInt32>, inputs: Int, outputs: Int) {
         self.domain = domain
         self.opta = opta
         self.inputs = inputs
@@ -36,11 +40,12 @@ public struct InterpolationGrid {
 
     /// The grid seen from one input further in, which is what the
     /// recursive evaluators hand down: the domains shift left by one and
-    /// everything else stays.
+    /// everything else stays — the strides in particular, since the
+    /// inner grid's strides are the outer's first ones.
     @inline(__always)
     func droppingFirstInput() -> InterpolationGrid {
         var next = self
-        next.domain = Array(domain.dropFirst()) + [0]
+        next.domain = domain + 1
         return next
     }
 }

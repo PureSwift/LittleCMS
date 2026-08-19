@@ -767,8 +767,9 @@ func fastIdentity16(
     _ Data: UnsafeRawPointer?
 ) {
     guard let In, let Out, let Data else { return }
-    let box = Unmanaged<PipelineBox>.fromOpaque(Data).takeUnretainedValue()
-    for i in 0..<box.inputChannels { Out[i] = In[i] }
+    Unmanaged<PipelineBox>.fromOpaque(Data)._withUnsafeGuaranteedRef { box in
+        for i in 0..<box.inputChannels { Out[i] = In[i] }
+    }
 }
 
 /// A pipeline of curves only becomes one sampled curve per channel, or

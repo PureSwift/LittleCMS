@@ -186,23 +186,30 @@ public func cmsDoTransformLineStride(
 // out as the worker and so that the transform can hold it as a plain
 // pointer alongside one a plugin supplied.  Each recovers the box from
 // the struct, copies the extra channels if asked, then walks the lines.
+// The per-pixel buffers live on the stack: this is the hot path.
+
+@inline(__always)
+private func pipelineBox(_ p: UnsafeMutablePointer<cmsPipeline>?) -> PipelineBox? {
+    guard let p else { return nil }
+    return Unmanaged<PipelineBox>.fromOpaque(UnsafeRawPointer(p)).takeUnretainedValue()
+}
 
 /// One pixel through the gamut check, then through the pipeline or to
 /// the alarm codes.
 @inline(__always)
 private func transformOnePixelWithGamutCheck(
-    _ box: TransformBox,
+    _ box: TransformBox, _ lut: PipelineBox, _ gamut: PipelineBox,
     _ wIn: UnsafePointer<cmsUInt16Number>, _ wOut: UnsafeMutablePointer<cmsUInt16Number>
 ) {
     var outOfGamut: cmsUInt16Number = 0
-    cmsPipelineEval16(wIn, &outOfGamut, box.gamutCheck)
+    evaluate16(gamut, wIn, &outOfGamut)
     if outOfGamut >= 1 {
         let alarm = Context.resolve(box.context).chunks.alarmCodes
-        for i in 0..<Int(cmsPipelineOutputChannels(box.lut)) {
+        for i in 0..<lut.outputChannels {
             wOut[i] = alarm[i]
         }
     } else {
-        cmsPipelineEval16(wIn, wOut, box.lut)
+        evaluate16(lut, wIn, wOut)
     }
 }
 
@@ -217,9 +224,11 @@ private func eachLine(
 ) {
     var strideIn = 0
     var strideOut = 0
+    let inputBytes = input.map { UnsafeMutablePointer(mutating: $0.assumingMemoryBound(to: cmsUInt8Number.self)) }
+    let outputBytes = output?.assumingMemoryBound(to: cmsUInt8Number.self)
     for _ in 0..<Int(lineCount) {
-        var accum = input.map { UnsafeMutablePointer(mutating: $0.assumingMemoryBound(to: cmsUInt8Number.self)) + strideIn }
-        var out = output.map { $0.assumingMemoryBound(to: cmsUInt8Number.self) + strideOut }
+        var accum = inputBytes.map { $0 + strideIn }
+        var out = outputBytes.map { $0 + strideOut }
         for _ in 0..<Int(pixelsPerLine) {
             body(&accum, &out)
         }
@@ -240,6 +249,29 @@ private func prologue(
     return box
 }
 
+/// Two zeroed word buffers of the channel maximum, on the stack.
+@inline(__always)
+private func withWordBuffers(
+    _ body: (UnsafeMutablePointer<cmsUInt16Number>, UnsafeMutablePointer<cmsUInt16Number>) -> Void
+) {
+    withUnsafeTemporaryAllocation(of: cmsUInt16Number.self, capacity: 2 * maximumChannels) { storage in
+        let a = storage.baseAddress!
+        a.initialize(repeating: 0, count: 2 * maximumChannels)
+        body(a, a + maximumChannels)
+    }
+}
+
+@inline(__always)
+private func withFloatBuffers(
+    _ body: (UnsafeMutablePointer<cmsFloat32Number>, UnsafeMutablePointer<cmsFloat32Number>) -> Void
+) {
+    withUnsafeTemporaryAllocation(of: cmsFloat32Number.self, capacity: 2 * maximumChannels) { storage in
+        let a = storage.baseAddress!
+        a.initialize(repeating: 0, count: 2 * maximumChannels)
+        body(a, a + maximumChannels)
+    }
+}
+
 /// Floating point, with the gamut check folded in: out of gamut is
 /// signalled by a value above zero, and the alarm codes go out scaled
 /// to 0..1.
@@ -248,30 +280,31 @@ private func floatXFORM(
     _ pixelsPerLine: cmsUInt32Number, _ lineCount: cmsUInt32Number, _ stride: UnsafePointer<cmsStride>?
 ) {
     guard let box = prologue(p, input, output, pixelsPerLine, lineCount, stride), let stride,
-          let fromInput = box.fromInputFloat, let toOutput = box.toOutputFloat
+          let fromInput = box.fromInputFloat, let toOutput = box.toOutputFloat, let lut = pipelineBox(box.lut)
     else { return }
-    var fIn = [cmsFloat32Number](repeating: 0, count: maximumChannels)
-    var fOut = [cmsFloat32Number](repeating: 0, count: maximumChannels)
+    let gamut = pipelineBox(box.gamutCheck)
     let planeIn = stride.pointee.BytesPerPlaneIn
     let planeOut = stride.pointee.BytesPerPlaneOut
 
-    eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
-        accum = fromInput(p, &fIn, accum, planeIn)
-        if let gamut = box.gamutCheck {
-            var outOfGamut: cmsFloat32Number = 0
-            cmsPipelineEvalFloat(fIn, &outOfGamut, gamut)
-            if outOfGamut > 0.0 {
-                let alarm = Context.resolve(box.context).chunks.alarmCodes
-                for c in 0..<maximumChannels {
-                    fOut[c] = cmsFloat32Number(alarm[c]) / 65535.0
+    withFloatBuffers { fIn, fOut in
+        eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
+            accum = fromInput(p, fIn, accum, planeIn)
+            if let gamut {
+                var outOfGamut: cmsFloat32Number = 0
+                evaluateFloat(gamut, fIn, &outOfGamut)
+                if outOfGamut > 0.0 {
+                    let alarm = Context.resolve(box.context).chunks.alarmCodes
+                    for c in 0..<maximumChannels {
+                        fOut[c] = cmsFloat32Number(alarm[c]) / 65535.0
+                    }
+                } else {
+                    evaluateFloat(lut, fIn, fOut)
                 }
             } else {
-                cmsPipelineEvalFloat(fIn, &fOut, box.lut)
+                evaluateFloat(lut, fIn, fOut)
             }
-        } else {
-            cmsPipelineEvalFloat(fIn, &fOut, box.lut)
+            out = toOutput(p, fOut, out, planeOut)
         }
-        out = toOutput(p, &fOut, out, planeOut)
     }
 }
 
@@ -283,13 +316,14 @@ private func nullFloatXFORM(
     guard let box = prologue(p, input, output, pixelsPerLine, lineCount, stride), let stride,
           let fromInput = box.fromInputFloat, let toOutput = box.toOutputFloat
     else { return }
-    var fIn = [cmsFloat32Number](repeating: 0, count: maximumChannels)
     let planeIn = stride.pointee.BytesPerPlaneIn
     let planeOut = stride.pointee.BytesPerPlaneOut
 
-    eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
-        accum = fromInput(p, &fIn, accum, planeIn)
-        out = toOutput(p, &fIn, out, planeOut)
+    withFloatBuffers { fIn, _ in
+        eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
+            accum = fromInput(p, fIn, accum, planeIn)
+            out = toOutput(p, fIn, out, planeOut)
+        }
     }
 }
 
@@ -301,13 +335,14 @@ private func nullXFORM(
     guard let box = prologue(p, input, output, pixelsPerLine, lineCount, stride), let stride,
           let fromInput = box.fromInput, let toOutput = box.toOutput
     else { return }
-    var wIn = [cmsUInt16Number](repeating: 0, count: maximumChannels)
     let planeIn = stride.pointee.BytesPerPlaneIn
     let planeOut = stride.pointee.BytesPerPlaneOut
 
-    eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
-        accum = fromInput(p, &wIn, accum, planeIn)
-        out = toOutput(p, &wIn, out, planeOut)
+    withWordBuffers { wIn, _ in
+        eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
+            accum = fromInput(p, wIn, accum, planeIn)
+            out = toOutput(p, wIn, out, planeOut)
+        }
     }
 }
 
@@ -317,17 +352,17 @@ private func precalculatedXFORM(
     _ pixelsPerLine: cmsUInt32Number, _ lineCount: cmsUInt32Number, _ stride: UnsafePointer<cmsStride>?
 ) {
     guard let box = prologue(p, input, output, pixelsPerLine, lineCount, stride), let stride,
-          let fromInput = box.fromInput, let toOutput = box.toOutput
+          let fromInput = box.fromInput, let toOutput = box.toOutput, let lut = pipelineBox(box.lut)
     else { return }
-    var wIn = [cmsUInt16Number](repeating: 0, count: maximumChannels)
-    var wOut = [cmsUInt16Number](repeating: 0, count: maximumChannels)
     let planeIn = stride.pointee.BytesPerPlaneIn
     let planeOut = stride.pointee.BytesPerPlaneOut
 
-    eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
-        accum = fromInput(p, &wIn, accum, planeIn)
-        cmsPipelineEval16(wIn, &wOut, box.lut)
-        out = toOutput(p, &wOut, out, planeOut)
+    withWordBuffers { wIn, wOut in
+        eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
+            accum = fromInput(p, wIn, accum, planeIn)
+            evaluate16(lut, wIn, wOut)
+            out = toOutput(p, wOut, out, planeOut)
+        }
     }
 }
 
@@ -337,18 +372,44 @@ private func precalculatedXFORMGamutCheck(
     _ pixelsPerLine: cmsUInt32Number, _ lineCount: cmsUInt32Number, _ stride: UnsafePointer<cmsStride>?
 ) {
     guard let box = prologue(p, input, output, pixelsPerLine, lineCount, stride), let stride,
-          let fromInput = box.fromInput, let toOutput = box.toOutput
+          let fromInput = box.fromInput, let toOutput = box.toOutput,
+          let lut = pipelineBox(box.lut), let gamut = pipelineBox(box.gamutCheck)
     else { return }
-    var wIn = [cmsUInt16Number](repeating: 0, count: maximumChannels)
-    var wOut = [cmsUInt16Number](repeating: 0, count: maximumChannels)
     let planeIn = stride.pointee.BytesPerPlaneIn
     let planeOut = stride.pointee.BytesPerPlaneOut
 
-    eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
-        accum = fromInput(p, &wIn, accum, planeIn)
-        transformOnePixelWithGamutCheck(box, wIn, &wOut)
-        out = toOutput(p, &wOut, out, planeOut)
+    withWordBuffers { wIn, wOut in
+        eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
+            accum = fromInput(p, wIn, accum, planeIn)
+            transformOnePixelWithGamutCheck(box, lut, gamut, wIn, wOut)
+            out = toOutput(p, wOut, out, planeOut)
+        }
     }
+}
+
+/// The one-pixel cache as two stack buffers seeded from the transform.
+@inline(__always)
+private func withCache(
+    _ box: TransformBox,
+    _ body: (UnsafeMutablePointer<cmsUInt16Number>, UnsafeMutablePointer<cmsUInt16Number>) -> Void
+) {
+    withUnsafeTemporaryAllocation(of: cmsUInt16Number.self, capacity: 2 * maximumChannels) { storage in
+        let cacheIn = storage.baseAddress!
+        let cacheOut = cacheIn + maximumChannels
+        box.cacheIn.withUnsafeBufferPointer { cacheIn.initialize(from: $0.baseAddress!, count: maximumChannels) }
+        box.cacheOut.withUnsafeBufferPointer { cacheOut.initialize(from: $0.baseAddress!, count: maximumChannels) }
+        body(cacheIn, cacheOut)
+    }
+}
+
+@inline(__always)
+private func sameWords(_ a: UnsafePointer<cmsUInt16Number>, _ b: UnsafePointer<cmsUInt16Number>) -> Bool {
+    memcmp(a, b, maximumChannels * 2) == 0
+}
+
+@inline(__always)
+private func copyWords(_ to: UnsafeMutablePointer<cmsUInt16Number>, _ from: UnsafePointer<cmsUInt16Number>) {
+    to.update(from: from, count: maximumChannels)
 }
 
 /// 16 bits with the one-pixel cache: a pixel equal to the last is
@@ -359,25 +420,25 @@ private func cachedXFORM(
     _ pixelsPerLine: cmsUInt32Number, _ lineCount: cmsUInt32Number, _ stride: UnsafePointer<cmsStride>?
 ) {
     guard let box = prologue(p, input, output, pixelsPerLine, lineCount, stride), let stride,
-          let fromInput = box.fromInput, let toOutput = box.toOutput
+          let fromInput = box.fromInput, let toOutput = box.toOutput, let lut = pipelineBox(box.lut)
     else { return }
-    var wIn = [cmsUInt16Number](repeating: 0, count: maximumChannels)
-    var wOut = [cmsUInt16Number](repeating: 0, count: maximumChannels)
-    var cacheIn = box.cacheIn
-    var cacheOut = box.cacheOut
     let planeIn = stride.pointee.BytesPerPlaneIn
     let planeOut = stride.pointee.BytesPerPlaneOut
 
-    eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
-        accum = fromInput(p, &wIn, accum, planeIn)
-        if wIn == cacheIn {
-            wOut = cacheOut
-        } else {
-            cmsPipelineEval16(wIn, &wOut, box.lut)
-            cacheIn = wIn
-            cacheOut = wOut
+    withWordBuffers { wIn, wOut in
+        withCache(box) { cacheIn, cacheOut in
+            eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
+                accum = fromInput(p, wIn, accum, planeIn)
+                if sameWords(wIn, cacheIn) {
+                    copyWords(wOut, cacheOut)
+                } else {
+                    evaluate16(lut, wIn, wOut)
+                    copyWords(cacheIn, wIn)
+                    copyWords(cacheOut, wOut)
+                }
+                out = toOutput(p, wOut, out, planeOut)
+            }
         }
-        out = toOutput(p, &wOut, out, planeOut)
     }
 }
 
@@ -387,25 +448,26 @@ private func cachedXFORMGamutCheck(
     _ pixelsPerLine: cmsUInt32Number, _ lineCount: cmsUInt32Number, _ stride: UnsafePointer<cmsStride>?
 ) {
     guard let box = prologue(p, input, output, pixelsPerLine, lineCount, stride), let stride,
-          let fromInput = box.fromInput, let toOutput = box.toOutput
+          let fromInput = box.fromInput, let toOutput = box.toOutput,
+          let lut = pipelineBox(box.lut), let gamut = pipelineBox(box.gamutCheck)
     else { return }
-    var wIn = [cmsUInt16Number](repeating: 0, count: maximumChannels)
-    var wOut = [cmsUInt16Number](repeating: 0, count: maximumChannels)
-    var cacheIn = box.cacheIn
-    var cacheOut = box.cacheOut
     let planeIn = stride.pointee.BytesPerPlaneIn
     let planeOut = stride.pointee.BytesPerPlaneOut
 
-    eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
-        accum = fromInput(p, &wIn, accum, planeIn)
-        if wIn == cacheIn {
-            wOut = cacheOut
-        } else {
-            transformOnePixelWithGamutCheck(box, wIn, &wOut)
-            cacheIn = wIn
-            cacheOut = wOut
+    withWordBuffers { wIn, wOut in
+        withCache(box) { cacheIn, cacheOut in
+            eachLine(input, output, pixelsPerLine, lineCount, stride) { accum, out in
+                accum = fromInput(p, wIn, accum, planeIn)
+                if sameWords(wIn, cacheIn) {
+                    copyWords(wOut, cacheOut)
+                } else {
+                    transformOnePixelWithGamutCheck(box, lut, gamut, wIn, wOut)
+                    copyWords(cacheIn, wIn)
+                    copyWords(cacheOut, wOut)
+                }
+                out = toOutput(p, wOut, out, planeOut)
+            }
         }
-        out = toOutput(p, &wOut, out, planeOut)
     }
 }
 
@@ -772,13 +834,15 @@ public func cmsCreateExtendedTransform(
     }
 
     // The cache seed: what zero maps to.
-    if dwFlags & cmsUInt32Number(cmsFLAGS_NOCACHE) == 0 {
+    if dwFlags & cmsUInt32Number(cmsFLAGS_NOCACHE) == 0, let lut = pipelineBox(box.lut) {
         for i in 0..<maximumChannels { box.cacheIn[i] = 0 }
-        if box.gamutCheck != nil {
-            transformOnePixelWithGamutCheck(box, box.cacheIn, &box.cacheOut)
+        var seed = [cmsUInt16Number](repeating: 0, count: maximumChannels)
+        if let gamut = pipelineBox(box.gamutCheck) {
+            transformOnePixelWithGamutCheck(box, lut, gamut, box.cacheIn, &seed)
         } else {
-            cmsPipelineEval16(box.cacheIn, &box.cacheOut, box.lut)
+            evaluate16(lut, box.cacheIn, &seed)
         }
+        box.cacheOut = seed
     }
 
     return UnsafeMutableRawPointer(allocateHandle(box))

@@ -101,6 +101,12 @@ function(slcms_add_swift_module name)
     # catch.  Debug builds keep the checking.
     target_compile_options(${name} PRIVATE
         $<$<CONFIG:Release>:-enforce-exclusivity=unchecked>)
+
+    # The boundary calls the engine once per channel per pixel — the fixed
+    # point saturation, the interpolation kernels — and those calls only
+    # inline across the module boundary with this on.
+    target_compile_options(${name} PRIVATE
+        $<$<CONFIG:Release>:-cross-module-optimization>)
 endfunction()
 
 slcms_add_swift_module(LittleCMS)
