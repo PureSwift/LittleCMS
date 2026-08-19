@@ -14,32 +14,32 @@ extension Context {
     /// The engine context a `cmsContext` refers to.  A null ID is the
     /// global context, which is what the reference means by context zero.
     static func resolve(_ id: cmsContext?) -> Context {
-        guard let id, let box = id.pointee.swift_ctx else { return .global }
+        guard let box = swift_c_resolve_context(id)?.pointee.swift_ctx else { return .global }
         return Unmanaged<ContextBox>.fromOpaque(box).takeUnretainedValue().context
     }
 }
 
 @c @implementation
 public func cmsCreateContext(_ Plugin: UnsafeMutableRawPointer?, _ UserData: UnsafeMutableRawPointer?) -> cmsContext? {
-    // The reference registers the plugins before returning the context,
-    // and returns NULL if that fails.  Registration is not implemented,
-    // so a caller asking for it gets that same failure rather than a
-    // context that quietly ignored what it was given.
-    if Plugin != nil {
-        report(
-            cmsUInt32Number(cmsERROR_NOT_SUITABLE),
-            "cmsCreateContext: plugin registration is not implemented",
-            to: nil
-        )
-        return nil
-    }
-
     let handle = UnsafeMutablePointer<_cmsContext_struct>.allocate(capacity: 1)
-    handle.initialize(to: _cmsContext_struct(
-        error_logger: nil,
-        user_data: UserData,
-        swift_ctx: ContextBox.handle(for: ContextBox(copying: nil))
-    ))
+    handle.initialize(to: _cmsContext_struct())
+    handle.pointee.user_data = UserData
+    handle.pointee.swift_ctx = ContextBox.handle(for: ContextBox(copying: nil))
+    swift_c_register_context(handle)
+
+    // The reference registers the plugins before returning the context,
+    // and returns NULL if that fails.  The memory handler, when the chain
+    // has one, goes in first: it is what the context's own storage is
+    // allocated through.
+    if let Plugin {
+        if let memory = findMemoryPlugin(Plugin) {
+            _ = cmsPluginTHR(handle, UnsafeMutableRawPointer(memory))
+        }
+        if cmsPluginTHR(handle, Plugin) == 0 {
+            cmsDeleteContext(handle)
+            return nil
+        }
+    }
     return handle
 }
 
@@ -50,15 +50,18 @@ public func cmsDupContext(_ ContextID: cmsContext?, _ NewUserData: UnsafeMutable
     // The copy keeps the original's user data unless given its own, and
     // inherits its logger: the reference duplicates every chunk, and
     // those two are chunks like the rest.
-    let userData = NewUserData ?? ContextID?.pointee.user_data
-    let logger = ContextID?.pointee.error_logger
+    let resolved = swift_c_resolve_context(ContextID)!
+    let userData = NewUserData ?? resolved.pointee.user_data
+    let logger = resolved.pointee.error_logger
 
     let handle = UnsafeMutablePointer<_cmsContext_struct>.allocate(capacity: 1)
-    handle.initialize(to: _cmsContext_struct(
-        error_logger: logger,
-        user_data: userData,
-        swift_ctx: ContextBox.handle(for: ContextBox(copying: source))
-    ))
+    handle.initialize(to: _cmsContext_struct())
+    handle.pointee.error_logger = logger
+    handle.pointee.user_data = userData
+    handle.pointee.swift_ctx = ContextBox.handle(for: ContextBox(copying: source))
+    // The memory handler is a chunk like the rest, and comes along.
+    copyMemoryHooks(from: ContextID, to: handle)
+    swift_c_register_context(handle)
     return handle
 }
 
@@ -66,7 +69,9 @@ public func cmsDupContext(_ ContextID: cmsContext?, _ NewUserData: UnsafeMutable
 public func cmsDeleteContext(_ ContextID: cmsContext?) {
     // Deleting the global context is not a thing: the reference has
     // nothing to unlink for it either.
-    guard let ContextID else { return }
+    // ...and neither is deleting a handle that is not a context: the
+    // reference walks its pool and ignores what it does not find.
+    guard let ContextID, swift_c_unregister_context(ContextID) != 0 else { return }
     _ = ContextBox.consume(ContextID.pointee.swift_ctx)
     ContextID.deinitialize(count: 1)
     ContextID.deallocate()
@@ -74,7 +79,7 @@ public func cmsDeleteContext(_ ContextID: cmsContext?) {
 
 @c @implementation
 public func cmsGetContextUserData(_ ContextID: cmsContext?) -> UnsafeMutableRawPointer? {
-    ContextID?.pointee.user_data
+    swift_c_resolve_context(ContextID)?.pointee.user_data
 }
 
 // -- alarm codes -------------------------------------------------------

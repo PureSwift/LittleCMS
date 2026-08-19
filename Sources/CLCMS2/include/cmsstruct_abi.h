@@ -52,6 +52,24 @@ struct _cmsContext_struct {
     cmsLogErrorHandlerFunction error_logger;  /* NULL = the default handler, which does nothing */
     void* user_data;                          /* cmsGetContextUserData's answer */
     void* swift_ctx;                          /* retained Unmanaged<Context>, engine-owned */
+
+    /* A memory-handler plugin's functions, or NULL for the built-in
+     * allocator.  Plain data here, so the allocation path is a pointer
+     * read rather than a lock: _cmsMalloc runs once per stage per
+     * pipeline.  Typed as the plugin header's function pointers on the
+     * Swift side; void* here so this header needs only lcms2.h. */
+    void* malloc_fn;
+    void* free_fn;
+    void* realloc_fn;
+    void* malloc_zero_fn;
+    void* calloc_fn;
+    void* dup_fn;
+
+    /* The pool of live contexts, as in the reference: a handle is looked
+     * up in it, and one that is not there — a stale one, or the small
+     * integers the reference's testbed passes on purpose — resolves to
+     * the global context rather than being dereferenced. */
+    struct _cmsContext_struct* next;
 };
 
 /* The field order through Table16 is the reference's, because its testbed

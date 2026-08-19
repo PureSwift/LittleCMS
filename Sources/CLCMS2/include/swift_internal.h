@@ -35,6 +35,8 @@ extern "C" {
 /* The handle for a context ID, never NULL: the static global-context
  * instance when ContextID is NULL, the handle itself otherwise. */
 struct _cmsContext_struct* swift_c_resolve_context(cmsContext ContextID);
+void swift_c_register_context(struct _cmsContext_struct* ctx);
+int  swift_c_unregister_context(struct _cmsContext_struct* ctx);
 
 /* Non-variadic error dispatch: Swift cannot call the variadic
  * cmsSignalError, and the generated stubs need the same funnel.  Runs the

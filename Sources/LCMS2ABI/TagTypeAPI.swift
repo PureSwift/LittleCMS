@@ -494,6 +494,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     table[cmsSigProfileSequenceIdType] = profileSequenceIDTagType
     table.merge(printingTagTypes) { existing, _ in existing }
     table.merge(remainingTagTypes) { existing, _ in existing }
+    table[cmsSigMultiProcessElementType] = mpeTagType
 
     return table
 }()

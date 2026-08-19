@@ -272,24 +272,3 @@ cmsUInt32Number cmsIT8TableCount(cmsHANDLE hIT8)
 {
     swift_unimplemented_fatal("cmsIT8TableCount");
 }
-
-cmsBool cmsPlugin(void* Plugin)
-{
-    swift_unimplemented_fatal("cmsPlugin");
-}
-
-cmsBool cmsPluginTHR(cmsContext ContextID, void* Plugin)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsPluginTHR is not implemented");
-    return (cmsBool){0};
-}
-
-void cmsUnregisterPlugins(void)
-{
-    swift_unimplemented_fatal("cmsUnregisterPlugins");
-}
-
-void cmsUnregisterPluginsTHR(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsUnregisterPluginsTHR is not implemented");
-}

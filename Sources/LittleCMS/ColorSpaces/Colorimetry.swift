@@ -191,6 +191,13 @@ extension CIELab {
         min(max(value, 0), 100.0)
     }
 
+    /// Version 2's L* runs to 0xFFFF/0xFF00 of 100 — a little past it,
+    /// as the encoding allows — so the clamp is there, not at 100.
+    @inlinable
+    static func clampL2(_ value: Double) -> Double {
+        min(max(value, 0), maximumEncodeableL2)
+    }
+
     /// Version 4 clamps a and b to a round ±128/127, and version 2 to the
     /// largest value its own scaling can carry.  The two limits are not
     /// the same number and are not interchangeable.
@@ -228,7 +235,7 @@ extension CIELab {
 
     public var encodedV2: (UInt16, UInt16, UInt16) {
         (
-            quickSaturateWord(CIELab.clampL(l) * 652.8),
+            quickSaturateWord(CIELab.clampL2(l) * 652.8),
             quickSaturateWord((CIELab.clampAB2(a) + 128.0) * 256.0),
             quickSaturateWord((CIELab.clampAB2(b) + 128.0) * 256.0)
         )
@@ -236,6 +243,8 @@ extension CIELab {
 }
 
 @usableFromInline let minimumEncodeableAB = -128.0
+/// The largest L* the version 2 encoding carries: 0xFFFF over 0xFF00 of 100.
+@usableFromInline let maximumEncodeableL2 = 65535.0 * 100.0 / 65280.0
 /// Version 4 stops at a round 127, not at the largest value its scaling
 /// could express.
 @usableFromInline let maximumEncodeableAB4 = 127.0

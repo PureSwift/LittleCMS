@@ -29,12 +29,13 @@ public struct LocaleCode: Hashable, Sendable {
     /// `strTo16`: a null pointer or an empty string is the zero code,
     /// which is how "no language" is spelled.
     public init(twoCharacters buffer: UnsafePointer<CChar>?) {
-        guard let buffer, buffer[0] != 0 else {
+        guard let buffer else {
             self.init(rawValue: 0)
             return
         }
-        // The second character is only read when the first is not the
-        // terminator, so a one-character code does not run past the end.
+        // Both characters are read, whatever they are: the API declares
+        // three, and the reference's testbed passes codes whose first
+        // byte is zero and second is not, expecting them to be distinct.
         let first = UInt8(bitPattern: buffer[0])
         let second = UInt8(bitPattern: buffer[1])
         self.init(first, second)

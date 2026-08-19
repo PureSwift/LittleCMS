@@ -282,6 +282,8 @@ cmsPipelineOutputChannels
 cmsPipelineSetSaveAs8bitsFlag
 cmsPipelineStageCount
 cmsPipelineUnlinkStage
+cmsPlugin
+cmsPluginTHR
 cmsReadRawTag
 cmsReadTag
 cmsReverseToneCurve
@@ -330,6 +332,8 @@ cmsStageType
 cmsTagLinkedTo
 cmsTempFromWhitePoint
 cmsTransform2DeviceLink
+cmsUnregisterPlugins
+cmsUnregisterPluginsTHR
 cmsWhitePointFromTemp
 cmsWriteRawTag
 cmsWriteTag

@@ -7,6 +7,7 @@
 
 #include "swift_internal.h"
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -15,9 +16,49 @@
  * exported symbol — the reference exports no data either. */
 static struct _cmsContext_struct global_context;
 
+/* The pool of contexts cmsCreateContext has made and not yet deleted.
+ * Resolution walks it, and any pointer not in it means the global
+ * context — the reference's rule, which its testbed leans on by passing
+ * made-up handles.  The walk is unlocked, as the reference's is; only
+ * the mutations take the lock. */
+static struct _cmsContext_struct* context_pool;
+static pthread_mutex_t context_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 struct _cmsContext_struct* swift_c_resolve_context(cmsContext ContextID)
 {
-    return ContextID ? ContextID : &global_context;
+    struct _cmsContext_struct* ctx;
+
+    if (ContextID == NULL) return &global_context;
+    for (ctx = context_pool; ctx != NULL; ctx = ctx->next) {
+        if (ctx == ContextID) return ctx;
+    }
+    return &global_context;
+}
+
+void swift_c_register_context(struct _cmsContext_struct* ctx)
+{
+    pthread_mutex_lock(&context_pool_mutex);
+    ctx->next = context_pool;
+    context_pool = ctx;
+    pthread_mutex_unlock(&context_pool_mutex);
+}
+
+/* Unlinks a context; returns whether it was in the pool at all. */
+int swift_c_unregister_context(struct _cmsContext_struct* ctx)
+{
+    struct _cmsContext_struct** link;
+    int found = 0;
+
+    pthread_mutex_lock(&context_pool_mutex);
+    for (link = &context_pool; *link != NULL; link = &(*link)->next) {
+        if (*link == ctx) {
+            *link = ctx->next;
+            found = 1;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&context_pool_mutex);
+    return found;
 }
 
 void swift_c_signal_error(cmsContext ContextID, cmsUInt32Number ErrorCode, const char* Text)
