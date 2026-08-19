@@ -1,0 +1,9 @@
+# Accepted differences for the virtual-profile differential.  Format as in
+# known-differences.txt.  A marker that matches nothing FAILS, so this
+# list cannot go stale.
+
+# cmsTransform2DeviceLink on a pipeline no LUT tag holds as-is needs the
+# resampling optimizer, which is Phase 12; until then we refuse where the
+# reference resamples.
+matrix-shaper -- resampling optimizer (Phase 12) not yet ported
+guessed -- same: the guessed-class Lab identity needs the resampler

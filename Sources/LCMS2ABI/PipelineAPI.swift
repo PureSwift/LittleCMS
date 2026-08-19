@@ -1010,3 +1010,28 @@ func _cmsStageClipNegatives(
     box.duplicate = { _cmsStageClipNegatives($0.context, cmsUInt32Number($0.inputChannels)) }
     return handle(box)
 }
+
+/// The V2-to-V4 Lab rescaling as three tabulated curves rather than a
+/// matrix — the form that can be saved into a devicelink.  A 258-entry
+/// table maps × 257/256 exactly, and the last entry pins full scale.
+func _cmsStageAllocLabV2ToV4curves(_ ContextID: cmsContext?) -> UnsafeMutablePointer<cmsStage>? {
+    var tables: [UnsafeMutablePointer<cmsToneCurve>?] = [
+        cmsBuildTabulatedToneCurve16(ContextID, 258, nil),
+        cmsBuildTabulatedToneCurve16(ContextID, 258, nil),
+        cmsBuildTabulatedToneCurve16(ContextID, 258, nil),
+    ]
+    defer { for t in tables { cmsFreeToneCurve(t) } }
+    if tables.contains(where: { $0 == nil }) { return nil }
+
+    for table in tables {
+        guard let entries = table?.pointee.Table16 else { return nil }
+        for i in 0..<257 {
+            entries[i] = cmsUInt16Number((i * 0xFFFF + 0x80) >> 8)
+        }
+        entries[257] = 0xFFFF
+    }
+
+    guard let mpe = cmsStageAllocToneCurves(ContextID, 3, &tables) else { return nil }
+    stage(mpe)?.implements = cmsSigLabV2toV4
+    return mpe
+}

@@ -1522,7 +1522,9 @@ func signatureText(_ value: cmsUInt32Number) -> String {
         UInt8(truncatingIfNeeded: value >> 24), UInt8(truncatingIfNeeded: value >> 16),
         UInt8(truncatingIfNeeded: value >> 8), UInt8(truncatingIfNeeded: value),
     ]
-    return String(decoding: bytes, as: UTF8.self)
+    // As a C string: a NUL byte ends it, since the reference's message
+    // is built with %s and a logger sees the same text.
+    return String(decoding: bytes.prefix { $0 != 0 }, as: UTF8.self)
 }
 
 /// `_cmsGetTagTrueType`: the type the tag was actually stored as, known

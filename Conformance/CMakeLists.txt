@@ -316,6 +316,17 @@ if(SLCMS_REFERENCE_FOUND)
                 $<TARGET_FILE:clutprobe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
+    add_executable(virtprobe_ours virtprobe.c)
+    target_link_libraries(virtprobe_ours PRIVATE lcms2)
+    add_executable(virtprobe_reference virtprobe.c)
+    target_link_libraries(virtprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME virtual_profile_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:virtprobe_ours>
+                $<TARGET_FILE:virtprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences-virtual.txt)
+
     add_executable(fmtprobe_reference fmtprobe.c)
     target_link_libraries(fmtprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
 

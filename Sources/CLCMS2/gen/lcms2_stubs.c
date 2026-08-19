@@ -30,17 +30,6 @@ void cmsCIECAM02Reverse(cmsHANDLE hModel, const cmsJCh* pIn, cmsCIEXYZ* pOut)
     swift_unimplemented_fatal("cmsCIECAM02Reverse");
 }
 
-cmsHPROFILE cmsCreateBCHSWabstractProfile(cmsUInt32Number nLUTPoints, cmsFloat64Number Bright, cmsFloat64Number Contrast, cmsFloat64Number Hue, cmsFloat64Number Saturation, cmsUInt32Number TempSrc, cmsUInt32Number TempDest)
-{
-    swift_unimplemented_fatal("cmsCreateBCHSWabstractProfile");
-}
-
-cmsHPROFILE cmsCreateBCHSWabstractProfileTHR(cmsContext ContextID, cmsUInt32Number nLUTPoints, cmsFloat64Number Bright, cmsFloat64Number Contrast, cmsFloat64Number Hue, cmsFloat64Number Saturation, cmsUInt32Number TempSrc, cmsUInt32Number TempDest)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateBCHSWabstractProfileTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
 cmsHPROFILE cmsCreateDeviceLinkFromCubeFile(const char* cFileName)
 {
     swift_unimplemented_fatal("cmsCreateDeviceLinkFromCubeFile");
@@ -49,78 +38,6 @@ cmsHPROFILE cmsCreateDeviceLinkFromCubeFile(const char* cFileName)
 cmsHPROFILE cmsCreateDeviceLinkFromCubeFileTHR(cmsContext ContextID, const char* cFileName)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateDeviceLinkFromCubeFileTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsCreateGrayProfile(const cmsCIExyY* WhitePoint, const cmsToneCurve* TransferFunction)
-{
-    swift_unimplemented_fatal("cmsCreateGrayProfile");
-}
-
-cmsHPROFILE cmsCreateGrayProfileTHR(cmsContext ContextID, const cmsCIExyY* WhitePoint, const cmsToneCurve* TransferFunction)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateGrayProfileTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsCreateInkLimitingDeviceLink(cmsColorSpaceSignature ColorSpace, cmsFloat64Number Limit)
-{
-    swift_unimplemented_fatal("cmsCreateInkLimitingDeviceLink");
-}
-
-cmsHPROFILE cmsCreateInkLimitingDeviceLinkTHR(cmsContext ContextID, cmsColorSpaceSignature ColorSpace, cmsFloat64Number Limit)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateInkLimitingDeviceLinkTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsCreateLinearizationDeviceLink(cmsColorSpaceSignature ColorSpace, cmsToneCurve* const TransferFunctions[])
-{
-    swift_unimplemented_fatal("cmsCreateLinearizationDeviceLink");
-}
-
-cmsHPROFILE cmsCreateLinearizationDeviceLinkTHR(cmsContext ContextID, cmsColorSpaceSignature ColorSpace, cmsToneCurve* const TransferFunctions[])
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateLinearizationDeviceLinkTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsCreateNULLProfile(void)
-{
-    swift_unimplemented_fatal("cmsCreateNULLProfile");
-}
-
-cmsHPROFILE cmsCreateNULLProfileTHR(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateNULLProfileTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsCreateXYZProfile(void)
-{
-    swift_unimplemented_fatal("cmsCreateXYZProfile");
-}
-
-cmsHPROFILE cmsCreateXYZProfileTHR(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateXYZProfileTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsCreate_OkLabProfile(cmsContext ctx)
-{
-    swift_c_signal_error(ctx, cmsERROR_NOT_SUITABLE, "cmsCreate_OkLabProfile is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsCreate_sRGBProfile(void)
-{
-    swift_unimplemented_fatal("cmsCreate_sRGBProfile");
-}
-
-cmsHPROFILE cmsCreate_sRGBProfileTHR(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreate_sRGBProfileTHR is not implemented");
     return (cmsHPROFILE){0};
 }
 
@@ -375,11 +292,6 @@ cmsBool cmsPluginTHR(cmsContext ContextID, void* Plugin)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsPluginTHR is not implemented");
     return (cmsBool){0};
-}
-
-cmsHPROFILE cmsTransform2DeviceLink(cmsHTRANSFORM hTransform, cmsFloat64Number Version, cmsUInt32Number dwFlags)
-{
-    swift_unimplemented_fatal("cmsTransform2DeviceLink");
 }
 
 void cmsUnregisterPlugins(void)
