@@ -39,7 +39,7 @@ private func grid(_ p: UnsafePointer<cmsInterpParams>) -> InterpolationGrid {
 // because the dispatch the reference does once at build time is cheap
 // enough to do per call and keeps twenty-six entry points from existing.
 
-private func interpolate16(
+func interpolate16(
     _ input: UnsafePointer<cmsUInt16Number>?,
     _ output: UnsafeMutablePointer<cmsUInt16Number>?,
     _ p: UnsafePointer<cmsInterpParams>?
@@ -52,7 +52,7 @@ private func interpolate16(
     Interpolation.evaluate(input, output, table, grid(p), trilinear: trilinear)
 }
 
-private func interpolateFloat(
+func interpolateFloat(
     _ input: UnsafePointer<cmsFloat32Number>?,
     _ output: UnsafeMutablePointer<cmsFloat32Number>?,
     _ p: UnsafePointer<cmsInterpParams>?

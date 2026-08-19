@@ -7,7 +7,7 @@
  * accessors and the failure paths are printed alongside, with the error
  * logger installed so that a refusal's message is compared too.
  *
- * Every transform is created with cmsFLAGS_NOOPTIMIZE: the reference's
+ * Every transform is created with BASE_FLAGS: the reference's
  * optimizer rewrites a pipeline into a slightly different one, and that
  * rewrite is not part of this library yet.  Black point compensation and
  * gamut checking are likewise left out until the pieces they rest on
@@ -22,6 +22,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* Every transform is created with these flags or'd in.  By default the
+ * optimizer is off; "optimize" as the third argument turns it on, and
+ * the whole matrix then measures the optimizer's rewrites as well. */
+static cmsUInt32Number BASE_FLAGS = cmsFLAGS_NOOPTIMIZE;
 
 static uint64_t hash_state = 1469598103934665603ULL;
 
@@ -174,7 +179,7 @@ static void pair(cmsHPROFILE a, const char* an, cmsUInt32Number in_fmt,
              flags & cmsFLAGS_NOCACHE ? " nocache" : "",
              flags & cmsFLAGS_NONEGATIVES ? " noneg" : "");
     printf(" %s\n", what);
-    x = cmsCreateTransform(a, in_fmt, b, out_fmt, intent, flags | cmsFLAGS_NOOPTIMIZE);
+    x = cmsCreateTransform(a, in_fmt, b, out_fmt, intent, flags | BASE_FLAGS);
     if (x == NULL) { printf("  (refused)\n"); return; }
     describe(x);
     apply(x, in_fmt, out_fmt, what);
@@ -184,7 +189,12 @@ static void pair(cmsHPROFILE a, const char* an, cmsUInt32Number in_fmt,
 int main(int argc, char** argv)
 {
     setvbuf(stdout, NULL, _IONBF, 0);
-    if (argc < 2) { fprintf(stderr, "usage: xformprobe <corpus-dir> [<testbed-dir>]\n"); return 2; }
+    if (argc < 2) { fprintf(stderr, "usage: xformprobe <corpus-dir> [<testbed-dir>] [optimize]\n"); return 2; }
+    const char* testbed_dir = NULL;
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i], "optimize") == 0) { BASE_FLAGS = 0; printf("optimizer on\n"); }
+        else testbed_dir = argv[i];
+    }
     cmsSetLogErrorHandler(logger);
 
     const char* corpus = argv[1];
@@ -198,13 +208,13 @@ int main(int argc, char** argv)
     cmsHPROFILE lindl = open_named(corpus, "linear-devicelink");
     cmsHPROFILE inkdl = open_named(corpus, "inklimit-devicelink");
     cmsHPROFILE t1 = NULL, t2 = NULL, t3 = NULL, t5 = NULL, ibm = NULL, crayons = NULL;
-    if (argc > 2) {
-        t1 = open_named(argv[2], "test1");
-        t2 = open_named(argv[2], "test2");
-        t3 = open_named(argv[2], "test3");
-        t5 = open_named(argv[2], "test5");
-        ibm = open_named(argv[2], "ibm-t61");
-        crayons = open_named(argv[2], "crayons");
+    if (testbed_dir) {
+        t1 = open_named(testbed_dir, "test1");
+        t2 = open_named(testbed_dir, "test2");
+        t3 = open_named(testbed_dir, "test3");
+        t5 = open_named(testbed_dir, "test5");
+        ibm = open_named(testbed_dir, "ibm-t61");
+        crayons = open_named(testbed_dir, "crayons");
     }
 
     /* -- the intents there are -- */
@@ -285,7 +295,7 @@ int main(int argc, char** argv)
         /* A named colour profile as the single profile: index in, colorant out. */
         if (crayons) {
             printf(" crayons\n");
-            cmsHTRANSFORM x = cmsCreateTransform(crayons, TYPE_NAMED_COLOR_INDEX, NULL, TYPE_RGB_8, 0, cmsFLAGS_NOOPTIMIZE);
+            cmsHTRANSFORM x = cmsCreateTransform(crayons, TYPE_NAMED_COLOR_INDEX, NULL, TYPE_RGB_8, 0, BASE_FLAGS);
             if (x) {
                 describe(x);
                 printf("  named list %s\n", cmsGetNamedColorList(x) ? "present" : "absent");
@@ -303,31 +313,31 @@ int main(int argc, char** argv)
     printf("multiprofile\n");
     {
         cmsHPROFILE chain[4] = { srgb, lab4, rgb709, NULL };
-        cmsHTRANSFORM x = cmsCreateMultiprofileTransform(chain, 3, TYPE_RGB_8, TYPE_RGB_8, 1, cmsFLAGS_NOOPTIMIZE);
+        cmsHTRANSFORM x = cmsCreateMultiprofileTransform(chain, 3, TYPE_RGB_8, TYPE_RGB_8, 1, BASE_FLAGS);
         if (x) { describe(x); apply(x, TYPE_RGB_8, TYPE_RGB_8, "srgb>lab4>rgb709"); cmsDeleteTransform(x); }
         else printf("  (refused)\n");
 
         cmsHPROFILE chain2[4] = { srgb, lindl, rgb709, NULL };
-        x = cmsCreateMultiprofileTransform(chain2, 3, TYPE_RGB_16, TYPE_RGB_16, 0, cmsFLAGS_NOOPTIMIZE | cmsFLAGS_NOCACHE);
+        x = cmsCreateMultiprofileTransform(chain2, 3, TYPE_RGB_16, TYPE_RGB_16, 0, BASE_FLAGS | cmsFLAGS_NOCACHE);
         if (x) { describe(x); apply(x, TYPE_RGB_16, TYPE_RGB_16, "srgb>lindl>rgb709"); cmsDeleteTransform(x); }
         else printf("  (refused)\n");
 
         if (t1) {
             cmsHPROFILE chain3[4] = { srgb, t1, t3, srgb };
-            x = cmsCreateMultiprofileTransform(chain3, 4, TYPE_RGB_8, TYPE_RGB_8, 1, cmsFLAGS_NOOPTIMIZE);
+            x = cmsCreateMultiprofileTransform(chain3, 4, TYPE_RGB_8, TYPE_RGB_8, 1, BASE_FLAGS);
             if (x) { describe(x); apply(x, TYPE_RGB_8, TYPE_RGB_8, "srgb>test1>test3>srgb"); cmsDeleteTransform(x); }
             else printf("  (refused)\n");
         }
 
         /* Sequence kept. */
-        x = cmsCreateMultiprofileTransform(chain, 3, TYPE_RGB_8, TYPE_RGB_8, 1, cmsFLAGS_NOOPTIMIZE | cmsFLAGS_KEEP_SEQUENCE);
+        x = cmsCreateMultiprofileTransform(chain, 3, TYPE_RGB_8, TYPE_RGB_8, 1, BASE_FLAGS | cmsFLAGS_KEEP_SEQUENCE);
         if (x) { describe(x); cmsDeleteTransform(x); }
 
         /* Extended, with per-profile intents and states. */
         cmsUInt32Number intents[3] = { 0, 3, 1 };
         cmsBool bpc[3] = { 0, 0, 0 };
         cmsFloat64Number states[3] = { 1.0, 1.0, 1.0 };
-        x = cmsCreateExtendedTransform(NULL, 3, chain, bpc, intents, states, NULL, 0, TYPE_RGB_8, TYPE_RGB_8, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateExtendedTransform(NULL, 3, chain, bpc, intents, states, NULL, 0, TYPE_RGB_8, TYPE_RGB_8, BASE_FLAGS);
         if (x) { describe(x); apply(x, TYPE_RGB_8, TYPE_RGB_8, "extended srgb>lab4>rgb709 mixed intents"); cmsDeleteTransform(x); }
         else printf("  (refused)\n");
 
@@ -337,10 +347,10 @@ int main(int argc, char** argv)
         cmsBool bpc2[2] = { 0, 0 };
         cmsFloat64Number half[2] = { 0.5, 0.5 };
         cmsFloat64Number none[2] = { 0.0, 0.0 };
-        x = cmsCreateExtendedTransform(NULL, 2, two, bpc2, abs2, half, NULL, 0, TYPE_RGB_16, TYPE_RGB_16, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateExtendedTransform(NULL, 2, two, bpc2, abs2, half, NULL, 0, TYPE_RGB_16, TYPE_RGB_16, BASE_FLAGS);
         if (x) { describe(x); apply(x, TYPE_RGB_16, TYPE_RGB_16, "srgb>rgb709 abs half-adapted"); cmsDeleteTransform(x); }
         else printf("  (refused)\n");
-        x = cmsCreateExtendedTransform(NULL, 2, two, bpc2, abs2, none, NULL, 0, TYPE_RGB_16, TYPE_RGB_16, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateExtendedTransform(NULL, 2, two, bpc2, abs2, none, NULL, 0, TYPE_RGB_16, TYPE_RGB_16, BASE_FLAGS);
         if (x) { describe(x); apply(x, TYPE_RGB_16, TYPE_RGB_16, "srgb>rgb709 abs unadapted"); cmsDeleteTransform(x); }
         else printf("  (refused)\n");
 
@@ -354,11 +364,11 @@ int main(int argc, char** argv)
     /* -- proofing without the flags is a plain transform -- */
     printf("proofing\n");
     {
-        cmsHTRANSFORM x = cmsCreateProofingTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_8, lab4, 0, 1, cmsFLAGS_NOOPTIMIZE);
+        cmsHTRANSFORM x = cmsCreateProofingTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_8, lab4, 0, 1, BASE_FLAGS);
         if (x) { describe(x); apply(x, TYPE_RGB_8, TYPE_RGB_8, "proof srgb>rgb709 (no proofing flags)"); cmsDeleteTransform(x); }
         else printf("  (refused)\n");
         if (t1) {
-            x = cmsCreateProofingTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_8, t1, 0, 1, cmsFLAGS_NOOPTIMIZE | cmsFLAGS_SOFTPROOFING);
+            x = cmsCreateProofingTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_8, t1, 0, 1, BASE_FLAGS | cmsFLAGS_SOFTPROOFING);
             if (x) { describe(x); apply(x, TYPE_RGB_8, TYPE_RGB_8, "softproof srgb>test1>rgb709"); cmsDeleteTransform(x); }
             else printf("  (refused)\n");
         }
@@ -371,32 +381,32 @@ int main(int argc, char** argv)
         cmsSetAlarmCodes(alarm);
         /* sRGB against the smaller 709 gamut: colours 709 cannot hold come back as the alarm. */
         cmsHTRANSFORM x = cmsCreateProofingTransform(srgb, TYPE_RGB_16, rgb709, TYPE_RGB_16, rgb709, 0, 1,
-                                                     cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK);
+                                                     BASE_FLAGS | cmsFLAGS_GAMUTCHECK);
         if (x) { describe(x); apply(x, TYPE_RGB_16, TYPE_RGB_16, "gamut check srgb>rgb709 (rgb709 gamut)"); cmsDeleteTransform(x); }
         else printf("  (refused)\n");
         x = cmsCreateProofingTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_8, rgb709, 0, 1,
-                                       cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK | cmsFLAGS_NOCACHE);
+                                       BASE_FLAGS | cmsFLAGS_GAMUTCHECK | cmsFLAGS_NOCACHE);
         if (x) { describe(x); apply(x, TYPE_RGB_8, TYPE_RGB_8, "gamut check srgb>rgb709 8-bit nocache"); cmsDeleteTransform(x); }
         else printf("  (refused)\n");
         /* And in floating point, where out of gamut is a value above zero. */
         x = cmsCreateProofingTransform(srgb, TYPE_RGB_FLT, rgb709, TYPE_RGB_FLT, rgb709, 0, 1,
-                                       cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK);
+                                       BASE_FLAGS | cmsFLAGS_GAMUTCHECK);
         if (x) { describe(x); apply(x, TYPE_RGB_FLT, TYPE_RGB_FLT, "gamut check srgb>rgb709 float"); cmsDeleteTransform(x); }
         else printf("  (refused)\n");
         if (t1) {
             /* A LUT-based gamut, whose round trip is looser: threshold 5. */
             x = cmsCreateProofingTransform(srgb, TYPE_RGB_16, rgb709, TYPE_RGB_16, t1, 0, 1,
-                                           cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK | cmsFLAGS_SOFTPROOFING);
+                                           BASE_FLAGS | cmsFLAGS_GAMUTCHECK | cmsFLAGS_SOFTPROOFING);
             if (x) { describe(x); apply(x, TYPE_RGB_16, TYPE_RGB_16, "gamut check + softproof srgb>test1>rgb709"); cmsDeleteTransform(x); }
             else printf("  (refused)\n");
         }
         /* Gamut check asked with no gamut profile is silently dropped. */
         cmsHPROFILE two[2] = { srgb, rgb709 };
         cmsUInt32Number in2[2] = { 0, 0 }; cmsBool bp2[2] = { 0, 0 }; cmsFloat64Number ad2[2] = { 1, 1 };
-        x = cmsCreateExtendedTransform(NULL, 2, two, bp2, in2, ad2, NULL, 0, TYPE_RGB_8, TYPE_RGB_8, cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK);
+        x = cmsCreateExtendedTransform(NULL, 2, two, bp2, in2, ad2, NULL, 0, TYPE_RGB_8, TYPE_RGB_8, BASE_FLAGS | cmsFLAGS_GAMUTCHECK);
         if (x) { describe(x); cmsDeleteTransform(x); } else printf("  (refused)\n");
         /* A bad gamut PCS position is refused. */
-        x = cmsCreateExtendedTransform(NULL, 2, two, bp2, in2, ad2, rgb709, 5, TYPE_RGB_8, TYPE_RGB_8, cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK);
+        x = cmsCreateExtendedTransform(NULL, 2, two, bp2, in2, ad2, rgb709, 5, TYPE_RGB_8, TYPE_RGB_8, BASE_FLAGS | cmsFLAGS_GAMUTCHECK);
         printf("  bad gamut position: %s\n", x ? "created" : "refused");
         if (x) cmsDeleteTransform(x);
         cmsUInt16Number defaults[cmsMAXCHANNELS] = { 0x7F00, 0x7F00, 0x7F00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -414,7 +424,7 @@ int main(int argc, char** argv)
             char what[64];
             snprintf(what, sizeof what, "test1>test3 CMYK_8 intent %u", intent);
             printf(" %s\n", what);
-            cmsHTRANSFORM x = cmsCreateTransform(t1, TYPE_CMYK_8, t3, TYPE_CMYK_8, intent, cmsFLAGS_NOOPTIMIZE);
+            cmsHTRANSFORM x = cmsCreateTransform(t1, TYPE_CMYK_8, t3, TYPE_CMYK_8, intent, BASE_FLAGS);
             if (x) { describe(x); apply(x, TYPE_CMYK_8, TYPE_CMYK_8, what); cmsDeleteTransform(x); }
             else printf("  (refused)\n");
         }
@@ -423,7 +433,7 @@ int main(int argc, char** argv)
         pair(t1, "test1", TYPE_CMYK_8, srgb, "srgb", TYPE_RGB_8, 13, 0);
         /* With a trailing CMYK devicelink, which is set aside and appended. */
         cmsHPROFILE chain[3] = { t1, t3, inkdl };
-        cmsHTRANSFORM x = cmsCreateMultiprofileTransform(chain, 3, TYPE_CMYK_8, TYPE_CMYK_8, 11, cmsFLAGS_NOOPTIMIZE);
+        cmsHTRANSFORM x = cmsCreateMultiprofileTransform(chain, 3, TYPE_CMYK_8, TYPE_CMYK_8, 11, BASE_FLAGS);
         if (x) { describe(x); apply(x, TYPE_CMYK_8, TYPE_CMYK_8, "test1>test3>inkdl intent 11"); cmsDeleteTransform(x); }
         else printf("  (refused)\n");
     }
@@ -440,7 +450,7 @@ int main(int argc, char** argv)
     /* -- changing the buffer formats -- */
     printf("change buffers format\n");
     {
-        cmsHTRANSFORM x = cmsCreateTransform(srgb, TYPE_RGB_16, rgb709, TYPE_RGB_16, 0, cmsFLAGS_NOOPTIMIZE);
+        cmsHTRANSFORM x = cmsCreateTransform(srgb, TYPE_RGB_16, rgb709, TYPE_RGB_16, 0, BASE_FLAGS);
         if (x) {
             printf("  16>16 to 8>8: %d\n", cmsChangeBuffersFormat(x, TYPE_RGB_8, TYPE_RGB_8));
             describe(x);
@@ -451,7 +461,7 @@ int main(int argc, char** argv)
             cmsDeleteTransform(x);
         }
         /* An 8-bit input transform cannot be changed. */
-        x = cmsCreateTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_8, 0, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_8, 0, BASE_FLAGS);
         if (x) {
             printf("  8>8 to 16>16: %d\n", cmsChangeBuffersFormat(x, TYPE_RGB_16, TYPE_RGB_16));
             cmsDeleteTransform(x);
@@ -462,31 +472,31 @@ int main(int argc, char** argv)
     printf("refusals\n");
     {
         cmsHTRANSFORM x;
-        x = cmsCreateTransform(srgb, TYPE_CMYK_8, rgb709, TYPE_RGB_8, 0, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateTransform(srgb, TYPE_CMYK_8, rgb709, TYPE_RGB_8, 0, BASE_FLAGS);
         printf("  wrong input space: %s\n", x ? "created" : "refused");
-        x = cmsCreateTransform(srgb, TYPE_RGB_8, rgb709, TYPE_GRAY_8, 0, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateTransform(srgb, TYPE_RGB_8, rgb709, TYPE_GRAY_8, 0, BASE_FLAGS);
         printf("  wrong output space: %s\n", x ? "created" : "refused");
-        x = cmsCreateTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_8, 42, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_8, 42, BASE_FLAGS);
         printf("  unknown intent: %s\n", x ? "created" : "refused");
-        x = cmsCreateTransform(srgb, TYPE_RGB_8, NULL, TYPE_RGB_8, 0, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateTransform(srgb, TYPE_RGB_8, NULL, TYPE_RGB_8, 0, BASE_FLAGS);
         printf("  matrix-shaper alone: %s\n", x ? "created" : "refused");
         if (x) { describe(x); apply(x, TYPE_RGB_8, TYPE_RGB_8, "srgb alone"); cmsDeleteTransform(x); }
-        x = cmsCreateTransform(srgb, TYPE_RGB_8, gray, TYPE_RGB_8, 0, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateTransform(srgb, TYPE_RGB_8, gray, TYPE_RGB_8, 0, BASE_FLAGS);
         printf("  gray as RGB: %s\n", x ? "created" : "refused");
         cmsHPROFILE none[1] = { NULL };
         x = cmsCreateMultiprofileTransform(none, 0, TYPE_RGB_8, TYPE_RGB_8, 0, 0);
         printf("  zero profiles: %s\n", x ? "created" : "refused");
-        x = cmsCreateTransform(NULL, TYPE_RGB_8, srgb, TYPE_RGB_8, 0, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateTransform(NULL, TYPE_RGB_8, srgb, TYPE_RGB_8, 0, BASE_FLAGS);
         printf("  null input profile: %s\n", x ? "created" : "refused");
         /* A layout no formatter serves. */
-        x = cmsCreateTransform(srgb, (7 << 3) | 2 | (3 << 7) | (1 << 12), rgb709, TYPE_RGB_8, 0, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateTransform(srgb, (7 << 3) | 2 | (3 << 7) | (1 << 12), rgb709, TYPE_RGB_8, 0, BASE_FLAGS);
         printf("  unsupported layout: %s\n", x ? "created" : "refused");
         /* Lab against LabV2 is accepted either way. */
-        x = cmsCreateTransform(lab4, TYPE_LabV2_16, srgb, TYPE_RGB_8, 0, cmsFLAGS_NOOPTIMIZE);
+        x = cmsCreateTransform(lab4, TYPE_LabV2_16, srgb, TYPE_RGB_8, 0, BASE_FLAGS);
         printf("  labv2 layout on v4 profile: %s\n", x ? "created" : "refused");
         if (x) { apply(x, TYPE_LabV2_16, TYPE_RGB_8, "lab4 as LabV2_16>srgb"); cmsDeleteTransform(x); }
         /* Copy-alpha with mismatched extra channels. */
-        x = cmsCreateTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_16, 0, cmsFLAGS_NOOPTIMIZE | cmsFLAGS_COPY_ALPHA);
+        x = cmsCreateTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_16, 0, BASE_FLAGS | cmsFLAGS_COPY_ALPHA);
         printf("  copy alpha, no alpha: %s\n", x ? "created" : "refused");
         if (x) cmsDeleteTransform(x);
     }

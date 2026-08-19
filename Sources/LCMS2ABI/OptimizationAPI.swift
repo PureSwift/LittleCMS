@@ -3,15 +3,13 @@ import LittleCMS
 
 // What happens to a pipeline between linking and use.
 //
-// The reference's optimizer rewrites a pipeline into a faster equivalent
-// — a resampled CLUT, a joined matrix-shaper, an 8-bit prelinearised
-// table — and those rewrites change the answers slightly, which is why
-// cmsFLAGS_NOOPTIMIZE exists.  None of them are here yet.  What is here
-// is the part that runs regardless of that flag: removing identity
-// stages and cancelling facing pairs of conversions, which change no
-// answer, and the shell that dispatches to plugins and would dispatch to
-// the built-in schemes.  A transform built here computes what a
-// NOOPTIMIZE transform computes in the reference.
+// The optimizer rewrites a pipeline into a faster equivalent — a
+// resampled CLUT, a joined matrix-shaper, an 8-bit prelinearised table —
+// and those rewrites change the answers slightly, which is why
+// cmsFLAGS_NOOPTIMIZE exists.  This file holds the part that runs
+// regardless of that flag — removing identity stages and cancelling
+// facing pairs of conversions, which change no answer — and the shell
+// that dispatches to the schemes in OptimizationSchemesAPI.swift.
 
 @inline(__always)
 private func pipeline(_ p: UnsafeMutablePointer<cmsPipeline>?) -> PipelineBox? {
@@ -41,18 +39,6 @@ public func _cmsPipelineSetOptimizationParameters(
     box.optimizationData = PrivateData
     box.freeOptimizationData = FreePrivateDataFn
     box.dupOptimizationData = DupPrivateDataFn
-}
-
-/// The evaluator for a pipeline that turned out to have no stages: the
-/// input is the output.  Its data is the pipeline, for the channel count.
-private func fastIdentity16(
-    _ In: UnsafePointer<cmsUInt16Number>?,
-    _ Out: UnsafeMutablePointer<cmsUInt16Number>?,
-    _ Data: UnsafeRawPointer?
-) {
-    guard let In, let Out, let Data else { return }
-    let box = Unmanaged<PipelineBox>.fromOpaque(Data).takeUnretainedValue()
-    for i in 0..<box.inputChannels { Out[i] = In[i] }
 }
 
 // -- the rewrites that change nothing -----------------------------------------
@@ -203,12 +189,11 @@ public func _cmsOptimizePipeline(
     guard let PtrLut, let lut = PtrLut.pointee, let box = pipeline(lut), let dwFlags
     else { return 0 }
 
-    // A CLUT was asked for outright.  The resampling scheme that would
-    // build one is not here yet, so the request is honoured as far as
-    // the cancellations and no further.
+    // A CLUT was asked for outright.
     if dwFlags.pointee & cmsUInt32Number(cmsFLAGS_FORCE_CLUT) != 0 {
         _ = preOptimize(lut)
-        return 0
+        guard let InputFormat, let OutputFormat else { return 0 }
+        return optimizeByResampling(PtrLut, Intent, InputFormat, OutputFormat, dwFlags) ? 1 : 0
     }
 
     if box.stages.isEmpty {
@@ -232,9 +217,14 @@ public func _cmsOptimizePipeline(
         return 0
     }
 
-    // Plugin schemes would be tried here, then the built-in ones:
-    // joining a matrix-shaper, resampling to a CLUT, prelinearising.
-    // None exist yet, so only the simple cancellations can have
-    // succeeded.
+    // Plugin schemes would be tried here; there are none.  Then the
+    // built-in ones, in order of preference: the first that applies wins.
+    guard let InputFormat, let OutputFormat else { return anySuccess ? 1 : 0 }
+    if optimizeByJoiningCurves(PtrLut, Intent, InputFormat, OutputFormat, dwFlags) { return 1 }
+    if optimizeMatrixShaper(PtrLut, Intent, InputFormat, OutputFormat, dwFlags) { return 1 }
+    if optimizeByComputingLinearization(PtrLut, Intent, InputFormat, OutputFormat, dwFlags) { return 1 }
+    if optimizeByResampling(PtrLut, Intent, InputFormat, OutputFormat, dwFlags) { return 1 }
+
+    // Only the simple cancellations succeeded.
     return anySuccess ? 1 : 0
 }

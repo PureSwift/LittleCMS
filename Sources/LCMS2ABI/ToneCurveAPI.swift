@@ -75,6 +75,14 @@ private func makeInterpolationParameters(
         field.withMemoryRebound(to: cmsUInt32Number.self, capacity: 1) { $0[0] = 1 }
     }
 
+    // The kernel a caller — the optimizer's prelinearisation, a plugin —
+    // may invoke through the parameters directly.
+    if flags & cmsUInt32Number(CMS_LERP_FLAGS_FLOAT) != 0 {
+        p.pointee.Interpolation.LerpFloat = interpolateFloat
+    } else {
+        p.pointee.Interpolation.Lerp16 = interpolate16
+    }
+
     return p
 }
 

@@ -400,6 +400,16 @@ if(SLCMS_REFERENCE_FOUND)
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences-transform.txt
                 ${SLCMS_PROFILE_ARGS})
     set_tests_properties(transform_differential PROPERTIES FIXTURES_REQUIRED corpus)
+
+    # The same matrix with the optimizer on: the rewrites, evaluators
+    # and fixed-point arithmetic of cmsopt.c.
+    add_test(NAME transform_optimized_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:xformprobe_ours>
+                $<TARGET_FILE:xformprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences-transform.txt
+                ${SLCMS_PROFILE_ARGS} optimize)
+    set_tests_properties(transform_optimized_differential PROPERTIES FIXTURES_REQUIRED corpus)
 elseif(SLCMS_REQUIRE_REFERENCE)
     message(FATAL_ERROR
         "No reference lcms2 found via pkg-config, and SLCMS_REQUIRE_REFERENCE "

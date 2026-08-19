@@ -189,11 +189,13 @@ int main(void)
     {
         cmsHTRANSFORM x = cmsCreateTransform(srgb, TYPE_RGB_16, rgb709, TYPE_RGB_16, 1, cmsFLAGS_NOOPTIMIZE);
         /* Two matrix-shapers link into curves-matrix-matrix-curves, which
-         * no LUT tag holds as-is; the resampling optimizer is not ported
-         * yet, so this is expected to be refused for now on our side. */
-        cmsHPROFILE dl = cmsTransform2DeviceLink(x, 4.4, 0);
-        printf("  matrix-shaper pair as v4.4: %s\n", dl ? "created" : "refused");
-        if (dl) cmsCloseProfile(dl);
+         * no LUT tag holds as-is: the optimizer resamples it. */
+        cmsHPROFILE re0 = saved("matrix-shaper pair as v4.4", cmsTransform2DeviceLink(x, 4.4, 0));
+        through("re-saved matrix-shaper pair alone", re0, TYPE_RGB_16, NULL, 0, 0);
+        if (re0) cmsCloseProfile(re0);
+        re0 = saved("matrix-shaper pair as v2.1", cmsTransform2DeviceLink(x, 2.1, 0));
+        through("re-saved matrix-shaper pair v2 alone", re0, TYPE_RGB_16, NULL, 0, 0);
+        if (re0) cmsCloseProfile(re0);
         cmsDeleteTransform(x);
 
         /* A devicelink of a single linearization is curves only, which v4 holds. */
@@ -215,11 +217,8 @@ int main(void)
 
         /* Lab to Lab through the identity, as a v2 abstract profile guessed from the ends. */
         x = cmsCreateTransform(lab4, TYPE_Lab_16, lab4, TYPE_Lab_16, 0, cmsFLAGS_NOOPTIMIZE);
-        /* Identity curves between two V2 Lab rescalings, which needs the
-         * resampler; refused on our side for now, so only the outcome is
-         * printed. */
-        re = cmsTransform2DeviceLink(x, 2.1, cmsFLAGS_GUESSDEVICECLASS);
-        printf("  lab4>lab4 as v2.1 guessed class: %s\n", re ? "created" : "refused");
+        re = saved("lab4>lab4 as v2.1 guessed class", cmsTransform2DeviceLink(x, 2.1, cmsFLAGS_GUESSDEVICECLASS));
+        through("re-saved lab4>lab4 alone", re, TYPE_Lab_16, NULL, 0, 0);
         if (re) cmsCloseProfile(re);
         cmsDeleteTransform(x);
     }
