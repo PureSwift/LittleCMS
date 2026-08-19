@@ -9,63 +9,6 @@
 
 #include "swift_internal.h"
 
-cmsPipeline* _cmsDefaultICCintents(cmsContext ContextID, cmsUInt32Number nProfiles, cmsUInt32Number Intents[], cmsHPROFILE hProfiles[], cmsBool BPC[], cmsFloat64Number AdaptationStates[], cmsUInt32Number dwFlags)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsDefaultICCintents is not implemented");
-    return (cmsPipeline*){0};
-}
-
-cmsUInt32Number _cmsGetTransformFlags(struct _cmstransform_struct* CMMcargo)
-{
-    swift_unimplemented_fatal("_cmsGetTransformFlags");
-}
-
-void _cmsGetTransformFormatters16(struct _cmstransform_struct *CMMcargo, cmsFormatter16* FromInput, cmsFormatter16* ToOutput)
-{
-    swift_unimplemented_fatal("_cmsGetTransformFormatters16");
-}
-
-void _cmsGetTransformFormattersFloat(struct _cmstransform_struct *CMMcargo, cmsFormatterFloat* FromInput, cmsFormatterFloat* ToOutput)
-{
-    swift_unimplemented_fatal("_cmsGetTransformFormattersFloat");
-}
-
-cmsInt32Number _cmsGetTransformMaxWorkers(struct _cmstransform_struct* CMMcargo)
-{
-    swift_unimplemented_fatal("_cmsGetTransformMaxWorkers");
-}
-
-void * _cmsGetTransformUserData(struct _cmstransform_struct *CMMcargo)
-{
-    swift_unimplemented_fatal("_cmsGetTransformUserData");
-}
-
-_cmsTransform2Fn _cmsGetTransformWorker(struct _cmstransform_struct* CMMcargo)
-{
-    swift_unimplemented_fatal("_cmsGetTransformWorker");
-}
-
-cmsUInt32Number _cmsGetTransformWorkerFlags(struct _cmstransform_struct* CMMcargo)
-{
-    swift_unimplemented_fatal("_cmsGetTransformWorkerFlags");
-}
-
-cmsBool _cmsOptimizePipeline(cmsContext ContextID, cmsPipeline** Lut, cmsUInt32Number Intent, cmsUInt32Number* InputFormat, cmsUInt32Number* OutputFormat, cmsUInt32Number* dwFlags)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "_cmsOptimizePipeline is not implemented");
-    return (cmsBool){0};
-}
-
-void _cmsPipelineSetOptimizationParameters(cmsPipeline* Lut, _cmsPipelineEval16Fn Eval16, void* PrivateData, _cmsFreeUserDataFn FreePrivateDataFn, _cmsDupUserDataFn DupPrivateDataFn)
-{
-    swift_unimplemented_fatal("_cmsPipelineSetOptimizationParameters");
-}
-
-void _cmsSetTransformUserData(struct _cmstransform_struct *CMMcargo, void* ptr, _cmsFreeUserDataFn FreePrivateDataFn)
-{
-    swift_unimplemented_fatal("_cmsSetTransformUserData");
-}
-
 void cmsCIECAM02Done(cmsHANDLE hModel)
 {
     swift_unimplemented_fatal("cmsCIECAM02Done");
@@ -85,11 +28,6 @@ cmsHANDLE cmsCIECAM02Init(cmsContext ContextID, const cmsViewingConditions* pVC)
 void cmsCIECAM02Reverse(cmsHANDLE hModel, const cmsJCh* pIn, cmsCIEXYZ* pOut)
 {
     swift_unimplemented_fatal("cmsCIECAM02Reverse");
-}
-
-cmsBool cmsChangeBuffersFormat(cmsHTRANSFORM hTransform, cmsUInt32Number InputFormat, cmsUInt32Number OutputFormat)
-{
-    swift_unimplemented_fatal("cmsChangeBuffersFormat");
 }
 
 cmsHPROFILE cmsCreateBCHSWabstractProfile(cmsUInt32Number nLUTPoints, cmsFloat64Number Bright, cmsFloat64Number Contrast, cmsFloat64Number Hue, cmsFloat64Number Saturation, cmsUInt32Number TempSrc, cmsUInt32Number TempDest)
@@ -114,12 +52,6 @@ cmsHPROFILE cmsCreateDeviceLinkFromCubeFileTHR(cmsContext ContextID, const char*
     return (cmsHPROFILE){0};
 }
 
-cmsHTRANSFORM cmsCreateExtendedTransform(cmsContext ContextID, cmsUInt32Number nProfiles, cmsHPROFILE hProfiles[], cmsBool BPC[], cmsUInt32Number Intents[], cmsFloat64Number AdaptationStates[], cmsHPROFILE hGamutProfile, cmsUInt32Number nGamutPCSposition, cmsUInt32Number InputFormat, cmsUInt32Number OutputFormat, cmsUInt32Number dwFlags)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateExtendedTransform is not implemented");
-    return (cmsHTRANSFORM){0};
-}
-
 cmsHPROFILE cmsCreateGrayProfile(const cmsCIExyY* WhitePoint, const cmsToneCurve* TransferFunction)
 {
     swift_unimplemented_fatal("cmsCreateGrayProfile");
@@ -142,28 +74,6 @@ cmsHPROFILE cmsCreateInkLimitingDeviceLinkTHR(cmsContext ContextID, cmsColorSpac
     return (cmsHPROFILE){0};
 }
 
-cmsHPROFILE cmsCreateLab2Profile(const cmsCIExyY* WhitePoint)
-{
-    swift_unimplemented_fatal("cmsCreateLab2Profile");
-}
-
-cmsHPROFILE cmsCreateLab2ProfileTHR(cmsContext ContextID, const cmsCIExyY* WhitePoint)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateLab2ProfileTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHPROFILE cmsCreateLab4Profile(const cmsCIExyY* WhitePoint)
-{
-    swift_unimplemented_fatal("cmsCreateLab4Profile");
-}
-
-cmsHPROFILE cmsCreateLab4ProfileTHR(cmsContext ContextID, const cmsCIExyY* WhitePoint)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateLab4ProfileTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
 cmsHPROFILE cmsCreateLinearizationDeviceLink(cmsColorSpaceSignature ColorSpace, cmsToneCurve* const TransferFunctions[])
 {
     swift_unimplemented_fatal("cmsCreateLinearizationDeviceLink");
@@ -175,17 +85,6 @@ cmsHPROFILE cmsCreateLinearizationDeviceLinkTHR(cmsContext ContextID, cmsColorSp
     return (cmsHPROFILE){0};
 }
 
-cmsHTRANSFORM cmsCreateMultiprofileTransform(cmsHPROFILE hProfiles[], cmsUInt32Number nProfiles, cmsUInt32Number InputFormat, cmsUInt32Number OutputFormat, cmsUInt32Number Intent, cmsUInt32Number dwFlags)
-{
-    swift_unimplemented_fatal("cmsCreateMultiprofileTransform");
-}
-
-cmsHTRANSFORM cmsCreateMultiprofileTransformTHR(cmsContext ContextID, cmsHPROFILE hProfiles[], cmsUInt32Number nProfiles, cmsUInt32Number InputFormat, cmsUInt32Number OutputFormat, cmsUInt32Number Intent, cmsUInt32Number dwFlags)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateMultiprofileTransformTHR is not implemented");
-    return (cmsHTRANSFORM){0};
-}
-
 cmsHPROFILE cmsCreateNULLProfile(void)
 {
     swift_unimplemented_fatal("cmsCreateNULLProfile");
@@ -195,39 +94,6 @@ cmsHPROFILE cmsCreateNULLProfileTHR(cmsContext ContextID)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateNULLProfileTHR is not implemented");
     return (cmsHPROFILE){0};
-}
-
-cmsHTRANSFORM cmsCreateProofingTransform(cmsHPROFILE Input, cmsUInt32Number InputFormat, cmsHPROFILE Output, cmsUInt32Number OutputFormat, cmsHPROFILE Proofing, cmsUInt32Number Intent, cmsUInt32Number ProofingIntent, cmsUInt32Number dwFlags)
-{
-    swift_unimplemented_fatal("cmsCreateProofingTransform");
-}
-
-cmsHTRANSFORM cmsCreateProofingTransformTHR(cmsContext ContextID, cmsHPROFILE Input, cmsUInt32Number InputFormat, cmsHPROFILE Output, cmsUInt32Number OutputFormat, cmsHPROFILE Proofing, cmsUInt32Number Intent, cmsUInt32Number ProofingIntent, cmsUInt32Number dwFlags)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateProofingTransformTHR is not implemented");
-    return (cmsHTRANSFORM){0};
-}
-
-cmsHPROFILE cmsCreateRGBProfile(const cmsCIExyY* WhitePoint, const cmsCIExyYTRIPLE* Primaries, cmsToneCurve* const TransferFunction[3])
-{
-    swift_unimplemented_fatal("cmsCreateRGBProfile");
-}
-
-cmsHPROFILE cmsCreateRGBProfileTHR(cmsContext ContextID, const cmsCIExyY* WhitePoint, const cmsCIExyYTRIPLE* Primaries, cmsToneCurve* const TransferFunction[3])
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateRGBProfileTHR is not implemented");
-    return (cmsHPROFILE){0};
-}
-
-cmsHTRANSFORM cmsCreateTransform(cmsHPROFILE Input, cmsUInt32Number InputFormat, cmsHPROFILE Output, cmsUInt32Number OutputFormat, cmsUInt32Number Intent, cmsUInt32Number dwFlags)
-{
-    swift_unimplemented_fatal("cmsCreateTransform");
-}
-
-cmsHTRANSFORM cmsCreateTransformTHR(cmsContext ContextID, cmsHPROFILE Input, cmsUInt32Number InputFormat, cmsHPROFILE Output, cmsUInt32Number OutputFormat, cmsUInt32Number Intent, cmsUInt32Number dwFlags)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsCreateTransformTHR is not implemented");
-    return (cmsHTRANSFORM){0};
 }
 
 cmsHPROFILE cmsCreateXYZProfile(void)
@@ -258,21 +124,6 @@ cmsHPROFILE cmsCreate_sRGBProfileTHR(cmsContext ContextID)
     return (cmsHPROFILE){0};
 }
 
-void cmsDeleteTransform(cmsHTRANSFORM hTransform)
-{
-    swift_unimplemented_fatal("cmsDeleteTransform");
-}
-
-cmsBool cmsDetectBlackPoint(cmsCIEXYZ* BlackPoint, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags)
-{
-    swift_unimplemented_fatal("cmsDetectBlackPoint");
-}
-
-cmsBool cmsDetectDestinationBlackPoint(cmsCIEXYZ* BlackPoint, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags)
-{
-    swift_unimplemented_fatal("cmsDetectDestinationBlackPoint");
-}
-
 cmsFloat64Number cmsDetectRGBProfileGamma(cmsHPROFILE hProfile, cmsFloat64Number threshold)
 {
     swift_unimplemented_fatal("cmsDetectRGBProfileGamma");
@@ -281,31 +132,6 @@ cmsFloat64Number cmsDetectRGBProfileGamma(cmsHPROFILE hProfile, cmsFloat64Number
 cmsFloat64Number cmsDetectTAC(cmsHPROFILE hProfile)
 {
     swift_unimplemented_fatal("cmsDetectTAC");
-}
-
-void cmsDoTransform(cmsHTRANSFORM Transform, const void * InputBuffer, void * OutputBuffer, cmsUInt32Number Size)
-{
-    swift_unimplemented_fatal("cmsDoTransform");
-}
-
-void cmsDoTransformLineStride(cmsHTRANSFORM Transform, const void* InputBuffer, void* OutputBuffer, cmsUInt32Number PixelsPerLine, cmsUInt32Number LineCount, cmsUInt32Number BytesPerLineIn, cmsUInt32Number BytesPerLineOut, cmsUInt32Number BytesPerPlaneIn, cmsUInt32Number BytesPerPlaneOut)
-{
-    swift_unimplemented_fatal("cmsDoTransformLineStride");
-}
-
-void cmsDoTransformStride(cmsHTRANSFORM Transform, const void * InputBuffer, void * OutputBuffer, cmsUInt32Number Size, cmsUInt32Number Stride)
-{
-    swift_unimplemented_fatal("cmsDoTransformStride");
-}
-
-cmsUInt32Number cmsFormatterForColorspaceOfProfile(cmsHPROFILE hProfile, cmsUInt32Number nBytes, cmsBool lIsFloat)
-{
-    swift_unimplemented_fatal("cmsFormatterForColorspaceOfProfile");
-}
-
-cmsUInt32Number cmsFormatterForPCSOfProfile(cmsHPROFILE hProfile, cmsUInt32Number nBytes, cmsBool lIsFloat)
-{
-    swift_unimplemented_fatal("cmsFormatterForPCSOfProfile");
 }
 
 cmsHANDLE cmsGBDAlloc(cmsContext ContextID)
@@ -334,11 +160,6 @@ cmsBool cmsGDBCompute(cmsHANDLE hGDB, cmsUInt32Number dwFlags)
     swift_unimplemented_fatal("cmsGDBCompute");
 }
 
-cmsNAMEDCOLORLIST* cmsGetNamedColorList(cmsHTRANSFORM xform)
-{
-    swift_unimplemented_fatal("cmsGetNamedColorList");
-}
-
 cmsUInt32Number cmsGetPostScriptCRD(cmsContext ContextID, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags, void* Buffer, cmsUInt32Number dwBufferLen)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGetPostScriptCRD is not implemented");
@@ -355,52 +176,6 @@ cmsUInt32Number cmsGetPostScriptColorResource(cmsContext ContextID, cmsPSResourc
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGetPostScriptColorResource is not implemented");
     return (cmsUInt32Number){0};
-}
-
-cmsUInt32Number cmsGetSupportedIntents(cmsUInt32Number nMax, cmsUInt32Number* Codes, char** Descriptions)
-{
-    swift_unimplemented_fatal("cmsGetSupportedIntents");
-}
-
-cmsUInt32Number cmsGetSupportedIntentsTHR(cmsContext ContextID, cmsUInt32Number nMax, cmsUInt32Number* Codes, char** Descriptions)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGetSupportedIntentsTHR is not implemented");
-    return (cmsUInt32Number){0};
-}
-
-cmsContext cmsGetTransformContextID(cmsHTRANSFORM hTransform)
-{
-    swift_unimplemented_fatal("cmsGetTransformContextID");
-}
-
-cmsPipeline* cmsGetTransformGamutCheckPipeline(cmsHTRANSFORM hTransform)
-{
-    swift_unimplemented_fatal("cmsGetTransformGamutCheckPipeline");
-}
-
-cmsNAMEDCOLORLIST* cmsGetTransformInputColorants(cmsHTRANSFORM hTransform)
-{
-    swift_unimplemented_fatal("cmsGetTransformInputColorants");
-}
-
-cmsUInt32Number cmsGetTransformInputFormat(cmsHTRANSFORM hTransform)
-{
-    swift_unimplemented_fatal("cmsGetTransformInputFormat");
-}
-
-cmsNAMEDCOLORLIST* cmsGetTransformOutputColorants(cmsHTRANSFORM hTransform)
-{
-    swift_unimplemented_fatal("cmsGetTransformOutputColorants");
-}
-
-cmsUInt32Number cmsGetTransformOutputFormat(cmsHTRANSFORM hTransform)
-{
-    swift_unimplemented_fatal("cmsGetTransformOutputFormat");
-}
-
-cmsPipeline* cmsGetTransformPipeline(cmsHTRANSFORM hTransform)
-{
-    swift_unimplemented_fatal("cmsGetTransformPipeline");
 }
 
 cmsHANDLE cmsIT8Alloc(cmsContext ContextID)

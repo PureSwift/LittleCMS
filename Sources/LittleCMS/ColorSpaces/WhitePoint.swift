@@ -155,3 +155,49 @@ extension CIEXYZ {
         return CIEXYZ(x: result.x, y: result.y, z: result.z)
     }
 }
+
+/// The chromaticities of an RGB space's three primaries.
+public struct RGBPrimaries: Equatable, Sendable {
+    public var red: CIExyY
+    public var green: CIExyY
+    public var blue: CIExyY
+
+    public init(red: CIExyY, green: CIExyY, blue: CIExyY) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+    }
+
+    /// The matrix taking RGB to XYZ for these primaries and a white
+    /// point, adapted to D50 — the colorants a matrix-shaper profile
+    /// stores.  Nil when the primaries are degenerate or the white cannot
+    /// be adapted.
+    public func transferMatrix(whitePoint: CIExyY) -> Matrix3? {
+        let xn = whitePoint.x, yn = whitePoint.y
+        let xr = red.x, yr = red.y
+        let xg = green.x, yg = green.y
+        let xb = blue.x, yb = blue.y
+
+        let primaries = Matrix3(
+            Vector3(xr, xg, xb),
+            Vector3(yr, yg, yb),
+            Vector3(1 - xr - yr, 1 - xg - yg, 1 - xb - yb)
+        )
+        guard let inverse = primaries.inverse else { return nil }
+
+        let white = Vector3(xn / yn, 1.0, (1.0 - xn - yn) / yn)
+        let coefficients = inverse.evaluate(white)
+
+        let result = Matrix3(
+            Vector3(coefficients.x * xr, coefficients.y * xg, coefficients.z * xb),
+            Vector3(coefficients.x * yr, coefficients.y * yg, coefficients.z * yb),
+            Vector3(coefficients.x * (1.0 - xr - yr), coefficients.y * (1.0 - xg - yg), coefficients.z * (1.0 - xb - yb))
+        )
+
+        // `_cmsAdaptMatrixToD50`: Bradford from the white to D50, applied
+        // on the left.
+        guard let bradford = ChromaticAdaptation.matrix(from: whitePoint.tristimulus, to: .d50)
+        else { return nil }
+        return bradford * result
+    }
+}

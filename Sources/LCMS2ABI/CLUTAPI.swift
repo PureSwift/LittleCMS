@@ -181,7 +181,7 @@ private func duplicateCLut(_ box: StageBox) -> UnsafeMutablePointer<cmsStage>? {
     else { return nil }
 
     let isFloat = data.pointee.HasFloatValues != 0
-    return withUnsafeBytes(of: &params.pointee.nSamples) { field in
+    let copy = withUnsafeBytes(of: &params.pointee.nSamples) { field in
         field.withMemoryRebound(to: cmsUInt32Number.self) { samples in
             allocateCLut(
                 box.context, samples.baseAddress!,
@@ -192,6 +192,16 @@ private func duplicateCLut(_ box: StageBox) -> UnsafeMutablePointer<cmsStage>? {
             )
         }
     }
+    // The interpolation flags come along too: a CLUT switched to
+    // trilinear stays trilinear when the pipeline holding it is copied
+    // into a transform, which is the whole point of switching it.  Found
+    // when a Lab-indexed output profile came out a code or two off.
+    if let copy, let copied = cmsStageData(copy)?.assumingMemoryBound(to: _cmsStageCLutData.self),
+       let copiedParams = copied.pointee.Params
+    {
+        copiedParams.pointee.dwFlags = params.pointee.dwFlags
+    }
+    return copy
 }
 
 /// Releases what a CLUT stage owns.  Called from `cmsStageFree`.

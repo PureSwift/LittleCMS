@@ -376,6 +376,19 @@ if(SLCMS_REFERENCE_FOUND)
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt
                 ${SLCMS_PROFILE_ARGS})
     set_tests_properties(lut_differential PROPERTIES FIXTURES_REQUIRED corpus)
+
+    add_executable(xformprobe_ours xformprobe.c)
+    target_link_libraries(xformprobe_ours PRIVATE lcms2)
+    add_executable(xformprobe_reference xformprobe.c)
+    target_link_libraries(xformprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME transform_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:xformprobe_ours>
+                $<TARGET_FILE:xformprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences-transform.txt
+                ${SLCMS_PROFILE_ARGS})
+    set_tests_properties(transform_differential PROPERTIES FIXTURES_REQUIRED corpus)
 elseif(SLCMS_REQUIRE_REFERENCE)
     message(FATAL_ERROR
         "No reference lcms2 found via pkg-config, and SLCMS_REQUIRE_REFERENCE "

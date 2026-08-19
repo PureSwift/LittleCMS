@@ -896,12 +896,110 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
     return p
 }
 
+// -- the V2 Lab encodings ------------------------------------------------------
+
+/// `FomLabV2ToLabV4`: × 257/256, saturating.
+@inline(__always) private func labV2ToV4(_ x: UInt16) -> UInt16 {
+    let a = (Int(x) << 8 | Int(x)) >> 8
+    return a > 0xFFFF ? 0xFFFF : UInt16(a)
+}
+
+/// `FomLabV4ToLabV2`: × 256/257, rounded.
+@inline(__always) private func labV4ToV2(_ x: UInt16) -> UInt16 {
+    UInt16(((Int(x) << 8) + 0x80) / 257)
+}
+
+@Sendable private func unrollLabV2_8(
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
+    _ wIn: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ accum: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let wIn, let accum else { return accum }
+    wIn[0] = labV2ToV4(widen(accum[0]))
+    wIn[1] = labV2ToV4(widen(accum[1]))
+    wIn[2] = labV2ToV4(widen(accum[2]))
+    return accum + 3
+}
+
+@Sendable private func unrollALabV2_8(
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
+    _ wIn: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ accum: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let wIn, let accum else { return accum }
+    wIn[0] = labV2ToV4(widen(accum[1]))
+    wIn[1] = labV2ToV4(widen(accum[2]))
+    wIn[2] = labV2ToV4(widen(accum[3]))
+    return accum + 4
+}
+
+@Sendable private func unrollLabV2_16(
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
+    _ wIn: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ accum: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let wIn, let accum else { return accum }
+    let raw = UnsafeRawPointer(accum)
+    wIn[0] = labV2ToV4(raw.loadUnaligned(fromByteOffset: 0, as: UInt16.self))
+    wIn[1] = labV2ToV4(raw.loadUnaligned(fromByteOffset: 2, as: UInt16.self))
+    wIn[2] = labV2ToV4(raw.loadUnaligned(fromByteOffset: 4, as: UInt16.self))
+    return accum + 6
+}
+
+@Sendable private func packLabV2_8(
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
+    _ wOut: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ output: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let wOut, let output else { return output }
+    output[0] = narrow(labV4ToV2(wOut[0]))
+    output[1] = narrow(labV4ToV2(wOut[1]))
+    output[2] = narrow(labV4ToV2(wOut[2]))
+    return output + 3
+}
+
+@Sendable private func packALabV2_8(
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
+    _ wOut: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ output: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let wOut, let output else { return output }
+    output[1] = narrow(labV4ToV2(wOut[0]))
+    output[2] = narrow(labV4ToV2(wOut[1]))
+    output[3] = narrow(labV4ToV2(wOut[2]))
+    return output + 4
+}
+
+@Sendable private func packLabV2_16(
+    _ info: UnsafeMutablePointer<_cmstransform_struct>?,
+    _ wOut: UnsafeMutablePointer<cmsUInt16Number>?,
+    _ output: UnsafeMutablePointer<cmsUInt8Number>?,
+    _ stride: cmsUInt32Number
+) -> UnsafeMutablePointer<cmsUInt8Number>? {
+    guard let wOut, let output else { return output }
+    let raw = UnsafeMutableRawPointer(output)
+    raw.storeBytes(of: labV4ToV2(wOut[0]), toByteOffset: 0, as: UInt16.self)
+    raw.storeBytes(of: labV4ToV2(wOut[1]), toByteOffset: 2, as: UInt16.self)
+    raw.storeBytes(of: labV4ToV2(wOut[2]), toByteOffset: 4, as: UInt16.self)
+    return output + 6
+}
+
 /// The integer half of the input table, in the reference's order.
 let inputFormatters16: [FormatterEntry] = [
     FormatterEntry(channelsSH(1) | bytesSH(1), Any_.space, unpack: unroll1Byte),
     FormatterEntry(
         channelsSH(1) | bytesSH(1) | flavorSH(1), Any_.space, unpack: unroll1ByteReversed
     ),
+    // The V2 Lab encodings, ahead of the generic three-channel entries
+    // that would otherwise catch them: order is behaviour.
+    FormatterEntry(SLCMS_TYPE_LabV2_8, 0, unpack: unrollLabV2_8),
+    FormatterEntry(SLCMS_TYPE_ALabV2_8, 0, unpack: unrollALabV2_8),
+    FormatterEntry(SLCMS_TYPE_LabV2_16, 0, unpack: unrollLabV2_16),
     FormatterEntry(channelsSH(3) | bytesSH(1), Any_.space, unpack: unrollBytes3),
     FormatterEntry(
         channelsSH(3) | bytesSH(1) | doSwapSH(1), Any_.space, unpack: unrollBytes3Swap
@@ -974,6 +1072,9 @@ let outputFormatters16: [FormatterEntry] = [
     FormatterEntry(
         channelsSH(1) | bytesSH(1) | flavorSH(1), Any_.space, pack: pack1ByteReversed
     ),
+    FormatterEntry(SLCMS_TYPE_LabV2_8, 0, pack: packLabV2_8),
+    FormatterEntry(SLCMS_TYPE_ALabV2_8, 0, pack: packALabV2_8),
+    FormatterEntry(SLCMS_TYPE_LabV2_16, 0, pack: packLabV2_16),
     FormatterEntry(channelsSH(3) | bytesSH(1), Any_.space, pack: packBytes3),
     FormatterEntry(
         channelsSH(3) | bytesSH(1) | extraSH(1), Any_.space, pack: packBytes3Skip1
@@ -1039,9 +1140,12 @@ public func _cmsGetFormatter(
     var result = cmsFormatter()
 
     if PixelFormat(Type).channels == 0 { return result }
-    // Only the 16-bit half exists so far; a caller asking for the float
-    // path gets nothing, which is what an unsupported layout looks like.
-    if dwFlags != cmsUInt32Number(CMS_PACK_FLAGS_16BITS) { return result }
+
+    // A plugin's formatters would be tried first; there are none.
+    if dwFlags == cmsUInt32Number(CMS_PACK_FLAGS_FLOAT) {
+        result.FmtFloat = selectFloatFormatter(Type, Dir)
+        return result
+    }
 
     let table = Dir == cmsFormatterInput ? inputFormatters16 : outputFormatters16
     guard let entry = selectFormatter(Type, from: table) else { return result }

@@ -78,6 +78,15 @@ final class PipelineBox: HandleBox {
     var stages: [UnsafeMutablePointer<cmsStage>] = []
     var saveAs8Bits = false
 
+    /// The 16-bit evaluator an optimizer installed, with the private
+    /// data it works from — or nil, in which case evaluation walks the
+    /// stages.  The data's owner is whoever set it; the free and dup
+    /// hooks say how it is released and copied along with the pipeline.
+    var eval16: _cmsPipelineEval16Fn?
+    var optimizationData: UnsafeMutableRawPointer?
+    var freeOptimizationData: _cmsFreeUserDataFn?
+    var dupOptimizationData: _cmsDupUserDataFn?
+
     init(context: cmsContext?, inputChannels: Int, outputChannels: Int) {
         self.context = context
         self.inputChannels = inputChannels
@@ -400,6 +409,9 @@ public func cmsPipelineFree(_ lut: UnsafeMutablePointer<cmsPipeline>?) {
     // A pipeline owns the stages inserted into it.
     for s in box.stages { cmsStageFree(s) }
     box.stages.removeAll()
+    if let free = box.freeOptimizationData {
+        free(box.context, box.optimizationData)
+    }
     _ = PipelineBox.consume(UnsafeMutableRawPointer(lut))
 }
 
@@ -522,6 +534,13 @@ public func cmsPipelineEval16(
 ) {
     guard let In, let Out, let box = pipeline(lut) else { return }
 
+    // An optimizer's evaluator, when one has been installed, is the
+    // whole answer.
+    if let eval16 = box.eval16 {
+        eval16(In, Out, box.optimizationData)
+        return
+    }
+
     // Widened on the way in and narrowed on the way out: a pipeline is
     // evaluated in floating point whatever precision it was asked in.
     var input = [Float](repeating: 0, count: maximumStageChannels)
@@ -572,6 +591,19 @@ public func cmsPipelineDup(
     }
     box.relink()
     box.saveAs8Bits = source.saveAs8Bits
+
+    // An installed evaluator comes along, and its data is copied by the
+    // hook that knows how.  Without one the copy's data is the copy
+    // itself, as a fresh pipeline's is: the reference sets that at
+    // allocation and the dup only overrides it when it can.
+    box.eval16 = source.eval16
+    box.freeOptimizationData = source.freeOptimizationData
+    box.dupOptimizationData = source.dupOptimizationData
+    if let dup = source.dupOptimizationData {
+        box.optimizationData = dup(source.context, source.optimizationData)
+    } else {
+        box.optimizationData = UnsafeMutableRawPointer(copy)
+    }
 
     if !box.bless() {
         cmsPipelineFree(copy)
