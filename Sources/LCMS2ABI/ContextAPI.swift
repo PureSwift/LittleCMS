@@ -4,9 +4,12 @@ import LittleCMS
 /// The engine context behind a `cmsContext`.
 final class ContextBox: HandleBox {
     let context: Context
+    /// What plugins have added to this context.
+    let plugins: PluginRegistry
 
-    init(copying source: Context?) {
+    init(copying source: Context?, plugins: PluginRegistry? = nil) {
         context = Context(copying: source)
+        self.plugins = plugins ?? PluginRegistry()
     }
 }
 
@@ -58,7 +61,9 @@ public func cmsDupContext(_ ContextID: cmsContext?, _ NewUserData: UnsafeMutable
     handle.initialize(to: _cmsContext_struct())
     handle.pointee.error_logger = logger
     handle.pointee.user_data = userData
-    handle.pointee.swift_ctx = ContextBox.handle(for: ContextBox(copying: source))
+    handle.pointee.swift_ctx = ContextBox.handle(
+        for: ContextBox(copying: source, plugins: PluginRegistry.resolve(ContextID).copy())
+    )
     // The memory handler is a chunk like the rest, and comes along.
     copyMemoryHooks(from: ContextID, to: handle)
     swift_c_register_context(handle)

@@ -1156,7 +1156,13 @@ public func _cmsGetFormatter(
 
     if PixelFormat(Type).channels == 0 { return result }
 
-    // A plugin's formatters would be tried first; there are none.
+    // A plugin's factories first, newest first; the first to answer
+    // with a function wins.
+    for factory in PluginRegistry.resolve(ContextID).formatterFactories {
+        let answer = factory(Type, Dir, dwFlags)
+        if answer.Fmt16 != nil { return answer }
+    }
+
     if dwFlags == cmsUInt32Number(CMS_PACK_FLAGS_FLOAT) {
         result.FmtFloat = selectFloatFormatter(Type, Dir)
         return result

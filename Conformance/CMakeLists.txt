@@ -440,11 +440,30 @@ if(SLCMS_REFERENCE_FOUND)
     target_link_libraries(gbdprobe_ours PRIVATE lcms2)
     add_executable(gbdprobe_reference gbdprobe.c)
     target_link_libraries(gbdprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+    if(NOT APPLE)
+        target_link_libraries(gbdprobe_ours PRIVATE m)
+        target_link_libraries(gbdprobe_reference PRIVATE m)
+    endif()
 
     add_test(NAME gbd_differential
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
                 $<TARGET_FILE:gbdprobe_ours>
                 $<TARGET_FILE:gbdprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+
+    add_executable(pluginprobe_ours pluginprobe.c)
+    target_link_libraries(pluginprobe_ours PRIVATE lcms2)
+    add_executable(pluginprobe_reference pluginprobe.c)
+    target_link_libraries(pluginprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+    if(NOT APPLE)
+        target_link_libraries(pluginprobe_ours PRIVATE m)
+        target_link_libraries(pluginprobe_reference PRIVATE m)
+    endif()
+
+    add_test(NAME plugin_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:pluginprobe_ours>
+                $<TARGET_FILE:pluginprobe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
 elseif(SLCMS_REQUIRE_REFERENCE)

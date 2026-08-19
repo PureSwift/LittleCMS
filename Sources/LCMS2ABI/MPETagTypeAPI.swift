@@ -160,7 +160,7 @@ private func writeSegmentedCurve(_ io: UnsafeMutablePointer<cmsIOHANDLER>, _ g: 
 /// A set of segmented curves, one per channel, through a position table.
 @Sendable private func readMPECurve(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     let base = tell(io) - tagBaseSize
@@ -230,7 +230,7 @@ private func writeSegmentedCurve(_ io: UnsafeMutablePointer<cmsIOHANDLER>, _ g: 
 /// A float matrix with offsets.
 @Sendable private func readMPEMatrix(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var inputChans: cmsUInt16Number = 0, outputChans: cmsUInt16Number = 0
@@ -283,7 +283,7 @@ private func writeSegmentedCurve(_ io: UnsafeMutablePointer<cmsIOHANDLER>, _ g: 
 /// channel maximum), then the table.
 @Sendable private func readMPEClut(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var inputChans: cmsUInt16Number = 0, outputChans: cmsUInt16Number = 0
@@ -380,7 +380,7 @@ private let mpeElementHandlers: [cmsUInt32Number: TagTypeHandler?] = [
 /// each element with its type signature.
 @Sendable private func readMPE(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     let base = tell(io) - tagBaseSize
@@ -418,7 +418,14 @@ private let mpeElementHandlers: [cmsUInt32Number: TagTypeHandler?] = [
         if _cmsReadUInt32Number(io, &elementSig) == 0 { return fail() }
         if _cmsReadUInt32Number(io, nil) == 0 { return fail() }
 
-        guard let entry = mpeElementHandlers[elementSig] else {
+        // A plugin's element types come first; the two placeholder
+        // elements are known and read as nothing.
+        let entry: TagTypeHandler?
+        if let plugin = PluginRegistry.resolve(context).mpeType(for: cmsTagTypeSignature(rawValue: elementSig)) {
+            entry = plugin
+        } else if let builtin = mpeElementHandlers[elementSig] {
+            entry = builtin
+        } else {
             report(
                 cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
                 "Unknown MPE type '\(signatureText(elementSig))' found.", to: context
@@ -427,7 +434,7 @@ private let mpeElementHandlers: [cmsUInt32Number: TagTypeHandler?] = [
         }
         if let handler = entry {
             var got: cmsUInt32Number = 0
-            let stage = handler.read(context, io, &got, sizes[i])?.assumingMemoryBound(to: cmsStage.self)
+            let stage = handler.read(context, io, &got, sizes[i], version)?.assumingMemoryBound(to: cmsStage.self)
             if cmsPipelineInsertStage(lut, cmsAT_END, stage) == 0 { return fail() }
         }
     }
@@ -465,7 +472,9 @@ private let mpeElementHandlers: [cmsUInt32Number: TagTypeHandler?] = [
         offsets[i] = tell(io) - base
         let elementSig = cmsStageType(elem).rawValue
 
-        guard let entry = mpeElementHandlers[elementSig], let handler = entry else {
+        guard let handler = PluginRegistry.resolve(context).mpeType(for: cmsTagTypeSignature(rawValue: elementSig))
+                ?? mpeElementHandlers[elementSig].flatMap({ $0 })
+        else {
             report(
                 cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
                 "Found unknown MPE type '\(signatureText(elementSig))'", to: context

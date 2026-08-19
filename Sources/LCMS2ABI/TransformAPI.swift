@@ -559,8 +559,42 @@ private func allocateEmptyTransform(
     box.lut = lut
 
     if box.lut != nil {
-        // A transform plugin would be offered the pipeline here.  Then
-        // the optimizer.
+        // A transform plugin is offered the pipeline first — unless the
+        // caller asked for no optimization — and the newest to accept
+        // takes over the whole loop.  Then the optimizer.
+        if dwFlags & cmsUInt32Number(cmsFLAGS_NOOPTIMIZE) == 0 {
+            for entry in PluginRegistry.resolve(ContextID).transforms {
+                var xform: _cmsTransform2Fn? = nil
+                var userData: UnsafeMutableRawPointer? = nil
+                var freeUserData: _cmsFreeUserDataFn? = nil
+                if entry.factory(&xform, &userData, &freeUserData, &box.lut, &inputFormat, &outputFormat, &dwFlags) != 0 {
+                    // The plugin owns the loop; the original parameters
+                    // are kept as a record.  cmsFLAGS_CAN_CHANGE_FORMATTER
+                    // is not set, so the transform is not reformattable
+                    // unless the plugin changed the flags to say so.  The
+                    // formatters are filled in for its convenience; a
+                    // missing one is its problem, not an error here.
+                    box.xform = xform
+                    box.userData = userData
+                    box.freeUserData = freeUserData
+                    box.inputFormat = inputFormat
+                    box.outputFormat = outputFormat
+                    box.originalFlags = dwFlags
+                    box.fromInput = _cmsGetFormatter(ContextID, inputFormat, cmsFormatterInput, cmsUInt32Number(CMS_PACK_FLAGS_16BITS)).Fmt16
+                    box.toOutput = _cmsGetFormatter(ContextID, outputFormat, cmsFormatterOutput, cmsUInt32Number(CMS_PACK_FLAGS_16BITS)).Fmt16
+                    box.fromInputFloat = _cmsGetFormatter(ContextID, inputFormat, cmsFormatterInput, cmsUInt32Number(CMS_PACK_FLAGS_FLOAT)).FmtFloat
+                    box.toOutputFloat = _cmsGetFormatter(ContextID, outputFormat, cmsFormatterOutput, cmsUInt32Number(CMS_PACK_FLAGS_FLOAT)).FmtFloat
+                    if entry.legacy {
+                        // A one-scanline function from before 2.8, called
+                        // once per line by the adaptor.
+                        box.oldXform = unsafeBitCast(xform, to: _cmsTransformFn?.self)
+                        box.xform = transform2ToTransformAdaptor
+                    }
+                    parallelizeIfSuitable(box)
+                    return box
+                }
+            }
+        }
         _ = _cmsOptimizePipeline(ContextID, &box.lut, intent, &inputFormat, &outputFormat, &dwFlags)
     }
 
@@ -635,8 +669,41 @@ private func allocateEmptyTransform(
     box.inputFormat = inputFormat
     box.outputFormat = outputFormat
     box.originalFlags = dwFlags
-    // A parallelization plugin would take the loop as its worker here.
+    parallelizeIfSuitable(box)
     return box
+}
+
+/// `ParalellizeIfSuitable`: a parallelization plugin's scheduler takes
+/// the loop as its worker.
+private func parallelizeIfSuitable(_ box: TransformBox) {
+    if let parallel = PluginRegistry.resolve(box.context).parallelization {
+        box.worker = box.xform
+        box.xform = parallel.scheduler
+        box.maxWorkers = parallel.maxWorkers
+        box.workerFlags = parallel.workerFlags
+    }
+}
+
+/// `_cmsTransform2toTransformAdaptor`: runs a one-scanline transform
+/// function once per line, after copying the extra channels across.
+private func transform2ToTransformAdaptor(
+    _ CMMcargo: TransformHandle?,
+    _ InputBuffer: UnsafeRawPointer?,
+    _ OutputBuffer: UnsafeMutableRawPointer?,
+    _ PixelsPerLine: cmsUInt32Number,
+    _ LineCount: cmsUInt32Number,
+    _ Stride: UnsafePointer<cmsStride>?
+) {
+    guard let box = transform(CMMcargo), let old = box.oldXform, let Stride, let InputBuffer, let OutputBuffer else { return }
+    handleExtraChannels(box, InputBuffer, OutputBuffer, Int(PixelsPerLine), Int(LineCount), Stride.pointee)
+
+    var strideIn = 0
+    var strideOut = 0
+    for _ in 0..<Int(LineCount) {
+        old(CMMcargo, InputBuffer.advanced(by: strideIn), OutputBuffer.advanced(by: strideOut), PixelsPerLine, Stride.pointee.BytesPerPlaneIn)
+        strideIn += Int(Stride.pointee.BytesPerLineIn)
+        strideOut += Int(Stride.pointee.BytesPerLineOut)
+    }
 }
 
 /// The colour spaces at the two ends of a chain, following each profile

@@ -11,6 +11,7 @@
 #include <lcms2.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 static const char* profile_dir = ".";
 
@@ -46,9 +47,9 @@ static void sphere(void)
             cmsCIELab Lab;
             /* Some sectors carry two radii so the maximum rule is exercised. */
             double r = ((t + a) % 5 == 0) ? 40.0 : 30.0;
-            Lab.L = 50 + r * ((th == 0) ? 1 : (double) __builtin_cos(th));
-            Lab.a = r * __builtin_sin(th) * __builtin_sin(al);
-            Lab.b = r * __builtin_sin(th) * __builtin_cos(al);
+            Lab.L = 50 + r * ((th == 0) ? 1 : (double) cos(th));
+            Lab.a = r * sin(th) * sin(al);
+            Lab.b = r * sin(th) * cos(al);
             if (!cmsGDBAddPoint(h, &Lab)) printf("add failed\n");
         }
     {

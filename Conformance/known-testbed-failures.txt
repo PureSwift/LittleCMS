@@ -1,15 +1,5 @@
 # Upstream testbed checks that still fail against our library, one exact
 # check name per line.  scripts/run_testbed.sh requires this list to match
 # the run in both directions: an entry that starts passing must be removed
-# here, and a failure not listed here fails the build.
-#
-# All eight are plugin registries not yet ported (cmsPluginTHR refuses
-# every kind but the memory handler).
-1D interpolation plugin
-3D interpolation plugin
-Parametric curve plugin
-Formatters plugin
-Tag type plugin
-MPE type plugin
-Rendering intent plugin
-Full transform plugin
+# here, and a failure not listed here fails the build.  Empty means the
+# testbed's own exit status must be zero.

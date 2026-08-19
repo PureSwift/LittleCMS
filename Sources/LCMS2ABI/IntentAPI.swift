@@ -582,7 +582,15 @@ func linkProfiles(
         }
     }
 
-    // A plugin's intents would be searched first; there are none.
+    // A plugin's intents are searched first.  Its link function takes
+    // the same arguments as ours, in C arrays.
+    if let plugin = PluginRegistry.resolve(ContextID).intent(intents[0]) {
+        var codes = intents
+        var profiles = hProfiles
+        var compensations = bpc.map { cmsBool($0 ? 1 : 0) }
+        var states = adaptationStates
+        return plugin.link(ContextID, cmsUInt32Number(nProfiles), &codes, &profiles, &compensations, &states, dwFlags)
+    }
     guard let entry = defaultIntents.first(where: { $0.intent == intents[0] }) else {
         report(cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION), "Unsupported intent '\(intents[0])'", to: ContextID)
         return nil
@@ -611,6 +619,7 @@ public func cmsGetSupportedIntentsTHR(
     _ Codes: UnsafeMutablePointer<cmsUInt32Number>?,
     _ Descriptions: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?
 ) -> cmsUInt32Number {
+    // The built-in intents, then a plugin's, newest first.
     var n: cmsUInt32Number = 0
     for (i, entry) in defaultIntents.enumerated() {
         if n < nMax {
@@ -619,7 +628,13 @@ public func cmsGetSupportedIntentsTHR(
         }
         n += 1
     }
-    // A plugin's intents would follow.
+    for plugin in PluginRegistry.resolve(ContextID).intents {
+        if n < nMax {
+            Codes?[Int(n)] = plugin.intent
+            Descriptions?[Int(n)] = plugin.description
+        }
+        n += 1
+    }
     return n
 }
 

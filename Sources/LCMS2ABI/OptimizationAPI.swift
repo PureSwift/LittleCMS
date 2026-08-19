@@ -217,9 +217,12 @@ public func _cmsOptimizePipeline(
         return 0
     }
 
-    // Plugin schemes would be tried here; there are none.  Then the
-    // built-in ones, in order of preference: the first that applies wins.
+    // A plugin's schemes first, newest first; then the built-in ones,
+    // in order of preference.  The first that applies wins.
     guard let InputFormat, let OutputFormat else { return anySuccess ? 1 : 0 }
+    for optimize in PluginRegistry.resolve(ContextID).optimizations {
+        if optimize(PtrLut, Intent, InputFormat, OutputFormat, dwFlags) != 0 { return 1 }
+    }
     if optimizeByJoiningCurves(PtrLut, Intent, InputFormat, OutputFormat, dwFlags) { return 1 }
     if optimizeMatrixShaper(PtrLut, Intent, InputFormat, OutputFormat, dwFlags) { return 1 }
     if optimizeByComputingLinearization(PtrLut, Intent, InputFormat, OutputFormat, dwFlags) { return 1 }

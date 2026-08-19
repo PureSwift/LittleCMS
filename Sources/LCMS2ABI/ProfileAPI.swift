@@ -182,15 +182,17 @@ private let tagDescriptors: [cmsTagSignature: TagDescriptor] = {
 }()
 
 /// What a tag may hold, or nil for a tag the library does not know.
-func tagDescriptor(for sig: cmsTagSignature) -> TagDescriptor? {
-    tagDescriptors[sig]
+func tagDescriptor(for sig: cmsTagSignature, context: cmsContext?) -> TagDescriptor? {
+    if let plugin = PluginRegistry.resolve(context).tags[sig] { return plugin }
+    return tagDescriptors[sig]
 }
 
 /// `CompatibleTypes`: two tags that occupy the same bytes are the same
 /// tag under two names only if they could have been serialized the same
 /// way.  An unknown tag matches nothing, including another unknown one.
-private func compatible(_ a: cmsTagSignature, _ b: cmsTagSignature) -> Bool {
-    guard let first = tagDescriptors[a], let second = tagDescriptors[b] else { return false }
+private func compatible(_ a: cmsTagSignature, _ b: cmsTagSignature, context: cmsContext?) -> Bool {
+    guard let first = tagDescriptor(for: a, context: context), let second = tagDescriptor(for: b, context: context)
+    else { return false }
     guard first.elementCount == second.elementCount,
           first.supportedTypes.count == second.supportedTypes.count
     else { return false }
@@ -251,7 +253,7 @@ final class ProfileBox: HandleBox {
         guard let object = tagObjects[i] else { return }
         if tagSaveAsRaw[i] {
             _cmsFree(context, object)
-        } else if let handler = tagTypeHandler(for: tagTypes[i]) {
+        } else if let handler = tagTypeHandler(for: tagTypes[i], context: context) {
             handler.free(context, object)
         } else {
             _cmsFree(context, object)
@@ -467,7 +469,7 @@ private func readHeader(_ box: ProfileBox) -> Bool {
         // Two tags over the same bytes are one tag under two names, but
         // only if both could have been written the same way.
         for j in 0..<n where box.tagOffsets[j] == offset && box.tagSizes[j] == size {
-            if compatible(box.tagNames[j], cmsTagSignature(sig)) {
+            if compatible(box.tagNames[j], cmsTagSignature(sig), context: box.context) {
                 box.tagLinked[n] = box.tagNames[j]
             }
         }
@@ -732,8 +734,8 @@ public func cmsReadRawTag(
         : cmsOpenIOhandlerFromMem(box.context, data, BufferSize, "w")
     guard let sink else { return 0 }
 
-    guard let descriptor = tagDescriptor(for: sig),
-          let handler = tagTypeHandler(for: box.tagTypes[i])
+    guard let descriptor = tagDescriptor(for: sig, context: box.context),
+          let handler = tagTypeHandler(for: box.tagTypes[i], context: box.context)
     else {
         _ = cmsCloseIOhandler(sink)
         return 0
@@ -1077,13 +1079,14 @@ private func saveTags(
                 // the pipeline still asks for 8, and a profile whose
                 // version was changed after loading re-encodes its tags
                 // to match.
-                guard let descriptor = tagDescriptor(for: box.tagNames[i]),
+                guard let descriptor = tagDescriptor(for: box.tagNames[i], context: box.context),
                       let type = typeToWrite(
                           for: box.tagNames[i],
                           version: box.versionAsDecimal,
-                          data: object
+                          data: object,
+                          context: box.context
                       ),
-                      let handler = tagTypeHandler(for: type)
+                      let handler = tagTypeHandler(for: type, context: box.context)
                 else { continue }
 
                 if _cmsWriteTypeBase(destination, handler.signature) == 0 { return false }
@@ -1324,7 +1327,7 @@ public func cmsReadTag(
     // hold, then hand back the same pointer.
     if let object = box.tagObjects[n] {
         if box.tagTypes[n] == cmsTagTypeSignature(0) { return fail() }
-        if !isTypeSupported(sig, box.tagTypes[n]) { return fail() }
+        if !isTypeSupported(sig, box.tagTypes[n], context: box.context) { return fail() }
         // A tag stored for raw output is bytes, not an object.
         if box.tagSaveAsRaw[n] { return fail() }
         return object
@@ -1344,7 +1347,7 @@ public func cmsReadTag(
     }
     guard let seek = io.pointee.Seek, seek(io, box.tagOffsets[n]) != 0 else { return fail() }
 
-    guard let descriptor = tagDescriptor(for: sig) else {
+    guard let descriptor = tagDescriptor(for: sig, context: box.context) else {
         report(
             cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
             "Unknown tag type '\(signatureText(sig.rawValue))' found.", to: box.context
@@ -1354,14 +1357,14 @@ public func cmsReadTag(
 
     let baseType = _cmsReadTypeBase(io)
     if baseType == cmsTagTypeSignature(0) { return fail() }
-    if !isTypeSupported(sig, baseType) { return fail() }
+    if !isTypeSupported(sig, baseType, context: box.context) { return fail() }
     size -= 8   // consumed by the type base
 
-    guard let handler = tagTypeHandler(for: baseType) else { return fail() }
+    guard let handler = tagTypeHandler(for: baseType, context: box.context) else { return fail() }
     box.tagTypes[n] = baseType
 
     var elements: cmsUInt32Number = 0
-    guard let object = handler.read(box.context, io, &elements, size) else {
+    guard let object = handler.read(box.context, io, &elements, size, box.version) else {
         report(
             cmsUInt32Number(cmsERROR_CORRUPTION_DETECTED),
             "Corrupted tag '\(signatureText(sig.rawValue))'", to: box.context
@@ -1420,7 +1423,7 @@ public func cmsWriteTag(
     // Storing an object replaces a link.
     box.tagLinked[i] = cmsTagSignature(0)
 
-    guard let descriptor = tagDescriptor(for: sig) else {
+    guard let descriptor = tagDescriptor(for: sig, context: box.context) else {
         report(
             cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
             "Unsupported tag '\(String(sig.rawValue, radix: 16))'", to: box.context
@@ -1429,9 +1432,9 @@ public func cmsWriteTag(
     }
 
     guard let type = typeToWrite(
-              for: sig, version: cmsGetProfileVersion(hProfile), data: data
-          ), isTypeSupported(sig, type),
-          let handler = tagTypeHandler(for: type)
+              for: sig, version: cmsGetProfileVersion(hProfile), data: data, context: box.context
+          ), isTypeSupported(sig, type, context: box.context),
+          let handler = tagTypeHandler(for: type, context: box.context)
     else {
         report(
             cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),

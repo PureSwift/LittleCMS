@@ -32,6 +32,21 @@ private func evaluateParametric(
     return ParametricCurve.evaluate(type: type, params: params, at: r)
 }
 
+/// `GetParametricCurveByType`: who evaluates a parametric type and how
+/// many parameters it takes — a plugin's collection first, then the
+/// built-in types.  Nil for a type nobody knows.
+func parametricEvaluator(
+    for type: cmsInt32Number, context: cmsContext?
+) -> (evaluator: cmsParametricCurveEvaluator, parameterCount: Int)? {
+    if let found = PluginRegistry.resolve(context).parametricCurve(for: type) {
+        return (found.collection.evaluator, Int(found.collection.types[found.index].parameterCount))
+    }
+    if let count = ParametricCurve.parameterCount(forType: type) {
+        return (evaluateParametric, count)
+    }
+    return nil
+}
+
 @inline(__always)
 private func allocate<T>(_ context: cmsContext?, _ count: Int, _: T.Type) -> UnsafeMutablePointer<T>? {
     guard count > 0 else { return nil }
@@ -76,11 +91,11 @@ private func makeInterpolationParameters(
     }
 
     // The kernel a caller — the optimizer's prelinearisation, a plugin —
-    // may invoke through the parameters directly.
-    if flags & cmsUInt32Number(CMS_LERP_FLAGS_FLOAT) != 0 {
-        p.pointee.Interpolation.LerpFloat = interpolateFloat
-    } else {
-        p.pointee.Interpolation.Lerp16 = interpolate16
+    // may invoke through the parameters directly; and a plugin's, when
+    // the context has one that answers for one channel.
+    guard installInterpolation(p, context: context) else {
+        _cmsFree(context, raw)
+        return nil
     }
 
     return p
@@ -119,7 +134,16 @@ private func evaluateSegmented(_ curve: UnsafePointer<cmsToneCurve>, _ r: cmsFlo
                 // samples here rather than at build time, so the same
                 // shape is kept.
                 interp.pointee.Table = UnsafeRawPointer(points)
-                out = Double(Interpolation1D.lookup(position, table: points, domain: domain(of: interp)))
+                if hasBuiltinLerpFloat(interp) {
+                    out = Double(Interpolation1D.lookup(position, table: points, domain: domain(of: interp)))
+                } else {
+                    // A plugin's kernel, through the pointer as the
+                    // reference always goes.
+                    var input = position
+                    var result: cmsFloat32Number = 0
+                    interp.pointee.Interpolation.LerpFloat?(&input, &result, interp)
+                    out = Double(result)
+                }
             } else {
                 guard let evaluator = curve.pointee.Evals?[index] else { return minusInfinity }
                 out = withUnsafePointer(to: segment.Params) { params in
@@ -224,8 +248,8 @@ private func allocateCurve(
                 curve.pointee.Segments![i].SampledPoints = nil
             }
 
-            if ParametricCurve.parameterCount(forType: segments[i].Type) != nil {
-                curve.pointee.Evals![i] = evaluateParametric
+            if let found = parametricEvaluator(for: segments[i].Type, context: context) {
+                curve.pointee.Evals![i] = found.evaluator
             }
         }
     }
@@ -320,7 +344,7 @@ public func cmsBuildParametricToneCurve(
     _ Params: UnsafePointer<cmsFloat64Number>?
 ) -> UnsafeMutablePointer<cmsToneCurve>? {
     guard let Params else { return nil }
-    guard let count = ParametricCurve.parameterCount(forType: Type) else {
+    guard let count = parametricEvaluator(for: Type, context: ContextID)?.parameterCount else {
         report(
             cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
             "Invalid parametric curve type \(Type)",
@@ -439,7 +463,13 @@ public func cmsEvalToneCurve16(
     guard let Curve, let params = Curve.pointee.InterpParams,
           let table = params.pointee.Table?.assumingMemoryBound(to: cmsUInt16Number.self)
     else { return 0 }
-    return Interpolation1D.lookup(v, table: table, domain: domain(of: params))
+    if hasBuiltinLerp16(params) {
+        return Interpolation1D.lookup(v, table: table, domain: domain(of: params))
+    }
+    var input = v
+    var out: cmsUInt16Number = 0
+    params.pointee.Interpolation.Lerp16?(&input, &out, params)
+    return out
 }
 
 @c @implementation

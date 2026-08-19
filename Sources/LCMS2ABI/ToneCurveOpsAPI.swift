@@ -115,7 +115,7 @@ public func cmsReverseToneCurveEx(
     if InCurve.pointee.nSegments == 1,
        let segments = InCurve.pointee.Segments,
        segments[0].Type > 0,
-       ParametricCurve.parameterCount(forType: segments[0].Type) != nil {
+       parametricEvaluator(for: segments[0].Type, context: context) != nil {
         return withUnsafePointer(to: segments[0].Params) { params in
             params.withMemoryRebound(to: cmsFloat64Number.self, capacity: 10) {
                 cmsBuildParametricToneCurve(context, -segments[0].Type, $0)

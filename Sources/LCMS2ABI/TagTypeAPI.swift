@@ -19,12 +19,15 @@ import LittleCMS
 /// here it is a table of closures with the same four operations.
 struct TagTypeHandler: Sendable {
     let signature: cmsTagTypeSignature
-    /// Reads one object, reporting how many elements it found.
+    /// Reads one object, reporting how many elements it found.  Only a
+    /// plugin's reader looks at `version`; the built-in ones read the
+    /// same bytes whatever the profile claims.
     let read: @Sendable (
         _ context: cmsContext?,
         _ io: UnsafeMutablePointer<cmsIOHANDLER>,
         _ items: inout cmsUInt32Number,
-        _ sizeOfTag: cmsUInt32Number
+        _ sizeOfTag: cmsUInt32Number,
+        _ version: cmsUInt32Number
     ) -> UnsafeMutableRawPointer?
     /// `version` is the profile's encoded ICC version.  Only the types
     /// that embed another type need it — a profile sequence writes its
@@ -52,7 +55,7 @@ struct TagTypeHandler: Sendable {
 
 @Sendable private func readXYZ(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let raw = _cmsMallocZero(context, cmsUInt32Number(MemoryLayout<cmsCIEXYZ>.size))
@@ -67,7 +70,7 @@ struct TagTypeHandler: Sendable {
 
 @Sendable private func readChromaticity(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let raw = _cmsMallocZero(context, cmsUInt32Number(MemoryLayout<cmsCIExyYTRIPLE>.size))
@@ -136,9 +139,9 @@ private func readFixedArray(
         UnsafeMutablePointer<cmsIOHANDLER>, UnsafeMutablePointer<cmsFloat64Number>
     ) -> Bool
 ) -> @Sendable (
-    cmsContext?, UnsafeMutablePointer<cmsIOHANDLER>, inout cmsUInt32Number, cmsUInt32Number
+    cmsContext?, UnsafeMutablePointer<cmsIOHANDLER>, inout cmsUInt32Number, cmsUInt32Number, cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
-    { context, io, items, sizeOfTag in
+    { context, io, items, sizeOfTag, _ in
         items = 0
         let n = sizeOfTag / cmsUInt32Number(MemoryLayout<cmsUInt32Number>.size)
         guard let raw = _cmsCalloc(
@@ -157,7 +160,7 @@ private func readFixedArray(
 
 @Sendable private func readSignature(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let raw = _cmsMalloc(context, cmsUInt32Number(MemoryLayout<cmsSignature>.size))
@@ -174,7 +177,7 @@ private func readFixedArray(
 
 @Sendable private func readDateTime(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let raw = _cmsMalloc(context, cmsUInt32Number(MemoryLayout<tm>.size)),
@@ -211,7 +214,7 @@ private func readFixedArray(
 /// with `0xFF` before the stored ones are read over it.
 @Sendable private func readColorantOrder(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var count: cmsUInt32Number = 0
@@ -253,7 +256,7 @@ private func readFixedArray(
 /// the tag had left after the flag.
 @Sendable private func readData(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     let headerSize = cmsUInt32Number(MemoryLayout<cmsUInt32Number>.size)
@@ -297,7 +300,7 @@ private func readFixedArray(
 /// used.
 @Sendable private func readText(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let mlu = cmsMLUalloc(context, 1) else { return nil }
@@ -354,7 +357,7 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
         _ signature: cmsTagTypeSignature,
         read: @escaping @Sendable (
             cmsContext?, UnsafeMutablePointer<cmsIOHANDLER>, inout cmsUInt32Number,
-            cmsUInt32Number
+            cmsUInt32Number, cmsUInt32Number
         ) -> UnsafeMutableRawPointer?,
         write: @escaping @Sendable (
             cmsContext?, UnsafeMutablePointer<cmsIOHANDLER>, UnsafeMutableRawPointer,
@@ -400,6 +403,75 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     add(
         cmsSigChromaticityType, read: readChromaticity, write: writeChromaticity,
         duplicate: dupFixed(cmsCIExyYTRIPLE.self)
+    )
+
+    // The three plain integer arrays: no built-in tag is stored as one,
+    // but a plugin's tag may be, and a profile may carry one.  As many
+    // elements as the tag's length holds.
+    add(
+        cmsSigUInt8ArrayType,
+        read: { context, io, items, sizeOfTag, _ in
+            items = 0
+            let n = sizeOfTag
+            guard let raw = _cmsCalloc(context, n, 1) else { return nil }
+            let values = raw.assumingMemoryBound(to: cmsUInt8Number.self)
+            for i in 0..<Int(n) where _cmsReadUInt8Number(io, values + i) == 0 {
+                _cmsFree(context, raw)
+                return nil
+            }
+            items = n
+            return raw
+        },
+        write: { _, io, object, n, _ in
+            let values = object.assumingMemoryBound(to: cmsUInt8Number.self)
+            for i in 0..<Int(n) where _cmsWriteUInt8Number(io, values[i]) == 0 { return false }
+            return true
+        },
+        duplicate: dupArray(cmsUInt8Number.self)
+    )
+
+    add(
+        cmsSigUInt32ArrayType,
+        read: { context, io, items, sizeOfTag, _ in
+            items = 0
+            let n = sizeOfTag / 4
+            guard let raw = _cmsCalloc(context, n, 4) else { return nil }
+            let values = raw.assumingMemoryBound(to: cmsUInt32Number.self)
+            for i in 0..<Int(n) where _cmsReadUInt32Number(io, values + i) == 0 {
+                _cmsFree(context, raw)
+                return nil
+            }
+            items = n
+            return raw
+        },
+        write: { _, io, object, n, _ in
+            let values = object.assumingMemoryBound(to: cmsUInt32Number.self)
+            for i in 0..<Int(n) where _cmsWriteUInt32Number(io, values[i]) == 0 { return false }
+            return true
+        },
+        duplicate: dupArray(cmsUInt32Number.self)
+    )
+
+    add(
+        cmsSigUInt64ArrayType,
+        read: { context, io, items, sizeOfTag, _ in
+            items = 0
+            let n = sizeOfTag / 8
+            guard let raw = _cmsCalloc(context, n, 8) else { return nil }
+            let values = raw.assumingMemoryBound(to: cmsUInt64Number.self)
+            for i in 0..<Int(n) where _cmsReadUInt64Number(io, values + i) == 0 {
+                _cmsFree(context, raw)
+                return nil
+            }
+            items = n
+            return raw
+        },
+        write: { _, io, object, n, _ in
+            let values = object.assumingMemoryBound(to: cmsUInt64Number.self)
+            for i in 0..<Int(n) where _cmsWriteUInt64Number(io, values + i) == 0 { return false }
+            return true
+        },
+        duplicate: dupArray(cmsUInt64Number.self)
     )
 
     add(
@@ -499,14 +571,17 @@ private let tagTypeHandlers: [cmsTagTypeSignature: TagTypeHandler] = {
     return table
 }()
 
-func tagTypeHandler(for signature: cmsTagTypeSignature) -> TagTypeHandler? {
-    tagTypeHandlers[signature]
+/// The serializer for a type: a plugin's if one is registered on the
+/// context, else the built-in one.
+func tagTypeHandler(for signature: cmsTagTypeSignature, context: cmsContext?) -> TagTypeHandler? {
+    if let plugin = PluginRegistry.resolve(context).tagType(for: signature) { return plugin }
+    return tagTypeHandlers[signature]
 }
 
 /// Whether a tag may be stored as this type.  A tag the library does not
 /// know refuses everything, which is how an unknown tag is reported.
-func isTypeSupported(_ sig: cmsTagSignature, _ type: cmsTagTypeSignature) -> Bool {
-    guard let descriptor = tagDescriptor(for: sig) else { return false }
+func isTypeSupported(_ sig: cmsTagSignature, _ type: cmsTagTypeSignature, context: cmsContext?) -> Bool {
+    guard let descriptor = tagDescriptor(for: sig, context: context) else { return false }
     return descriptor.supportedTypes.contains(type)
 }
 
@@ -515,9 +590,9 @@ func isTypeSupported(_ sig: cmsTagSignature, _ type: cmsTagTypeSignature) -> Boo
 /// because a curve that cannot be expressed parametrically is written as
 /// a table even on a version that would prefer the parametric form.
 func typeToWrite(
-    for sig: cmsTagSignature, version: cmsFloat64Number, data: UnsafeRawPointer
+    for sig: cmsTagSignature, version: cmsFloat64Number, data: UnsafeRawPointer, context: cmsContext?
 ) -> cmsTagTypeSignature? {
-    guard let descriptor = tagDescriptor(for: sig) else { return nil }
+    guard let descriptor = tagDescriptor(for: sig, context: context) else { return nil }
     if let decide = descriptor.decide { return decide(version, data) }
     return descriptor.supportedTypes.first
 }
@@ -529,7 +604,7 @@ func typeToWrite(
 /// things and the count is what distinguishes them.
 @Sendable private func readCurve(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var count: cmsUInt32Number = 0
@@ -594,7 +669,7 @@ private let parametricParameterCounts = [1, 3, 4, 5, 7]
 
 @Sendable private func readParametricCurve(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var type: cmsUInt16Number = 0
@@ -701,7 +776,7 @@ let curveTagTypes: [cmsTagTypeSignature: TagTypeHandler] = {
 /// therefore re-emits with the same strings but not the same bytes.
 @Sendable private func readMLU(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var count: cmsUInt32Number = 0
@@ -839,7 +914,7 @@ let mluTagType = TagTypeHandler(
 /// reference pads the *tag* to length instead of the fields.
 @Sendable private func readTextDescription(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var remaining = sizeOfTag
@@ -1106,7 +1181,7 @@ private func write8BitTables(
 /// 0xFFFF rather than 0xFF00 — the byte is replicated, not shifted.
 @Sendable private func readLUT8(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var inputs: cmsUInt8Number = 0
@@ -1334,7 +1409,7 @@ private func read16BitTables(
 
 @Sendable private func readLUT16(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var inputs: cmsUInt8Number = 0
@@ -1501,9 +1576,9 @@ private func readEmbeddedCurve(
     var items: cmsUInt32Number = 0
     switch base {
     case cmsSigCurveType:
-        return readCurve(context, io, &items, 0)?.assumingMemoryBound(to: cmsToneCurve.self)
+        return readCurve(context, io, &items, 0, 0)?.assumingMemoryBound(to: cmsToneCurve.self)
     case cmsSigParametricCurveType:
-        return readParametricCurve(context, io, &items, 0)?
+        return readParametricCurve(context, io, &items, 0, 0)?
             .assumingMemoryBound(to: cmsToneCurve.self)
     default:
         report(
@@ -1642,7 +1717,7 @@ private func readElementDirectory(
 
 @Sendable private func readLUTAtoB(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let tell = io.pointee.Tell else { return nil }
@@ -1690,7 +1765,7 @@ private func readElementDirectory(
 
 @Sendable private func readLUTBtoA(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let tell = io.pointee.Tell else { return nil }
@@ -2046,7 +2121,7 @@ let lutBtoATagType = TagTypeHandler(
 
 @Sendable private func readMeasurement(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var mc = cmsICCMeasurementConditions()
@@ -2075,7 +2150,7 @@ let lutBtoATagType = TagTypeHandler(
 
 @Sendable private func readViewingConditions(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let raw = _cmsMallocZero(
@@ -2108,7 +2183,7 @@ let lutBtoATagType = TagTypeHandler(
 /// any other length is refused rather than read short.
 @Sendable private func readVideoSignal(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     if sizeOfTag != 4 { return nil }
@@ -2146,7 +2221,7 @@ let lutBtoATagType = TagTypeHandler(
 /// one set through the named-colour API does not survive a save.
 @Sendable private func readColorantTable(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var count: cmsUInt32Number = 0
@@ -2260,7 +2335,7 @@ let structuralTagTypes: [cmsTagTypeSignature: TagTypeHandler] = [
 /// other two.  All three are cut to 32 bytes.
 @Sendable private func readNamedColor(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var vendorFlag: cmsUInt32Number = 0
@@ -2381,7 +2456,7 @@ private let vcgtFormulaFlavour: cmsUInt32Number = 1
 
 @Sendable private func readVCGT(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var flavour: cmsUInt32Number = 0
@@ -2622,13 +2697,13 @@ private func readOneMLU(
     guard let seek = io.pointee.Seek, seek(io, column.offsets[i]) != 0 else { return nil }
 
     var items: cmsUInt32Number = 0
-    guard let raw = readMLU(context, io, &items, column.sizes[i]) else { return nil }
+    guard let raw = readMLU(context, io, &items, column.sizes[i], 0) else { return nil }
     return .some(raw.assumingMemoryBound(to: cmsMLU.self))
 }
 
 @Sendable private func readDictionary(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let tell = io.pointee.Tell else { return nil }
@@ -2864,11 +2939,11 @@ private func readEmbeddedText(
     let read: UnsafeMutableRawPointer?
     switch base {
     case cmsSigTextType:
-        read = readText(context, io, &items, sizeOfTag)
+        read = readText(context, io, &items, sizeOfTag, 0)
     case cmsSigTextDescriptionType:
-        read = readTextDescription(context, io, &items, sizeOfTag)
+        read = readTextDescription(context, io, &items, sizeOfTag, 0)
     case cmsSigMultiLocalizedUnicodeType:
-        read = readMLU(context, io, &items, sizeOfTag)
+        read = readMLU(context, io, &items, sizeOfTag, 0)
     default:
         return false
     }
@@ -2914,7 +2989,7 @@ private func saveDescription(
 
 @Sendable private func readProfileSequence(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     var remaining = sizeOfTag
@@ -3013,7 +3088,7 @@ let profileSequenceTagType = TagTypeHandler(
 /// description embedded in it certainly is.
 @Sendable private func readProfileSequenceID(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let tell = io.pointee.Tell, let seek = io.pointee.Seek, let read = io.pointee.Read
@@ -3127,7 +3202,7 @@ let profileSequenceIDTagType = TagTypeHandler(
 /// the tag's own size is the only thing that says where the text ends.
 @Sendable private func readUcrBg(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let raw = _cmsMallocZero(context, cmsUInt32Number(MemoryLayout<cmsUcrBg>.size)),
@@ -3215,7 +3290,7 @@ let profileSequenceIDTagType = TagTypeHandler(
 /// malformed tag reads back shorter than it claimed.
 @Sendable private func readScreening(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let raw = _cmsMallocZero(context, cmsUInt32Number(MemoryLayout<cmsScreening>.size))
@@ -3310,7 +3385,7 @@ private let crdInfoSections = ["nm", "#0", "#1", "#2", "#3"]
 
 @Sendable private func readCrdInfo(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let mlu = cmsMLUalloc(context, 5), let read = io.pointee.Read else { return nil }
@@ -3372,7 +3447,7 @@ private let crdInfoSections = ["nm", "#0", "#1", "#2", "#3"]
 /// reader steps over rather than checking.
 @Sendable private func readMHC2(
     _ context: cmsContext?, _ io: UnsafeMutablePointer<cmsIOHANDLER>,
-    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number
+    _ items: inout cmsUInt32Number, _ sizeOfTag: cmsUInt32Number, _ version: cmsUInt32Number
 ) -> UnsafeMutableRawPointer? {
     items = 0
     guard let tell = io.pointee.Tell, let seek = io.pointee.Seek else { return nil }

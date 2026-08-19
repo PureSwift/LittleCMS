@@ -132,10 +132,7 @@ func computeInterpParams(
         }
     }
 
-    guard Interpolation.isSupported(
-        inputs: inputs, outputs: Int(OutputChan),
-        trilinear: (dwFlags & cmsUInt32Number(CMS_LERP_FLAGS_TRILINEAR)) != 0
-    ) else {
+    guard installInterpolation(p, context: ContextID) else {
         report(
             cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION),
             "Unsupported interpolation (\(InputChan)->\(OutputChan) channels)",
@@ -145,15 +142,50 @@ func computeInterpParams(
         return nil
     }
 
+    return p
+}
+
+/// `_cmsSetInterpolationRoutine`: the kernel goes into the parameters —
+/// a plugin's if the context has a factory that answers for this shape,
+/// else the built-in one.  False when neither serves it.
+func installInterpolation(_ p: UnsafeMutablePointer<cmsInterpParams>, context: cmsContext?) -> Bool {
+    if let factory = PluginRegistry.resolve(context).interpolators {
+        let plugin = factory(p.pointee.nInputs, p.pointee.nOutputs, p.pointee.dwFlags)
+        // One member of the union is enough to check: both are pointers
+        // in the same slot.
+        if plugin.Lerp16 != nil {
+            p.pointee.Interpolation = plugin
+            return true
+        }
+    }
+
+    guard Interpolation.isSupported(
+        inputs: Int(p.pointee.nInputs), outputs: Int(p.pointee.nOutputs),
+        trilinear: (p.pointee.dwFlags & cmsUInt32Number(CMS_LERP_FLAGS_TRILINEAR)) != 0
+    ) else { return false }
+
     // The union holds either pointer; which one a caller reads is
     // decided by the flag it passed, and both occupy the same slot.
-    if (dwFlags & cmsUInt32Number(CMS_LERP_FLAGS_FLOAT)) != 0 {
+    if (p.pointee.dwFlags & cmsUInt32Number(CMS_LERP_FLAGS_FLOAT)) != 0 {
         p.pointee.Interpolation.LerpFloat = interpolateFloat
     } else {
         p.pointee.Interpolation.Lerp16 = interpolate16
     }
+    return true
+}
 
-    return p
+/// Whether the parameters carry the built-in 16-bit kernel, so a caller
+/// on a hot path may take the direct route instead of the pointer.
+@inline(__always)
+func hasBuiltinLerp16(_ p: UnsafePointer<cmsInterpParams>) -> Bool {
+    let builtin: @convention(c) (UnsafePointer<cmsUInt16Number>?, UnsafeMutablePointer<cmsUInt16Number>?, UnsafePointer<cmsInterpParams>?) -> Void = interpolate16
+    return unsafeBitCast(p.pointee.Interpolation.Lerp16, to: UnsafeRawPointer?.self) == unsafeBitCast(builtin, to: UnsafeRawPointer?.self)
+}
+
+@inline(__always)
+func hasBuiltinLerpFloat(_ p: UnsafePointer<cmsInterpParams>) -> Bool {
+    let builtin: @convention(c) (UnsafePointer<cmsFloat32Number>?, UnsafeMutablePointer<cmsFloat32Number>?, UnsafePointer<cmsInterpParams>?) -> Void = interpolateFloat
+    return unsafeBitCast(p.pointee.Interpolation.LerpFloat, to: UnsafeRawPointer?.self) == unsafeBitCast(builtin, to: UnsafeRawPointer?.self)
 }
 
 @c @implementation

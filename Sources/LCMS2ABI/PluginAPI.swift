@@ -4,13 +4,11 @@ import LittleCMS
 // Plugin registration.
 //
 // A plugin is a chain of structs each naming what it replaces; the
-// library walks the chain and installs each.  Of the twelve kinds the
-// reference accepts, the memory handler is installed here — its
-// functions go into the context struct and the allocator consults them
-// — and the rest are refused with a report, since the tables they would
-// extend (tag types, formatters, intents, stages, curves, interpolation,
-// optimizations, transforms, mutexes, parallelization) are not open to
-// extension yet.  A caller learns that at registration, not at use.
+// library walks the chain and installs each.  The memory handler goes
+// into the context struct itself — the allocator consults it on a
+// pointer read — and every other kind goes into the context's
+// PluginRegistry, which the lookup sites ask before their built-in
+// tables.
 
 /// The memory handler's functions installed on a context — or all
 /// cleared, back to the built-in allocator.  The three required ones
@@ -65,21 +63,80 @@ func copyMemoryHooks(from source: cmsContext?, to destination: UnsafeMutablePoin
     destination.pointee.dup_fn = s.pointee.dup_fn
 }
 
-private func pluginTypeName(_ type: cmsUInt32Number) -> String {
-    switch Int32(bitPattern: type) {
-    case cmsPluginInterpolationSig: return "interpolation"
-    case cmsPluginTagTypeSig: return "tag type"
-    case cmsPluginTagSig: return "tag"
-    case cmsPluginFormattersSig: return "formatter"
-    case cmsPluginRenderingIntentSig: return "rendering intent"
-    case cmsPluginParametricCurveSig: return "parametric curve"
-    case cmsPluginMultiProcessElementSig: return "multi-process element"
-    case cmsPluginOptimizationSig: return "optimization"
-    case cmsPluginTransformSig: return "transform"
-    case cmsPluginMutexSig: return "mutex"
-    case cmsPluginParalellizationSig: return "parallelization"
-    default: return ""
+/// Installs one plugin of any kind but the memory handler.  False when
+/// the plugin is missing something it must have, which is what the
+/// reference answers too.
+private func install(_ p: UnsafeMutablePointer<cmsPluginBase>, in registry: PluginRegistry) -> Bool {
+    let raw = UnsafeMutableRawPointer(p)
+    switch Int32(bitPattern: p.pointee.Type) {
+    case cmsPluginInterpolationSig:
+        // One factory per context: the newest replaces the last.
+        registry.interpolators = raw.assumingMemoryBound(to: cmsPluginInterpolation.self).pointee.InterpolatorsFactory
+
+    case cmsPluginParametricCurveSig:
+        let plugin = raw.assumingMemoryBound(to: cmsPluginParametricCurves.self).pointee
+        guard let evaluator = plugin.Evaluator else { return false }
+        let n = min(Int(plugin.nFunctions), Int(MAX_TYPES_IN_LCMS_PLUGIN))
+        var types: [(type: cmsUInt32Number, parameterCount: cmsUInt32Number)] = []
+        withUnsafeBytes(of: plugin.FunctionTypes) { t in
+            withUnsafeBytes(of: plugin.ParameterCount) { c in
+                let tt = t.bindMemory(to: cmsUInt32Number.self)
+                let cc = c.bindMemory(to: cmsUInt32Number.self)
+                for i in 0..<n { types.append((tt[i], cc[i])) }
+            }
+        }
+        registry.parametricCurves.insert(ParametricCurveCollection(evaluator: evaluator, types: types), at: 0)
+
+    case cmsPluginFormattersSig:
+        guard let factory = raw.assumingMemoryBound(to: cmsPluginFormatters.self).pointee.FormattersFactory else { return false }
+        registry.formatterFactories.insert(factory, at: 0)
+
+    case cmsPluginTagTypeSig:
+        registry.tagTypes.insert(raw.assumingMemoryBound(to: cmsPluginTagType.self).pointee.Handler, at: 0)
+
+    case cmsPluginMultiProcessElementSig:
+        registry.mpeTypes.insert(raw.assumingMemoryBound(to: cmsPluginMultiProcessElement.self).pointee.Handler, at: 0)
+
+    case cmsPluginTagSig:
+        let plugin = raw.assumingMemoryBound(to: cmsPluginTag.self).pointee
+        registry.tags[plugin.Signature] = TagDescriptor(plugin.Descriptor)
+
+    case cmsPluginRenderingIntentSig:
+        let plugin = raw.assumingMemoryBound(to: cmsPluginRenderingIntent.self)
+        guard let link = plugin.pointee.Link else { return false }
+        let description = withUnsafeBytes(of: plugin.pointee.Description) { bytes in
+            PluginRegistry.copyDescription(bytes.baseAddress!.assumingMemoryBound(to: CChar.self))
+        }
+        registry.intents.insert(PluginIntent(intent: plugin.pointee.Intent, link: link, description: description), at: 0)
+
+    case cmsPluginOptimizationSig:
+        guard let optimize = raw.assumingMemoryBound(to: cmsPluginOptimization.self).pointee.OptimizePtr else { return false }
+        registry.optimizations.insert(optimize, at: 0)
+
+    case cmsPluginTransformSig:
+        guard let factory = raw.assumingMemoryBound(to: cmsPluginTransform.self).pointee.factories.xform else { return false }
+        // A factory declared against a version before 2.8 answers with a
+        // one-scanline function and gets an adaptor.
+        registry.transforms.insert(TransformFactoryEntry(factory: factory, legacy: p.pointee.ExpectedVersion < 2080), at: 0)
+
+    case cmsPluginMutexSig:
+        let plugin = raw.assumingMemoryBound(to: cmsPluginMutex.self).pointee
+        guard let create = plugin.CreateMutexPtr, let destroy = plugin.DestroyMutexPtr,
+              let lock = plugin.LockMutexPtr, let unlock = plugin.UnlockMutexPtr
+        else { return false }
+        registry.mutex = MutexHooks(create: create, destroy: destroy, lock: lock, unlock: unlock)
+
+    case cmsPluginParalellizationSig:
+        let plugin = raw.assumingMemoryBound(to: cmsPluginParalellization.self).pointee
+        guard let scheduler = plugin.SchedulerFn else { return false }
+        registry.parallelization = ParallelizationHooks(
+            maxWorkers: plugin.MaxWorkers, workerFlags: plugin.WorkerFlags, scheduler: scheduler
+        )
+
+    default:
+        return false
     }
+    return true
 }
 
 @c @implementation
@@ -106,11 +163,7 @@ public func cmsPluginTHR(_ id: cmsContext?, _ Plug_in: UnsafeMutableRawPointer?)
         case cmsPluginInterpolationSig, cmsPluginTagTypeSig, cmsPluginTagSig, cmsPluginFormattersSig,
              cmsPluginRenderingIntentSig, cmsPluginParametricCurveSig, cmsPluginMultiProcessElementSig,
              cmsPluginOptimizationSig, cmsPluginTransformSig, cmsPluginMutexSig, cmsPluginParalellizationSig:
-            report(
-                cmsUInt32Number(cmsERROR_NOT_SUITABLE),
-                "\(pluginTypeName(p.pointee.Type)) plugins are not implemented", to: id
-            )
-            return 0
+            if !install(p, in: PluginRegistry.resolve(id)) { return 0 }
         default:
             let hex = String(p.pointee.Type, radix: 16, uppercase: true)
             report(cmsUInt32Number(cmsERROR_UNKNOWN_EXTENSION), "Unrecognized plugin type '\(hex)'", to: id)
@@ -126,11 +179,11 @@ public func cmsPlugin(_ Plugin: UnsafeMutableRawPointer?) -> cmsBool {
     cmsPluginTHR(nil, Plugin)
 }
 
-/// Back to the defaults for every kind — which here means the built-in
-/// allocator, the others never having been replaced.
+/// Back to the defaults for every kind.
 @c @implementation
 public func cmsUnregisterPluginsTHR(_ ContextID: cmsContext?) {
     _ = installMemoryHandler(ContextID, nil)
+    PluginRegistry.resolve(ContextID).reset()
 }
 
 @c @implementation
