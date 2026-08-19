@@ -113,21 +113,8 @@ audit="$output/ownership.md"
     done < "$output/symbols.txt"
 } > "$audit"
 
-# -- implemented.txt seed ----------------------------------------------------
-
-{
-    echo "# Published functions that have a real implementation."
-    echo "#"
-    echo "# Names here are excluded from the generated stub file, so a name must not"
-    echo "# be listed until something actually defines it. Add a name in the same"
-    echo "# change that adds its implementation, then regenerate:"
-    echo "#"
-    echo "#   python3 scripts/gen_stubs.py"
-} > "$output/implemented.txt"
-
 echo "== written =="
 echo "  $output/symbols.txt      ($count symbols)"
-echo "  $output/implemented.txt  (empty seed)"
 echo "  $audit                   (skeleton — fill it in)"
 echo
 echo "Still to check by hand:"

@@ -1,15 +1,13 @@
 /* Error dispatch and context-logger storage.
  *
- * This is the floor the generated stubs and the Swift boundary both stand
- * on, kept in C so that reporting "not implemented" never depends on the
- * thing that is not implemented.
+ * This is the floor the Swift boundary stands on, kept in C so that
+ * reporting an error never depends on the thing that failed.
  */
 
 #include "swift_internal.h"
 
 #include <pthread.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 /* Context0 storage.  Zero-initialized: no logger (the default handler does
  * nothing, as in the reference), no user data, no engine object.  Not an
@@ -70,13 +68,6 @@ void swift_c_signal_error(cmsContext ContextID, cmsUInt32Number ErrorCode, const
      * NULL there, as in the reference. */
     if (ctx->error_logger)
         ctx->error_logger(ContextID, ErrorCode, Text);
-}
-
-void swift_unimplemented_fatal(const char* name)
-{
-    fprintf(stderr, "liblcms2 (Swift): %s is not implemented\n", name);
-    fflush(stderr);
-    abort();
 }
 
 void CMSEXPORT cmsSetLogErrorHandlerTHR(cmsContext ContextID, cmsLogErrorHandlerFunction Fn)

@@ -49,9 +49,9 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 # -- generated sources -------------------------------------------------------
 #
-# The stub table and symbol list are committed as well as generated, so a
-# checkout builds without Python and CI can diff the regenerated output to
-# catch a stale file.  Only the link-time export controls are generated at
+# The API description and symbol list are committed as well as generated,
+# so a checkout builds without Python and CI can diff the regenerated
+# output to catch a stale file.  Only the link-time export controls are generated at
 # build time, straight from the committed symbols.txt.
 
 set(SLCMS_EXPORT_LIST ${CMAKE_CURRENT_BINARY_DIR}/lcms2.exp)
@@ -123,8 +123,7 @@ target_compile_options(LCMS2ABI PRIVATE
 
 add_library(lcms2 SHARED
     Sources/CLCMS2/lcms2_error.c
-    Sources/CLCMS2/lcms2_variadic.c
-    Sources/CLCMS2/gen/lcms2_stubs.c)
+    Sources/CLCMS2/lcms2_variadic.c)
 
 add_dependencies(lcms2 slcms_export_lists LCMS2ABI)
 

@@ -4,7 +4,7 @@
  * The public ABI does not see inside these — lcms2.h forward-declares them
  * and hands out pointers — so their layout is mostly ours to choose.  The
  * rule for what lives here directly: only plain data the C floor (error
- * dispatch, generated stubs) must reach without entering Swift.  Everything
+ * dispatch) must reach without entering Swift.  Everything
  * with a lifetime managed by Swift hangs off the single opaque `swift_ctx`
  * pointer, which holds a retained Unmanaged reference to the engine object.
  *

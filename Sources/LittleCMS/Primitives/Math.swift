@@ -19,6 +19,7 @@
 @_extern(c) @usableFromInline func cos(_ x: Double) -> Double
 @_extern(c) @usableFromInline func sin(_ x: Double) -> Double
 @_extern(c) @usableFromInline func atan2(_ y: Double, _ x: Double) -> Double
+@_extern(c) @usableFromInline func atan(_ x: Double) -> Double
 @_extern(c) @usableFromInline func exp(_ x: Double) -> Double
 @_extern(c) @usableFromInline func log(_ x: Double) -> Double
 @_extern(c) @usableFromInline func log10(_ x: Double) -> Double
@@ -28,6 +29,7 @@
 @_exported import func Darwin.cos
 @_exported import func Darwin.sin
 @_exported import func Darwin.atan2
+@_exported import func Darwin.atan
 @_exported import func Darwin.exp
 @_exported import func Darwin.log
 @_exported import func Darwin.log10
@@ -36,6 +38,7 @@
 @_exported import func Glibc.cos
 @_exported import func Glibc.sin
 @_exported import func Glibc.atan2
+@_exported import func Glibc.atan
 @_exported import func Glibc.exp
 @_exported import func Glibc.log
 @_exported import func Glibc.log10
@@ -44,6 +47,7 @@
 @_exported import func Musl.cos
 @_exported import func Musl.sin
 @_exported import func Musl.atan2
+@_exported import func Musl.atan
 @_exported import func Musl.exp
 @_exported import func Musl.log
 @_exported import func Musl.log10

@@ -34,9 +34,8 @@ let package = Package(
     ],
     targets: [
         // The published C API, the completed control structures, and the
-        // parts of the implementation that have to be C: error dispatch,
-        // the three variadic entry points, and the generated stubs for
-        // everything not yet implemented.
+        // parts of the implementation that have to be C: error dispatch
+        // and the three variadic entry points.
         .target(
             name: "CLCMS2",
             path: "Sources/CLCMS2",

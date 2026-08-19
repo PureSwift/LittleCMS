@@ -90,9 +90,6 @@ add_test(NAME generated_sources
 add_executable(version_probe_ours version_probe.c)
 target_link_libraries(version_probe_ours PRIVATE lcms2)
 
-add_executable(stub_probe_ours stub_probe.c)
-target_link_libraries(stub_probe_ours PRIVATE lcms2)
-
 # Every probe that touches <math.h> must say so.  On Apple platforms
 # libm is part of libSystem and linking is automatic; everywhere else it
 # is a separate library and forgetting it is a build failure only the
@@ -170,12 +167,6 @@ target_link_libraries(profileprobe_ours PRIVATE lcms2)
 slcms_probe_uses_math(profileprobe_ours)
 add_test(NAME profile_probe COMMAND profileprobe_ours)
 
-# The stubs' contract: the gap is reported through the error path and the
-# call fails cleanly rather than answering.
-add_test(NAME stub_behavior COMMAND stub_probe_ours)
-set_tests_properties(stub_behavior PROPERTIES
-    PASS_REGULAR_EXPRESSION "is not implemented"
-    FAIL_REGULAR_EXPRESSION "stub returned")
 
 # The same courtesy as the reference: if the upstream checkout is where
 # scripts/build_reference.sh leaves its source, use it without being
@@ -440,10 +431,8 @@ if(SLCMS_REFERENCE_FOUND)
     target_link_libraries(gbdprobe_ours PRIVATE lcms2)
     add_executable(gbdprobe_reference gbdprobe.c)
     target_link_libraries(gbdprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
-    if(NOT APPLE)
-        target_link_libraries(gbdprobe_ours PRIVATE m)
-        target_link_libraries(gbdprobe_reference PRIVATE m)
-    endif()
+    slcms_probe_uses_math(gbdprobe_ours)
+    slcms_probe_uses_math(gbdprobe_reference)
 
     add_test(NAME gbd_differential
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
@@ -455,15 +444,26 @@ if(SLCMS_REFERENCE_FOUND)
     target_link_libraries(pluginprobe_ours PRIVATE lcms2)
     add_executable(pluginprobe_reference pluginprobe.c)
     target_link_libraries(pluginprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
-    if(NOT APPLE)
-        target_link_libraries(pluginprobe_ours PRIVATE m)
-        target_link_libraries(pluginprobe_reference PRIVATE m)
-    endif()
+    slcms_probe_uses_math(pluginprobe_ours)
+    slcms_probe_uses_math(pluginprobe_reference)
 
     add_test(NAME plugin_differential
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
                 $<TARGET_FILE:pluginprobe_ours>
                 $<TARGET_FILE:pluginprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+
+    add_executable(camprobe_ours camprobe.c)
+    target_link_libraries(camprobe_ours PRIVATE lcms2)
+    add_executable(camprobe_reference camprobe.c)
+    target_link_libraries(camprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+    slcms_probe_uses_math(camprobe_ours)
+    slcms_probe_uses_math(camprobe_reference)
+
+    add_test(NAME ciecam02_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:camprobe_ours>
+                $<TARGET_FILE:camprobe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
 elseif(SLCMS_REQUIRE_REFERENCE)

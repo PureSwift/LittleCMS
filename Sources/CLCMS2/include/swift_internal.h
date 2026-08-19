@@ -39,14 +39,9 @@ void swift_c_register_context(struct _cmsContext_struct* ctx);
 int  swift_c_unregister_context(struct _cmsContext_struct* ctx);
 
 /* Non-variadic error dispatch: Swift cannot call the variadic
- * cmsSignalError, and the generated stubs need the same funnel.  Runs the
- * context's logger; the default logger does nothing, as in the reference. */
+ * cmsSignalError, so this is the funnel.  Runs the context's logger; the
+ * default logger does nothing, as in the reference. */
 void swift_c_signal_error(cmsContext ContextID, cmsUInt32Number ErrorCode, const char* Text);
-
-/* The stub body for functions with no error channel: a plausible zero
- * return from them would be a wrong answer rather than a failure, so the
- * only honest report is a loud one. */
-void swift_unimplemented_fatal(const char* name) __attribute__((__noreturn__));
 
 #ifdef __cplusplus
 }

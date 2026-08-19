@@ -380,10 +380,11 @@ Legend — **owner**: who frees a returned pointer, and with which function.
   the rule for probes is to read exactly what the API defines as
   written, never the width of the buffer.
 
-### Transforms (20), Colorimetry (23), Formatters (2 + `TYPE_*` space), MLU (12), Named colors (8), Dictionaries (6), PSEQ (3), Intents (5), CHAD (5), Alarm codes (4), GBD (12, stubbed), IT8/CGATS (37, stubbed), PostScript (3, stubbed), MD5 (3), IO handlers (5), Header access (26), Virtual profiles (24), Misc (3)
+### Transforms (20), Colorimetry (23), Formatters (2 + `TYPE_*` space), MLU (12), Named colors (8), Dictionaries (6), PSEQ (3), Intents (5), CHAD (5), Alarm codes (4), GBD (12), IT8/CGATS (37), PostScript (3), MD5 (3), IO handlers (5), Header access (26), Virtual profiles (24), CIECAM02 (4), Plugins (all kinds), Misc (3)
 
 *(each section is filled in the phase that implements it; the section must
-be complete before the family's stubs are retired)*
+be complete for every family; the differential probes under Conformance/ are the
+living record of what each one measures)*
 
 ## What the differential can and cannot see
 

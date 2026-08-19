@@ -22,24 +22,22 @@ from Embedded Swift), not as a rescue.
 
 ## Status
 
-The engine is complete for everything but two families.  The shared
-library exports the full 382-symbol lcms2 surface, 378 of them real; the
-remaining four (CIECAM02) fail loudly rather than answer wrongly.
-Conformance is measured by differential tests against the reference library,
-byte for byte, and by the reference's own testbed (`testcms2`) compiled
-unmodified against this library, which passes in full (any check it fails
-would have to be listed in
+Complete.  The shared library exports the full 382-symbol lcms2 surface
+with a real implementation behind every one; the generated-stub machinery
+that carried the port is gone.  Conformance is measured by differential
+tests against the reference library, byte for byte, and by the reference's
+own testbed (`testcms2`) compiled unmodified against this library, which
+passes in full (any check it fails would have to be listed in
 [`Conformance/known-testbed-failures.txt`](Conformance/known-testbed-failures.txt),
 which is empty).
 
 | Area | Status |
 |---|---|
 | Export table (382 symbols) | complete |
-| Profiles, tag types, curves, pipelines, transforms, formatters, optimizer | implemented, bit-exact vs reference |
-| Virtual profiles, intents, gamut/black point, named colours, MLU, dictionaries | implemented, bit-exact vs reference |
-| CGATS/IT8, PostScript, gamut boundary descriptor | implemented, bit-exact vs reference |
-| Plugin registration (all twelve kinds) | implemented, bit-exact vs reference |
-| CIECAM02 | stubbed |
+| Profiles, tag types, curves, pipelines, transforms, formatters, optimizer | bit-exact vs reference |
+| Virtual profiles, intents, gamut/black point, named colours, MLU, dictionaries | bit-exact vs reference |
+| CGATS/IT8, PostScript, gamut boundary descriptor, CIECAM02 | bit-exact vs reference |
+| Plugin registration (all twelve kinds) | bit-exact vs reference |
 
 ## Building
 
