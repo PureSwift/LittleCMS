@@ -1,9 +1,5 @@
 # Accepted differences for the transform differential.  Format as in
-# known-differences.txt: one marker per line, then ` -- ` and the reason.
-# A marker that matches nothing FAILS, so this list cannot go stale.
+# known-differences.txt.  A marker that matches nothing FAILS, so this
+# list cannot go stale.
 
-# cmsChangeBuffersFormat to a seven-channel planar layout: the reference's
-# generic 16-bit formatters serve any layout, and ours are not ported yet
-# (Phase 9b), so we refuse it and say so through the logger.
-unsupported: -- generic 16-bit formatters not yet ported; the reference accepts any layout
-Unsupported -- the logger line that accompanies the refusal above
+# (empty)

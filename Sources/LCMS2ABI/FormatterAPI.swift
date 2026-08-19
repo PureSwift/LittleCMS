@@ -10,16 +10,12 @@ import LittleCMS
 // colour space, any number of extra channels" — while an earlier, more
 // specific entry still wins for the layouts it names.
 //
-// **First match wins, so order is behaviour.** The table is therefore
-// built as a *prefix* of the reference's: entries appear in the
-// reference's order, and the ones not yet ported are simply absent from
-// the end.  That is safe in a way that omitting from the middle is not.
-// A layout that would have matched an entry we have still matches it,
-// because everything before it is present and did not match; a layout
-// whose entry is missing matches nothing and is reported unsupported,
-// rather than falling through to a looser entry that would answer
-// wrongly.  Growing the table can only ever turn "unsupported" into
-// "supported", never change an answer already given.
+// **First match wins, so order is behaviour.** Both tables are the
+// reference's, entry for entry and in its order, and the float tables
+// in FloatFormatterAPI.swift likewise.  A specific entry ahead of a
+// generic one wins for the layouts it names; the generic entries at the
+// end read the layout back from the transform they are handed and serve
+// whatever is left.
 
 // -- assembling a format word ----------------------------------------------
 
@@ -38,6 +34,7 @@ import LittleCMS
 @inline(__always) func swapFirstSH(_ v: UInt32) -> UInt32 { v << 14 }
 @inline(__always) func colorSpaceSH(_ v: UInt32) -> UInt32 { v << 16 }
 @inline(__always) func floatSH(_ v: UInt32) -> UInt32 { v << 22 }
+@inline(__always) func optimizedSH(_ v: UInt32) -> UInt32 { v << 21 }
 @inline(__always) func premulSH(_ v: UInt32) -> UInt32 { v << 23 }
 
 /// The "don't care" masks the table entries are written with.
@@ -99,11 +96,11 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
 // 0xFFFF, so white stays white.  Narrowing is the reference's rounding
 // multiply, not a shift, so the two are inverses across the range.
 
-@inline(__always) private func widen(_ v: UInt8) -> cmsUInt16Number {
+@inline(__always) func widen(_ v: UInt8) -> cmsUInt16Number {
     cmsUInt16Number(v) << 8 | cmsUInt16Number(v)
 }
 
-@inline(__always) private func narrow(_ v: cmsUInt16Number) -> UInt8 {
+@inline(__always) func narrow(_ v: cmsUInt16Number) -> UInt8 {
     UInt8(truncatingIfNeeded: (cmsUInt32Number(v) &* 65281 &+ 8_388_608) >> 24)
 }
 
@@ -989,141 +986,159 @@ func selectFormatter(_ format: UInt32, from table: [FormatterEntry]) -> Formatte
     return output + 6
 }
 
-/// The integer half of the input table, in the reference's order.
+/// The reference's 16-bit input table, entry for entry and in its order:
+/// the floating-point layouts first, then bytes, then words, with the
+/// specific shapes ahead of the generic entries that would otherwise
+/// catch them.  Order is behaviour.
 let inputFormatters16: [FormatterEntry] = [
+    FormatterEntry(SLCMS_TYPE_Lab_DBL, Any_.planar | Any_.extra, unpack: unrollLabDoubleTo16),
+    FormatterEntry(SLCMS_TYPE_XYZ_DBL, Any_.planar | Any_.extra, unpack: unrollXYZDoubleTo16),
+    FormatterEntry(SLCMS_TYPE_Lab_FLT, Any_.planar | Any_.extra, unpack: unrollLabFloatTo16),
+    FormatterEntry(SLCMS_TYPE_XYZ_FLT, Any_.planar | Any_.extra, unpack: unrollXYZFloatTo16),
+    FormatterEntry(SLCMS_TYPE_GRAY_DBL, 0, unpack: unrollDouble1Chan),
+    FormatterEntry(floatSH(1) | bytesSH(0), anyReal, unpack: unrollDoubleTo16),
+    FormatterEntry(floatSH(1) | bytesSH(4), anyReal, unpack: unrollFloatTo16),
+    FormatterEntry(floatSH(1) | bytesSH(2), anyReal, unpack: unrollHalfTo16),
+
     FormatterEntry(channelsSH(1) | bytesSH(1), Any_.space, unpack: unroll1Byte),
-    FormatterEntry(
-        channelsSH(1) | bytesSH(1) | flavorSH(1), Any_.space, unpack: unroll1ByteReversed
-    ),
-    // The V2 Lab encodings, ahead of the generic three-channel entries
-    // that would otherwise catch them: order is behaviour.
+    FormatterEntry(channelsSH(1) | bytesSH(1) | extraSH(1), Any_.space, unpack: unroll1ByteSkip1),
+    FormatterEntry(channelsSH(1) | bytesSH(1) | extraSH(2), Any_.space, unpack: unroll1ByteSkip2),
+    FormatterEntry(channelsSH(1) | bytesSH(1) | flavorSH(1), Any_.space, unpack: unroll1ByteReversed),
+    FormatterEntry(colorSpaceSH(cmsUInt32Number(PT_MCH2)) | channelsSH(2) | bytesSH(1), 0, unpack: unroll2Bytes),
+
     FormatterEntry(SLCMS_TYPE_LabV2_8, 0, unpack: unrollLabV2_8),
     FormatterEntry(SLCMS_TYPE_ALabV2_8, 0, unpack: unrollALabV2_8),
     FormatterEntry(SLCMS_TYPE_LabV2_16, 0, unpack: unrollLabV2_16),
+
     FormatterEntry(channelsSH(3) | bytesSH(1), Any_.space, unpack: unrollBytes3),
-    FormatterEntry(
-        channelsSH(3) | bytesSH(1) | doSwapSH(1), Any_.space, unpack: unrollBytes3Swap
-    ),
-    FormatterEntry(
-        channelsSH(3) | extraSH(1) | bytesSH(1) | doSwapSH(1), Any_.space,
-        unpack: unrollBytes3Skip1Swap
-    ),
-    FormatterEntry(
-        channelsSH(3) | extraSH(1) | bytesSH(1) | swapFirstSH(1), Any_.space,
-        unpack: unrollBytes3Skip1SwapFirst
-    ),
+    FormatterEntry(channelsSH(3) | bytesSH(1) | doSwapSH(1), Any_.space, unpack: unrollBytes3Swap),
+    FormatterEntry(channelsSH(3) | extraSH(1) | bytesSH(1) | doSwapSH(1), Any_.space, unpack: unrollBytes3Skip1Swap),
+    FormatterEntry(channelsSH(3) | extraSH(1) | bytesSH(1) | swapFirstSH(1), Any_.space, unpack: unrollBytes3Skip1SwapFirst),
     FormatterEntry(
         channelsSH(3) | extraSH(1) | bytesSH(1) | doSwapSH(1) | swapFirstSH(1), Any_.space,
         unpack: unrollBytes3Skip1SwapSwapFirst
     ),
+
     FormatterEntry(channelsSH(4) | bytesSH(1), Any_.space, unpack: unrollBytes4),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(1) | flavorSH(1), Any_.space, unpack: unrollBytes4Reverse
-    ),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(1) | swapFirstSH(1), Any_.space, unpack: unrollBytes4SwapFirst
-    ),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(1) | doSwapSH(1), Any_.space, unpack: unrollBytes4Swap
-    ),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(1) | doSwapSH(1) | swapFirstSH(1), Any_.space,
-        unpack: unrollBytes4SwapSwapFirst
-    ),
+    FormatterEntry(channelsSH(4) | bytesSH(1) | flavorSH(1), Any_.space, unpack: unrollBytes4Reverse),
+    FormatterEntry(channelsSH(4) | bytesSH(1) | swapFirstSH(1), Any_.space, unpack: unrollBytes4SwapFirst),
+    FormatterEntry(channelsSH(4) | bytesSH(1) | doSwapSH(1), Any_.space, unpack: unrollBytes4Swap),
+    FormatterEntry(channelsSH(4) | bytesSH(1) | doSwapSH(1) | swapFirstSH(1), Any_.space, unpack: unrollBytes4SwapSwapFirst),
+
+    FormatterEntry(bytesSH(1) | planarSH(1), anyByteLayout | Any_.premul, unpack: unrollPlanarBytes),
+    FormatterEntry(bytesSH(1), anyByteLayout | Any_.premul, unpack: unrollChunkyBytes),
+
     FormatterEntry(channelsSH(1) | bytesSH(2), Any_.space, unpack: unroll1Word),
-    FormatterEntry(
-        channelsSH(1) | bytesSH(2) | flavorSH(1), Any_.space, unpack: unroll1WordReversed
-    ),
-    FormatterEntry(
-        channelsSH(1) | bytesSH(2) | extraSH(3), Any_.space, unpack: unroll1WordSkip3
-    ),
+    FormatterEntry(channelsSH(1) | bytesSH(2) | flavorSH(1), Any_.space, unpack: unroll1WordReversed),
+    FormatterEntry(channelsSH(1) | bytesSH(2) | extraSH(3), Any_.space, unpack: unroll1WordSkip3),
+
     FormatterEntry(channelsSH(2) | bytesSH(2), Any_.space, unpack: unrollWords2),
     FormatterEntry(channelsSH(3) | bytesSH(2), Any_.space, unpack: unrollWords3),
     FormatterEntry(channelsSH(4) | bytesSH(2), Any_.space, unpack: unrollWords4),
-    FormatterEntry(
-        channelsSH(3) | bytesSH(2) | doSwapSH(1), Any_.space, unpack: unrollWords3Swap
-    ),
-    FormatterEntry(
-        channelsSH(3) | bytesSH(2) | extraSH(1) | swapFirstSH(1), Any_.space,
-        unpack: unrollWords3Skip1SwapFirst
-    ),
-    FormatterEntry(
-        channelsSH(3) | bytesSH(2) | extraSH(1) | doSwapSH(1), Any_.space,
-        unpack: unrollWords3Skip1Swap
-    ),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(2) | flavorSH(1), Any_.space, unpack: unrollWords4Reverse
-    ),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(2) | swapFirstSH(1), Any_.space, unpack: unrollWords4SwapFirst
-    ),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(2) | doSwapSH(1), Any_.space, unpack: unrollWords4Swap
-    ),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(2) | doSwapSH(1) | swapFirstSH(1), Any_.space,
-        unpack: unrollWords4SwapSwapFirst
-    ),
+
+    FormatterEntry(channelsSH(3) | bytesSH(2) | doSwapSH(1), Any_.space, unpack: unrollWords3Swap),
+    FormatterEntry(channelsSH(3) | bytesSH(2) | extraSH(1) | swapFirstSH(1), Any_.space, unpack: unrollWords3Skip1SwapFirst),
+    FormatterEntry(channelsSH(3) | bytesSH(2) | extraSH(1) | doSwapSH(1), Any_.space, unpack: unrollWords3Skip1Swap),
+    FormatterEntry(channelsSH(4) | bytesSH(2) | flavorSH(1), Any_.space, unpack: unrollWords4Reverse),
+    FormatterEntry(channelsSH(4) | bytesSH(2) | swapFirstSH(1), Any_.space, unpack: unrollWords4SwapFirst),
+    FormatterEntry(channelsSH(4) | bytesSH(2) | doSwapSH(1), Any_.space, unpack: unrollWords4Swap),
+    FormatterEntry(channelsSH(4) | bytesSH(2) | doSwapSH(1) | swapFirstSH(1), Any_.space, unpack: unrollWords4SwapSwapFirst),
+
+    FormatterEntry(bytesSH(2) | planarSH(1), anyPlanarWordLayout, unpack: unrollPlanarWords),
+    FormatterEntry(bytesSH(2), anyWordLayout, unpack: unrollAnyWords),
+
+    FormatterEntry(bytesSH(2) | planarSH(1) | premulSH(1), anyPlanarWordLayout, unpack: unrollPlanarWordsPremul),
+    FormatterEntry(bytesSH(2) | premulSH(1), anyWordLayout, unpack: unrollAnyWordsPremul),
 ]
 
-/// The integer half of the output table, in the reference's order.
+/// The reference's 16-bit output table, in its order.
 let outputFormatters16: [FormatterEntry] = [
+    FormatterEntry(SLCMS_TYPE_Lab_DBL, Any_.planar | Any_.extra, pack: packLabDoubleFrom16),
+    FormatterEntry(SLCMS_TYPE_XYZ_DBL, Any_.planar | Any_.extra, pack: packXYZDoubleFrom16),
+    FormatterEntry(SLCMS_TYPE_Lab_FLT, Any_.planar | Any_.extra, pack: packLabFloatFrom16),
+    FormatterEntry(SLCMS_TYPE_XYZ_FLT, Any_.planar | Any_.extra, pack: packXYZFloatFrom16),
+    FormatterEntry(floatSH(1) | bytesSH(0), anyReal, pack: packDoubleFrom16),
+    FormatterEntry(floatSH(1) | bytesSH(4), anyReal, pack: packFloatFrom16),
+    FormatterEntry(floatSH(1) | bytesSH(2), anyReal, pack: packHalfFrom16),
+
     FormatterEntry(channelsSH(1) | bytesSH(1), Any_.space, pack: packBytes1),
-    FormatterEntry(
-        channelsSH(1) | bytesSH(1) | flavorSH(1), Any_.space, pack: pack1ByteReversed
-    ),
+    FormatterEntry(channelsSH(1) | bytesSH(1) | extraSH(1), Any_.space, pack: pack1ByteSkip1),
+    FormatterEntry(channelsSH(1) | bytesSH(1) | extraSH(1) | swapFirstSH(1), Any_.space, pack: pack1ByteSkip1SwapFirst),
+    FormatterEntry(channelsSH(1) | bytesSH(1) | flavorSH(1), Any_.space, pack: pack1ByteReversed),
+
     FormatterEntry(SLCMS_TYPE_LabV2_8, 0, pack: packLabV2_8),
     FormatterEntry(SLCMS_TYPE_ALabV2_8, 0, pack: packALabV2_8),
     FormatterEntry(SLCMS_TYPE_LabV2_16, 0, pack: packLabV2_16),
+
+    FormatterEntry(channelsSH(3) | bytesSH(1) | optimizedSH(1), Any_.space, pack: pack3BytesOptimized),
+    FormatterEntry(channelsSH(3) | bytesSH(1) | extraSH(1) | optimizedSH(1), Any_.space, pack: pack3BytesAndSkip1Optimized),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(1) | extraSH(1) | swapFirstSH(1) | optimizedSH(1), Any_.space,
+        pack: pack3BytesAndSkip1SwapFirstOptimized
+    ),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(1) | extraSH(1) | doSwapSH(1) | swapFirstSH(1) | optimizedSH(1), Any_.space,
+        pack: pack3BytesAndSkip1SwapSwapFirstOptimized
+    ),
+    FormatterEntry(
+        channelsSH(3) | bytesSH(1) | doSwapSH(1) | extraSH(1) | optimizedSH(1), Any_.space,
+        pack: pack3BytesAndSkip1SwapOptimized
+    ),
+    FormatterEntry(channelsSH(3) | bytesSH(1) | doSwapSH(1) | optimizedSH(1), Any_.space, pack: pack3BytesSwapOptimized),
+
     FormatterEntry(channelsSH(3) | bytesSH(1), Any_.space, pack: packBytes3),
-    FormatterEntry(
-        channelsSH(3) | bytesSH(1) | extraSH(1), Any_.space, pack: packBytes3Skip1
-    ),
-    FormatterEntry(
-        channelsSH(3) | bytesSH(1) | extraSH(1) | swapFirstSH(1), Any_.space,
-        pack: packBytes3Skip1SwapFirst
-    ),
+    FormatterEntry(channelsSH(3) | bytesSH(1) | extraSH(1), Any_.space, pack: packBytes3Skip1),
+    FormatterEntry(channelsSH(3) | bytesSH(1) | extraSH(1) | swapFirstSH(1), Any_.space, pack: packBytes3Skip1SwapFirst),
     FormatterEntry(
         channelsSH(3) | bytesSH(1) | extraSH(1) | doSwapSH(1) | swapFirstSH(1), Any_.space,
         pack: packBytes3Skip1SwapSwapFirst
     ),
-    FormatterEntry(
-        channelsSH(3) | bytesSH(1) | doSwapSH(1) | extraSH(1), Any_.space,
-        pack: packBytes3Skip1Swap
-    ),
+    FormatterEntry(channelsSH(3) | bytesSH(1) | doSwapSH(1) | extraSH(1), Any_.space, pack: packBytes3Skip1Swap),
     FormatterEntry(channelsSH(3) | bytesSH(1) | doSwapSH(1), Any_.space, pack: packBytes3Swap),
     FormatterEntry(channelsSH(4) | bytesSH(1), Any_.space, pack: packBytes4),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(1) | flavorSH(1), Any_.space, pack: packBytes4Reverse
-    ),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(1) | swapFirstSH(1), Any_.space, pack: packBytes4SwapFirst
-    ),
+    FormatterEntry(channelsSH(4) | bytesSH(1) | flavorSH(1), Any_.space, pack: packBytes4Reverse),
+    FormatterEntry(channelsSH(4) | bytesSH(1) | swapFirstSH(1), Any_.space, pack: packBytes4SwapFirst),
     FormatterEntry(channelsSH(4) | bytesSH(1) | doSwapSH(1), Any_.space, pack: packBytes4Swap),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(1) | doSwapSH(1) | swapFirstSH(1), Any_.space,
-        pack: packBytes4SwapSwapFirst
-    ),
+    FormatterEntry(channelsSH(4) | bytesSH(1) | doSwapSH(1) | swapFirstSH(1), Any_.space, pack: packBytes4SwapSwapFirst),
+    FormatterEntry(channelsSH(6) | bytesSH(1), Any_.space, pack: pack6Bytes),
+    FormatterEntry(channelsSH(6) | bytesSH(1) | doSwapSH(1), Any_.space, pack: pack6BytesSwap),
+
+    FormatterEntry(bytesSH(1), anyByteLayout | Any_.premul, pack: packChunkyBytes),
+    FormatterEntry(bytesSH(1) | planarSH(1), anyByteLayout | Any_.premul, pack: packPlanarBytes),
+
     FormatterEntry(channelsSH(1) | bytesSH(2), Any_.space, pack: packWords1),
-    FormatterEntry(
-        channelsSH(1) | bytesSH(2) | flavorSH(1), Any_.space, pack: pack1WordReversed
-    ),
+    FormatterEntry(channelsSH(1) | bytesSH(2) | extraSH(1), Any_.space, pack: pack1WordSkip1),
+    FormatterEntry(channelsSH(1) | bytesSH(2) | extraSH(1) | swapFirstSH(1), Any_.space, pack: pack1WordSkip1SwapFirst),
+    FormatterEntry(channelsSH(1) | bytesSH(2) | flavorSH(1), Any_.space, pack: pack1WordReversed),
+    FormatterEntry(channelsSH(1) | bytesSH(2) | endian16SH(1), Any_.space, pack: pack1WordBigEndian),
     FormatterEntry(channelsSH(3) | bytesSH(2), Any_.space, pack: packWords3),
     FormatterEntry(channelsSH(3) | bytesSH(2) | doSwapSH(1), Any_.space, pack: packWords3Swap),
+    FormatterEntry(channelsSH(3) | bytesSH(2) | endian16SH(1), Any_.space, pack: pack3WordsBigEndian),
+    FormatterEntry(channelsSH(3) | bytesSH(2) | extraSH(1), Any_.space, pack: pack3WordsAndSkip1),
+    FormatterEntry(channelsSH(3) | bytesSH(2) | extraSH(1) | doSwapSH(1), Any_.space, pack: packWords3Skip1Swap),
+    FormatterEntry(channelsSH(3) | bytesSH(2) | extraSH(1) | swapFirstSH(1), Any_.space, pack: packWords3Skip1SwapFirst),
     FormatterEntry(
-        channelsSH(3) | bytesSH(2) | extraSH(1) | doSwapSH(1), Any_.space,
-        pack: packWords3Skip1Swap
+        channelsSH(3) | bytesSH(2) | extraSH(1) | doSwapSH(1) | swapFirstSH(1), Any_.space,
+        pack: pack3WordsAndSkip1SwapSwapFirst
     ),
-    FormatterEntry(
-        channelsSH(3) | bytesSH(2) | extraSH(1) | swapFirstSH(1), Any_.space,
-        pack: packWords3Skip1SwapFirst
-    ),
+
     FormatterEntry(channelsSH(4) | bytesSH(2), Any_.space, pack: packWords4),
-    FormatterEntry(
-        channelsSH(4) | bytesSH(2) | flavorSH(1), Any_.space, pack: packWords4Reverse
-    ),
+    FormatterEntry(channelsSH(4) | bytesSH(2) | flavorSH(1), Any_.space, pack: packWords4Reverse),
     FormatterEntry(channelsSH(4) | bytesSH(2) | doSwapSH(1), Any_.space, pack: packWords4Swap),
+    FormatterEntry(channelsSH(4) | bytesSH(2) | endian16SH(1), Any_.space, pack: pack4WordsBigEndian),
+
+    FormatterEntry(channelsSH(6) | bytesSH(2), Any_.space, pack: pack6Words),
+    FormatterEntry(channelsSH(6) | bytesSH(2) | doSwapSH(1), Any_.space, pack: pack6WordsSwap),
+
+    FormatterEntry(bytesSH(2), anyWordLayout | Any_.premul, pack: packChunkyWords),
+    FormatterEntry(bytesSH(2) | planarSH(1), anyPlanarWordLayout | Any_.premul, pack: packPlanarWords),
 ]
+
+// The composite masks the generic entries use.
+private let anyReal = Any_.channels | Any_.planar | Any_.swapFirst | Any_.flavor | Any_.swap | Any_.extra | Any_.space
+private let anyByteLayout = Any_.flavor | Any_.swapFirst | Any_.swap | Any_.extra | Any_.channels | Any_.space
+private let anyWordLayout = Any_.flavor | Any_.swapFirst | Any_.swap | Any_.endian | Any_.extra | Any_.channels | Any_.space
+private let anyPlanarWordLayout = Any_.flavor | Any_.swap | Any_.endian | Any_.extra | Any_.channels | Any_.space
 
 // -- the entry point -------------------------------------------------------------
 

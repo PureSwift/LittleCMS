@@ -1,17 +1,5 @@
-# Accepted differences for the formatter differential only.
-#
-# One marker per line, as in known-differences.txt. This file is separate
-# because a marker that matches nothing fails the run -- which is the
-# point of the mechanism, and which means markers for one probe cannot
-# live in a file every probe reads. Adding these to the shared file broke
-# the other fifteen differentials at once, exactly as designed.
+# Accepted differences for the formatter differential.  Format as in
+# known-differences.txt.  A marker that matches nothing FAILS, so this
+# list cannot go stale.
 
-RGBA_8 -- three channels plus one extra with no flags has no specific entry; it needs the generic formatters, which read the layout out of the transform
-KCMY_16 -- the reference has no four-channel word packer with swap-first either, so it packs through the generic path
-RGB_8_PLANAR -- planar formatters not ported
-RGB_16_SE -- byte-swapped word formatters not ported
-Lab_DBL -- the float half of the table is not ported
-XYZ_DBL -- the float half of the table is not ported
-RGB_FLT -- the float half of the table is not ported
-BGRA_16 -- neither direction: the swap-and-swap-first word pair is not ported
-RGBA_16 -- three words plus one extra with no flags has no specific entry either
+# (empty: every layout the header names now agrees with the reference)
