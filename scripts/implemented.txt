@@ -180,6 +180,11 @@ cmsFreeNamedColorList
 cmsFreeProfileSequenceDescription
 cmsFreeToneCurve
 cmsFreeToneCurveTriple
+cmsGBDAlloc
+cmsGBDFree
+cmsGDBAddPoint
+cmsGDBCheckPoint
+cmsGDBCompute
 cmsGetAlarmCodes
 cmsGetAlarmCodesTHR
 cmsGetColorSpace

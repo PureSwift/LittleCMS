@@ -436,6 +436,17 @@ if(SLCMS_REFERENCE_FOUND)
                 ${SLCMS_PROFILE_ARGS})
     set_tests_properties(postscript_differential PROPERTIES FIXTURES_REQUIRED corpus)
 
+    add_executable(gbdprobe_ours gbdprobe.c)
+    target_link_libraries(gbdprobe_ours PRIVATE lcms2)
+    add_executable(gbdprobe_reference gbdprobe.c)
+    target_link_libraries(gbdprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME gbd_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:gbdprobe_ours>
+                $<TARGET_FILE:gbdprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+
 elseif(SLCMS_REQUIRE_REFERENCE)
     message(FATAL_ERROR
         "No reference lcms2 found via pkg-config, and SLCMS_REQUIRE_REFERENCE "
@@ -492,14 +503,13 @@ if(SLCMS_UPSTREAM_DIR)
         target_link_libraries(testcms2 PRIVATE m)
     endif()
 
-    # Until the engine is complete the run must die at the first
-    # unimplemented call — loudly and attributably, never with a plausible
-    # wrong answer.  The driver script owns that inverted contract (an
-    # abnormal exit outranks PASS_REGULAR_EXPRESSION, so ctest cannot
-    # express it directly) and flips to requiring success when the suite
-    # starts passing for real.
-    add_test(NAME testbed_fails_loudly
+    # The testbed runs to completion; the checks it still fails are listed
+    # exactly in known-testbed-failures.txt and the driver requires the run
+    # to match that list in both directions (a stale entry fails too), so
+    # the list can only shrink honestly.  Empty list = exit status 0.
+    add_test(NAME testbed
         COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_testbed.sh
                 $<TARGET_FILE:testcms2>
-                ${SLCMS_UPSTREAM_DIR}/testbed)
+                ${SLCMS_UPSTREAM_DIR}/testbed
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-testbed-failures.txt)
 endif()

@@ -29,29 +29,3 @@ void cmsCIECAM02Reverse(cmsHANDLE hModel, const cmsJCh* pIn, cmsCIEXYZ* pOut)
 {
     swift_unimplemented_fatal("cmsCIECAM02Reverse");
 }
-
-cmsHANDLE cmsGBDAlloc(cmsContext ContextID)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGBDAlloc is not implemented");
-    return (cmsHANDLE){0};
-}
-
-void cmsGBDFree(cmsHANDLE hGBD)
-{
-    swift_unimplemented_fatal("cmsGBDFree");
-}
-
-cmsBool cmsGDBAddPoint(cmsHANDLE hGBD, const cmsCIELab* Lab)
-{
-    swift_unimplemented_fatal("cmsGDBAddPoint");
-}
-
-cmsBool cmsGDBCheckPoint(cmsHANDLE hGBD, const cmsCIELab* Lab)
-{
-    swift_unimplemented_fatal("cmsGDBCheckPoint");
-}
-
-cmsBool cmsGDBCompute(cmsHANDLE hGDB, cmsUInt32Number dwFlags)
-{
-    swift_unimplemented_fatal("cmsGDBCompute");
-}

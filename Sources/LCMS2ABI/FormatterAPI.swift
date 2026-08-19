@@ -1163,7 +1163,10 @@ public func _cmsGetFormatter(
     }
 
     let table = Dir == cmsFormatterInput ? inputFormatters16 : outputFormatters16
-    guard let entry = selectFormatter(Type, from: table) else { return result }
+    // On output the optimized bit is only a hint: a layout without a
+    // dedicated fast packer (planar 8-bit, say) still gets its plain one.
+    let lookup = Dir == cmsFormatterOutput ? Type & ~optimizedSH(1) : Type
+    guard let entry = selectFormatter(lookup, from: table) else { return result }
 
     result.Fmt16 = Dir == cmsFormatterInput ? entry.unpack : entry.pack
     return result
