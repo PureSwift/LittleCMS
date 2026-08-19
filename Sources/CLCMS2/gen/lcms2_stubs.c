@@ -55,21 +55,3 @@ cmsBool cmsGDBCompute(cmsHANDLE hGDB, cmsUInt32Number dwFlags)
 {
     swift_unimplemented_fatal("cmsGDBCompute");
 }
-
-cmsUInt32Number cmsGetPostScriptCRD(cmsContext ContextID, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags, void* Buffer, cmsUInt32Number dwBufferLen)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGetPostScriptCRD is not implemented");
-    return (cmsUInt32Number){0};
-}
-
-cmsUInt32Number cmsGetPostScriptCSA(cmsContext ContextID, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags, void* Buffer, cmsUInt32Number dwBufferLen)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGetPostScriptCSA is not implemented");
-    return (cmsUInt32Number){0};
-}
-
-cmsUInt32Number cmsGetPostScriptColorResource(cmsContext ContextID, cmsPSResourceType Type, cmsHPROFILE hProfile, cmsUInt32Number Intent, cmsUInt32Number dwFlags, cmsIOHANDLER* io)
-{
-    swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGetPostScriptColorResource is not implemented");
-    return (cmsUInt32Number){0};
-}

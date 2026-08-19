@@ -422,6 +422,20 @@ if(SLCMS_REFERENCE_FOUND)
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences-transform.txt
                 ${SLCMS_PROFILE_ARGS} optimize)
     set_tests_properties(transform_optimized_differential PROPERTIES FIXTURES_REQUIRED corpus)
+
+    add_executable(psprobe_ours psprobe.c)
+    target_link_libraries(psprobe_ours PRIVATE lcms2)
+    add_executable(psprobe_reference psprobe.c)
+    target_link_libraries(psprobe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME postscript_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:psprobe_ours>
+                $<TARGET_FILE:psprobe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt
+                ${SLCMS_PROFILE_ARGS})
+    set_tests_properties(postscript_differential PROPERTIES FIXTURES_REQUIRED corpus)
+
 elseif(SLCMS_REQUIRE_REFERENCE)
     message(FATAL_ERROR
         "No reference lcms2 found via pkg-config, and SLCMS_REQUIRE_REFERENCE "
