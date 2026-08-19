@@ -151,6 +151,8 @@ cmsDeltaE
 cmsDesaturateLab
 cmsDetectBlackPoint
 cmsDetectDestinationBlackPoint
+cmsDetectRGBProfileGamma
+cmsDetectTAC
 cmsDictAddEntry
 cmsDictAlloc
 cmsDictDup

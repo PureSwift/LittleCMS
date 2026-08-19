@@ -41,16 +41,6 @@ cmsHPROFILE cmsCreateDeviceLinkFromCubeFileTHR(cmsContext ContextID, const char*
     return (cmsHPROFILE){0};
 }
 
-cmsFloat64Number cmsDetectRGBProfileGamma(cmsHPROFILE hProfile, cmsFloat64Number threshold)
-{
-    swift_unimplemented_fatal("cmsDetectRGBProfileGamma");
-}
-
-cmsFloat64Number cmsDetectTAC(cmsHPROFILE hProfile)
-{
-    swift_unimplemented_fatal("cmsDetectTAC");
-}
-
 cmsHANDLE cmsGBDAlloc(cmsContext ContextID)
 {
     swift_c_signal_error(ContextID, cmsERROR_NOT_SUITABLE, "cmsGBDAlloc is not implemented");

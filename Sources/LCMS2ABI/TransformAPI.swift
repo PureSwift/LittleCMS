@@ -678,7 +678,6 @@ public func cmsCreateExtendedTransform(
         return UnsafeMutableRawPointer(allocateHandle(box))
     }
 
-    var hGamutProfile = hGamutProfile
     if dwFlags & cmsUInt32Number(cmsFLAGS_GAMUTCHECK) != 0 && hGamutProfile == nil {
         dwFlags &= ~cmsUInt32Number(cmsFLAGS_GAMUTCHECK)
     }
@@ -707,9 +706,17 @@ public func cmsCreateExtendedTransform(
         return nil
     }
 
-    // The reference disables optimization for a 16-bit transform out of
-    // a near-linear RGB profile; with no optimization schemes present
-    // yet the flag would change nothing, so the gamma is not measured.
+    // A 16-bit transform out of a near-linear RGB profile is not
+    // optimized: the prelinearisation the optimizer would build loses
+    // too much in the shadows there.
+    if entryColorSpace == cmsSigRgbData && PixelFormat(inputFormat).bytes == 2
+        && dwFlags & cmsUInt32Number(cmsFLAGS_NOOPTIMIZE) == 0
+    {
+        let gamma = cmsDetectRGBProfileGamma(profiles[0], 0.1)
+        if gamma > 0 && gamma < 1.6 {
+            dwFlags |= cmsUInt32Number(cmsFLAGS_NOOPTIMIZE)
+        }
+    }
 
     guard let lut = linkProfiles(ContextID, intents, profiles, &bpc, adaptationStates, dwFlags) else {
         report(cmsUInt32Number(cmsERROR_NOT_SUITABLE), "Couldn't link the profiles", to: ContextID)
@@ -734,13 +741,10 @@ public func cmsCreateExtendedTransform(
     box.entryWhitePoint = normalizedWhitePoint(cmsReadTag(profiles[0], cmsSigMediaWhitePointTag))
     box.exitWhitePoint = normalizedWhitePoint(cmsReadTag(profiles[n - 1], cmsSigMediaWhitePointTag))
 
-    if hGamutProfile != nil && dwFlags & cmsUInt32Number(cmsFLAGS_GAMUTCHECK) != 0 {
-        // The gamut check pipeline is built against a virtual Lab
-        // profile, which does not exist yet; until it does the check is
-        // not built, and the loop that would consult it treats every
-        // pixel as in gamut.
-        report(cmsUInt32Number(cmsERROR_NOT_SUITABLE), "gamut check is not implemented", to: ContextID)
-        hGamutProfile = nil
+    if let hGamutProfile, dwFlags & cmsUInt32Number(cmsFLAGS_GAMUTCHECK) != 0 {
+        box.gamutCheck = _cmsCreateGamutCheckPipeline(
+            ContextID, profiles, bpc, intents, adaptationStates, Int(nGamutPCSposition), hGamutProfile
+        )
     }
 
     // Colorant tables: the input's from its own tag; the output's from

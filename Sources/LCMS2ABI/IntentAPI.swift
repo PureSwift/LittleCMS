@@ -328,10 +328,31 @@ private func blackPreservingSetup(
     return (iccIntents, lastProfilePos, nil)
 }
 
+/// The K-only sampler's cargo: the plain transform and the K curve.
+private struct GrayOnlyParams {
+    var cmyk2cmyk: UnsafeMutablePointer<cmsPipeline>?
+    var kTone: UnsafeMutablePointer<cmsToneCurve>?
+}
+
+/// Pure black stays pure black, through the K curve; anything else goes
+/// through the plain transform.
+private func blackPreservingGrayOnlySampler(
+    _ In: UnsafePointer<cmsUInt16Number>?, _ Out: UnsafeMutablePointer<cmsUInt16Number>?, _ Cargo: UnsafeMutableRawPointer?
+) -> cmsInt32Number {
+    guard let In, let Out, let Cargo else { return 0 }
+    let bp = Cargo.assumingMemoryBound(to: GrayOnlyParams.self).pointee
+    if In[0] == 0 && In[1] == 0 && In[2] == 0 {
+        Out[0] = 0; Out[1] = 0; Out[2] = 0
+        Out[3] = cmsEvalToneCurve16(bp.kTone, In[3])
+        return 1
+    }
+    cmsPipelineEval16(In, Out, bp.cmyk2cmyk)
+    return 1
+}
+
 /// Black ink only: a CMYK to CMYK CLUT that maps pure K through a K to
-/// K curve and everything else through the plain transform.  The curve
-/// comes from measuring both ends against Lab, which needs the virtual
-/// Lab profile; until that exists the CMYK to CMYK case is refused.
+/// K curve and everything else through the plain transform, with any
+/// trailing CMYK devicelinks appended after.
 @Sendable func blackPreservingKOnlyIntents(
     _ ContextID: cmsContext?,
     _ intents: [cmsUInt32Number], _ hProfiles: [cmsHPROFILE?],
@@ -340,18 +361,125 @@ private func blackPreservingSetup(
 ) -> UnsafeMutablePointer<cmsPipeline>? {
     let nProfiles = hProfiles.count
     if nProfiles < 1 || nProfiles > 255 { return nil }
-    let (_, lastProfile, fallback) = blackPreservingSetup(ContextID, intents, hProfiles, bpc, adaptationStates, dwFlags)
-    guard lastProfile != nil else { return fallback }
+    let (iccIntents, lastProfile, fallback) = blackPreservingSetup(ContextID, intents, hProfiles, bpc, adaptationStates, dwFlags)
+    guard let lastProfilePos = lastProfile else { return fallback }
+    let preserved = lastProfilePos + 1
 
-    report(
-        cmsUInt32Number(cmsERROR_NOT_SUITABLE),
-        "black-preserving intents on CMYK chains are not implemented", to: ContextID
+    guard let result = cmsPipelineAlloc(ContextID, 4, 4) else { return nil }
+    var bp = GrayOnlyParams(cmyk2cmyk: nil, kTone: nil)
+    defer {
+        if let l = bp.cmyk2cmyk { cmsPipelineFree(l) }
+        if let k = bp.kTone { cmsFreeToneCurve(k) }
+    }
+    func fail() -> UnsafeMutablePointer<cmsPipeline>? {
+        cmsPipelineFree(result)
+        return nil
+    }
+
+    bp.cmyk2cmyk = defaultICCIntents(
+        ContextID, Array(iccIntents[0..<preserved]), Array(hProfiles[0..<preserved]),
+        Array(bpc[0..<preserved]), Array(adaptationStates[0..<preserved]), dwFlags
     )
-    return nil
+    if bp.cmyk2cmyk == nil { return fail() }
+
+    bp.kTone = _cmsBuildKToneCurve(
+        ContextID, 4096, Array(iccIntents[0..<preserved]), Array(hProfiles[0..<preserved]),
+        Array(bpc[0..<preserved]), Array(adaptationStates[0..<preserved]), dwFlags
+    )
+    if bp.kTone == nil { return fail() }
+
+    let nGridPoints = _cmsReasonableGridpointsByColorspace(cmsSigCmykData, dwFlags)
+    guard let clut = cmsStageAllocCLut16bit(ContextID, nGridPoints, 4, 4, nil) else { return fail() }
+    if cmsPipelineInsertStage(result, cmsAT_BEGIN, clut) == 0 { return fail() }
+    // No pre or post linearisation this time.
+    if cmsStageSampleCLut16bit(clut, blackPreservingGrayOnlySampler, &bp, 0) == 0 { return fail() }
+
+    for i in (lastProfilePos + 1)..<nProfiles {
+        guard let devlink = _cmsReadDevicelinkLUT(hProfiles[i], iccIntents[i]) else { return fail() }
+        defer { cmsPipelineFree(devlink) }
+        if cmsPipelineCat(result, devlink) == 0 { return fail() }
+    }
+    return result
 }
 
-/// Black plane: as above, but keeping the K plane and re-solving CMY
-/// against it.  Refused for the same reason for now.
+/// The K-plane sampler's cargo.
+private struct PreserveKPlaneParams {
+    var cmyk2cmyk: UnsafeMutablePointer<cmsPipeline>?
+    var hProofOutput: cmsHTRANSFORM?
+    var cmyk2Lab: cmsHTRANSFORM?
+    var kTone: UnsafeMutablePointer<cmsToneCurve>?
+    var labK2cmyk: UnsafeMutablePointer<cmsPipeline>?
+    var maxError: Double
+    var hRoundTrip: cmsHTRANSFORM?
+    var maxTAC: Double
+}
+
+/// Keeps the K plane: the plain transform's K is replaced by the K
+/// curve's, CMY re-solved by reverse interpolation against that K, and
+/// the total ink held under the output profile's limit.  The CLUT is
+/// 16-bit but the arithmetic is float, as the reference's is.
+private func blackPreservingSampler(
+    _ In: UnsafePointer<cmsUInt16Number>?, _ Out: UnsafeMutablePointer<cmsUInt16Number>?, _ Cargo: UnsafeMutableRawPointer?
+) -> cmsInt32Number {
+    guard let In, let Out, let Cargo else { return 0 }
+    let bp = Cargo.assumingMemoryBound(to: PreserveKPlaneParams.self)
+
+    var inf = [cmsFloat32Number](repeating: 0, count: 4)
+    var outf = [cmsFloat32Number](repeating: 0, count: 4)
+    var labK = [cmsFloat32Number](repeating: 0, count: 4)
+    for i in 0..<4 { inf[i] = cmsFloat32Number(Double(In[i]) / 65535.0) }
+
+    labK[3] = cmsEvalToneCurveFloat(bp.pointee.kTone, inf[3])
+
+    if In[0] == 0 && In[1] == 0 && In[2] == 0 {
+        Out[0] = 0; Out[1] = 0; Out[2] = 0
+        Out[3] = quickSaturateWord(Double(labK[3]) * 65535.0)
+        return 1
+    }
+
+    cmsPipelineEvalFloat(&inf, &outf, bp.pointee.cmyk2cmyk)
+    for i in 0..<4 { Out[i] = quickSaturateWord(Double(outf[i]) * 65535.0) }
+
+    // K may already be right, mostly at K = 0.
+    if (outf[3] - labK[3]).magnitude < Float(3.0 / 65535.0) { return 1 }
+
+    // Measure the plain answer in Lab, and get the Lab of the output CMYK.
+    var colorimetricLab = cmsCIELab()
+    cmsDoTransform(bp.pointee.hProofOutput, Out, &colorimetricLab, 1)
+    cmsDoTransform(bp.pointee.cmyk2Lab, &outf, &labK, 1)
+
+    // CMY for that Lab at the fixed K, by reverse interpolation — or the
+    // plain answer when none can be found.
+    // The reference passes the same buffer as target and hint; the
+    // hint is copied out first, so a copy here is the same thing.
+    var hint = outf
+    let found = cmsPipelineEvalReverseFloat(&labK, &outf, &hint, bp.pointee.labK2cmyk)
+    if found == 0 { return 1 }
+    outf[3] = labK[3]
+
+    let sumCMY = Double(outf[0]) + Double(outf[1]) + Double(outf[2])
+    let sumCMYK = sumCMY + Double(outf[3])
+    var ratio: Double
+    if sumCMYK > bp.pointee.maxTAC {
+        ratio = 1 - ((sumCMYK - bp.pointee.maxTAC) / sumCMY)
+        if ratio < 0 { ratio = 0 }
+    } else {
+        ratio = 1.0
+    }
+
+    Out[0] = quickSaturateWord(Double(outf[0]) * ratio * 65535.0)
+    Out[1] = quickSaturateWord(Double(outf[1]) * ratio * 65535.0)
+    Out[2] = quickSaturateWord(Double(outf[2]) * ratio * 65535.0)
+    Out[3] = quickSaturateWord(Double(outf[3]) * 65535.0)
+
+    var blackPreservingLab = cmsCIELab()
+    cmsDoTransform(bp.pointee.hProofOutput, Out, &blackPreservingLab, 1)
+    let error = cmsDeltaE(&colorimetricLab, &blackPreservingLab)
+    if error > bp.pointee.maxError { bp.pointee.maxError = error }
+    return 1
+}
+
+/// Black plane preserved.
 @Sendable func blackPreservingKPlaneIntents(
     _ ContextID: cmsContext?,
     _ intents: [cmsUInt32Number], _ hProfiles: [cmsHPROFILE?],
@@ -360,14 +488,70 @@ private func blackPreservingSetup(
 ) -> UnsafeMutablePointer<cmsPipeline>? {
     let nProfiles = hProfiles.count
     if nProfiles < 1 || nProfiles > 255 { return nil }
-    let (_, lastProfile, fallback) = blackPreservingSetup(ContextID, intents, hProfiles, bpc, adaptationStates, dwFlags)
-    guard lastProfile != nil else { return fallback }
+    let (iccIntents, lastProfile, fallback) = blackPreservingSetup(ContextID, intents, hProfiles, bpc, adaptationStates, dwFlags)
+    guard let lastProfilePos = lastProfile else { return fallback }
+    let preserved = lastProfilePos + 1
+    let hLastProfile = hProfiles[lastProfilePos]
 
-    report(
-        cmsUInt32Number(cmsERROR_NOT_SUITABLE),
-        "black-preserving intents on CMYK chains are not implemented", to: ContextID
+    guard let result = cmsPipelineAlloc(ContextID, 4, 4) else { return nil }
+    var bp = PreserveKPlaneParams(maxError: 0, maxTAC: 0)
+    defer {
+        if let l = bp.cmyk2cmyk { cmsPipelineFree(l) }
+        if let x = bp.cmyk2Lab { cmsDeleteTransform(x) }
+        if let x = bp.hProofOutput { cmsDeleteTransform(x) }
+        if let k = bp.kTone { cmsFreeToneCurve(k) }
+        if let l = bp.labK2cmyk { cmsPipelineFree(l) }
+    }
+    // The reference returns whatever it has on failure — the result
+    // pipeline as it stands, not NULL — after cleaning up.  Kept.
+
+    bp.labK2cmyk = _cmsReadInputLUT(hLastProfile, cmsUInt32Number(INTENT_RELATIVE_COLORIMETRIC))
+    if bp.labK2cmyk == nil { return result }
+
+    bp.maxTAC = cmsDetectTAC(hLastProfile) / 100.0
+    if bp.maxTAC <= 0 { return result }
+
+    bp.cmyk2cmyk = defaultICCIntents(
+        ContextID, Array(iccIntents[0..<preserved]), Array(hProfiles[0..<preserved]),
+        Array(bpc[0..<preserved]), Array(adaptationStates[0..<preserved]), dwFlags
     )
-    return nil
+    if bp.cmyk2cmyk == nil { return result }
+
+    bp.kTone = _cmsBuildKToneCurve(
+        ContextID, 4096, Array(iccIntents[0..<preserved]), Array(hProfiles[0..<preserved]),
+        Array(bpc[0..<preserved]), Array(adaptationStates[0..<preserved]), dwFlags
+    )
+    if bp.kTone == nil { return result }
+
+    let hLab = cmsCreateLab4ProfileTHR(ContextID, nil)
+    bp.hProofOutput = cmsCreateTransformTHR(
+        ContextID, hLastProfile, channelsSH(4) | bytesSH(2), hLab, SLCMS_TYPE_Lab_DBL,
+        cmsUInt32Number(INTENT_RELATIVE_COLORIMETRIC), cmsUInt32Number(cmsFLAGS_NOCACHE | cmsFLAGS_NOOPTIMIZE)
+    )
+    if bp.hProofOutput == nil {
+        cmsCloseProfile(hLab)
+        return result
+    }
+    bp.cmyk2Lab = cmsCreateTransformTHR(
+        ContextID, hLastProfile, floatSH(1) | channelsSH(4) | bytesSH(4), hLab,
+        floatSH(1) | channelsSH(3) | bytesSH(4),
+        cmsUInt32Number(INTENT_RELATIVE_COLORIMETRIC), cmsUInt32Number(cmsFLAGS_NOCACHE | cmsFLAGS_NOOPTIMIZE)
+    )
+    cmsCloseProfile(hLab)
+    if bp.cmyk2Lab == nil { return result }
+
+    bp.maxError = 0
+    let nGridPoints = _cmsReasonableGridpointsByColorspace(cmsSigCmykData, dwFlags)
+    guard let clut = cmsStageAllocCLut16bit(ContextID, nGridPoints, 4, 4, nil) else { return result }
+    if cmsPipelineInsertStage(result, cmsAT_BEGIN, clut) == 0 { return result }
+    _ = cmsStageSampleCLut16bit(clut, blackPreservingSampler, &bp, 0)
+
+    for i in (lastProfilePos + 1)..<nProfiles {
+        guard let devlink = _cmsReadDevicelinkLUT(hProfiles[i], iccIntents[i]) else { return result }
+        defer { cmsPipelineFree(devlink) }
+        if cmsPipelineCat(result, devlink) == 0 { return result }
+    }
+    return result
 }
 
 // -- linking -------------------------------------------------------------------

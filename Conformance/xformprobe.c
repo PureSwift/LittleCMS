@@ -364,6 +364,70 @@ int main(int argc, char** argv)
         }
     }
 
+    /* -- gamut checking, and the proofing form that carries it -- */
+    printf("gamut check\n");
+    {
+        cmsUInt16Number alarm[cmsMAXCHANNELS] = { 0xFFFF, 0, 0xFFFF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        cmsSetAlarmCodes(alarm);
+        /* sRGB against the smaller 709 gamut: colours 709 cannot hold come back as the alarm. */
+        cmsHTRANSFORM x = cmsCreateProofingTransform(srgb, TYPE_RGB_16, rgb709, TYPE_RGB_16, rgb709, 0, 1,
+                                                     cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK);
+        if (x) { describe(x); apply(x, TYPE_RGB_16, TYPE_RGB_16, "gamut check srgb>rgb709 (rgb709 gamut)"); cmsDeleteTransform(x); }
+        else printf("  (refused)\n");
+        x = cmsCreateProofingTransform(srgb, TYPE_RGB_8, rgb709, TYPE_RGB_8, rgb709, 0, 1,
+                                       cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK | cmsFLAGS_NOCACHE);
+        if (x) { describe(x); apply(x, TYPE_RGB_8, TYPE_RGB_8, "gamut check srgb>rgb709 8-bit nocache"); cmsDeleteTransform(x); }
+        else printf("  (refused)\n");
+        /* And in floating point, where out of gamut is a value above zero. */
+        x = cmsCreateProofingTransform(srgb, TYPE_RGB_FLT, rgb709, TYPE_RGB_FLT, rgb709, 0, 1,
+                                       cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK);
+        if (x) { describe(x); apply(x, TYPE_RGB_FLT, TYPE_RGB_FLT, "gamut check srgb>rgb709 float"); cmsDeleteTransform(x); }
+        else printf("  (refused)\n");
+        if (t1) {
+            /* A LUT-based gamut, whose round trip is looser: threshold 5. */
+            x = cmsCreateProofingTransform(srgb, TYPE_RGB_16, rgb709, TYPE_RGB_16, t1, 0, 1,
+                                           cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK | cmsFLAGS_SOFTPROOFING);
+            if (x) { describe(x); apply(x, TYPE_RGB_16, TYPE_RGB_16, "gamut check + softproof srgb>test1>rgb709"); cmsDeleteTransform(x); }
+            else printf("  (refused)\n");
+        }
+        /* Gamut check asked with no gamut profile is silently dropped. */
+        cmsHPROFILE two[2] = { srgb, rgb709 };
+        cmsUInt32Number in2[2] = { 0, 0 }; cmsBool bp2[2] = { 0, 0 }; cmsFloat64Number ad2[2] = { 1, 1 };
+        x = cmsCreateExtendedTransform(NULL, 2, two, bp2, in2, ad2, NULL, 0, TYPE_RGB_8, TYPE_RGB_8, cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK);
+        if (x) { describe(x); cmsDeleteTransform(x); } else printf("  (refused)\n");
+        /* A bad gamut PCS position is refused. */
+        x = cmsCreateExtendedTransform(NULL, 2, two, bp2, in2, ad2, rgb709, 5, TYPE_RGB_8, TYPE_RGB_8, cmsFLAGS_NOOPTIMIZE | cmsFLAGS_GAMUTCHECK);
+        printf("  bad gamut position: %s\n", x ? "created" : "refused");
+        if (x) cmsDeleteTransform(x);
+        cmsUInt16Number defaults[cmsMAXCHANNELS] = { 0x7F00, 0x7F00, 0x7F00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        cmsSetAlarmCodes(defaults);
+    }
+
+    /* -- the black-preserving intents, and what they measure -- */
+    if (t1) {
+        printf("black preserving\n");
+        printf("  TAC test1 %.4f test3 %.4f srgb %.4f\n", cmsDetectTAC(t1), cmsDetectTAC(t3), cmsDetectTAC(srgb));
+        printf("  gamma srgb %.4f rgb709 %.4f gray %.4f test1 %.4f\n",
+               cmsDetectRGBProfileGamma(srgb, 0.1), cmsDetectRGBProfileGamma(rgb709, 0.1),
+               cmsDetectRGBProfileGamma(gray, 0.1), cmsDetectRGBProfileGamma(t1, 0.1));
+        for (cmsUInt32Number intent = 10; intent <= 15; intent++) {
+            char what[64];
+            snprintf(what, sizeof what, "test1>test3 CMYK_8 intent %u", intent);
+            printf(" %s\n", what);
+            cmsHTRANSFORM x = cmsCreateTransform(t1, TYPE_CMYK_8, t3, TYPE_CMYK_8, intent, cmsFLAGS_NOOPTIMIZE);
+            if (x) { describe(x); apply(x, TYPE_CMYK_8, TYPE_CMYK_8, what); cmsDeleteTransform(x); }
+            else printf("  (refused)\n");
+        }
+        /* Not CMYK to CMYK: the black-preserving intents fall back to the ICC ones. */
+        pair(srgb, "srgb", TYPE_RGB_8, t1, "test1", TYPE_CMYK_8, 10, 0);
+        pair(t1, "test1", TYPE_CMYK_8, srgb, "srgb", TYPE_RGB_8, 13, 0);
+        /* With a trailing CMYK devicelink, which is set aside and appended. */
+        cmsHPROFILE chain[3] = { t1, t3, inkdl };
+        cmsHTRANSFORM x = cmsCreateMultiprofileTransform(chain, 3, TYPE_CMYK_8, TYPE_CMYK_8, 11, cmsFLAGS_NOOPTIMIZE);
+        if (x) { describe(x); apply(x, TYPE_CMYK_8, TYPE_CMYK_8, "test1>test3>inkdl intent 11"); cmsDeleteTransform(x); }
+        else printf("  (refused)\n");
+    }
+
     /* -- null transform, formatters only -- */
     printf("null transform\n");
     {
