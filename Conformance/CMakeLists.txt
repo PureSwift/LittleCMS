@@ -316,6 +316,18 @@ if(SLCMS_REFERENCE_FOUND)
                 $<TARGET_FILE:clutprobe_reference>
                 ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
 
+    add_executable(it8probe_ours it8probe.c)
+    target_link_libraries(it8probe_ours PRIVATE lcms2)
+    add_executable(it8probe_reference it8probe.c)
+    target_link_libraries(it8probe_reference PRIVATE PkgConfig::SLCMS_REFERENCE)
+
+    add_test(NAME it8_differential
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_conformance.sh
+                $<TARGET_FILE:it8probe_ours>
+                $<TARGET_FILE:it8probe_reference>
+                ${CMAKE_CURRENT_SOURCE_DIR}/known-differences.txt)
+    set_tests_properties(it8_differential PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
     add_executable(virtprobe_ours virtprobe.c)
     target_link_libraries(virtprobe_ours PRIVATE lcms2)
     add_executable(virtprobe_reference virtprobe.c)
