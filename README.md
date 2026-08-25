@@ -71,6 +71,27 @@ curve.evaluate(Float(0.5))       // 0.2176…
 try curve.reversed().evaluate(0.2176)  // ≈ 0.5
 ```
 
+Tags are read and written by shape, since what a tag holds is decided by
+its signature and Swift cannot type a subscript on that.  A tag asked for
+as the wrong shape answers nil rather than reinterpreting bytes:
+
+```swift
+for tag in profile.tags { print(tag) }        // wtpt, rXYZ, rTRC, desc, …
+
+profile.tags.xyz(.mediaWhitePoint)            // CIEXYZ?
+profile.tags.curve(.redTRC)                   // ToneCurve?
+profile.tags.text(.copyright, language: "de") // String?
+profile.tags.xyz(.profileDescription)         // nil — not an XYZ tag
+
+try profile.tags.set(.profileDescription, text: "My Profile")
+try profile.tags.link(.greenTRC, to: .redTRC)
+try profile.tags.remove(.calibrationDateTime)
+let bytes = try profile.save()
+```
+
+Anything without a named shape is still reachable exactly as the file
+holds it, with `profile.tags.rawData(_:)`.
+
 Two modules sit underneath: `LittleCMSCore` is the engine (the arithmetic
 and value types, no Foundation, Embedded-clean), and `LCMS2ABI` is the C
 surface.  A Swift program needs neither — `import LittleCMS` re-exports

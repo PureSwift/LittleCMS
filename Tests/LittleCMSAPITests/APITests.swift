@@ -205,3 +205,129 @@ import Testing
         #expect(lab.deltaE(to: CIELab(l: 51, a: 20, b: -30)) == 1)
     }
 }
+
+@Suite struct Tags {
+    @Test func signatureRoundTrip() {
+        #expect(Tag.mediaWhitePoint.rawValue == 0x77_74_70_74)
+        #expect(Tag.mediaWhitePoint.description == "wtpt")
+        #expect(Tag("A2B0") == .aToB0)
+        #expect(Signature(rawValue: 0x43_52_54_20).description == "CRT ")
+    }
+
+    @Test func enumeratesWhatAProfileCarries() throws {
+        let srgb = try Profile.sRGB()
+        let tags = srgb.tags
+        #expect(tags.count > 5)
+        #expect(tags.contains(.mediaWhitePoint))
+        #expect(tags.contains(.profileDescription))
+        #expect(!tags.contains(.namedColor2))
+        // The collection lists exactly what `contains` agrees with.
+        for tag in tags { #expect(tags.contains(tag)) }
+    }
+
+    @Test func readsTypedPayloads() throws {
+        let srgb = try Profile.sRGB()
+        let white = try #require(srgb.tags.xyz(.mediaWhitePoint))
+        #expect(abs(white.y - 1.0) < 1e-6)
+
+        let red = try #require(srgb.tags.xyz(.redColorant))
+        #expect(red.x > 0.4 && red.x < 0.5)
+
+        let curve = try #require(srgb.tags.curve(.redTRC))
+        #expect(abs(Double(curve.evaluate(Float(1.0))) - 1.0) < 1e-5)
+        #expect(curve.isMonotonic)
+
+        #expect(srgb.tags.text(.profileDescription) == "sRGB built-in")
+        #expect(srgb.tags.text(.copyright) != nil)
+    }
+
+    @Test func wrongShapeAnswersNil() throws {
+        let srgb = try Profile.sRGB()
+        // Present, but not an XYZ tag.
+        #expect(srgb.tags.xyz(.profileDescription) == nil)
+        // Not present at all.
+        #expect(srgb.tags.curve(.grayTRC) == nil)
+        #expect(srgb.tags.text(.characterizationTarget) == nil)
+        #expect(srgb.tags.signature(.technology) == nil)
+    }
+
+    @Test func writesAndReadsBack() throws {
+        let profile = try Profile.sRGB()
+        try profile.tags.set(.luminance, xyz: CIEXYZ(x: 1, y: 2, z: 3))
+        let read = try #require(profile.tags.xyz(.luminance))
+        #expect(read.y == 2)
+
+        try profile.tags.set(.technology, signature: Signature(rawValue: 0x43_52_54_20))
+        #expect(profile.tags.signature(.technology)?.description == "CRT ")
+
+        try profile.tags.set(.profileDescription, text: "a name", language: "en", country: "US")
+        #expect(profile.tags.text(.profileDescription) == "a name")
+
+        let curve = try ToneCurve(gamma: 1.8)
+        try profile.tags.set(.grayTRC, curve: curve)
+        let back = try #require(profile.tags.curve(.grayTRC))
+        #expect(abs(Double(back.evaluate(Float(0.5))) - Double(curve.evaluate(Float(0.5)))) < 1e-6)
+    }
+
+    @Test func survivesASaveRoundTrip() throws {
+        let profile = try Profile.sRGB()
+        try profile.tags.set(.profileDescription, text: "round trip")
+        try profile.tags.set(.luminance, xyz: CIEXYZ(x: 0.5, y: 0.25, z: 0.125))
+
+        let reloaded = try Profile(data: profile.save())
+        #expect(reloaded.tags.text(.profileDescription) == "round trip")
+        let luminance = try #require(reloaded.tags.xyz(.luminance))
+        #expect(abs(luminance.z - 0.125) < 1e-4)
+    }
+
+    @Test func removalAndLinking() throws {
+        let profile = try Profile.sRGB()
+        #expect(profile.tags.contains(.redTRC))
+        try profile.tags.remove(.redTRC)
+        #expect(!profile.tags.contains(.redTRC))
+
+        try profile.tags.set(.grayTRC, curve: ToneCurve(gamma: 2.0))
+        try profile.tags.link(.redTRC, to: .grayTRC)
+        #expect(profile.tags.linkTarget(.redTRC) == .grayTRC)
+        #expect(profile.tags.linkTarget(.grayTRC) == nil)
+    }
+
+    @Test func translations() throws {
+        let profile = try Profile.sRGB()
+        try profile.tags.set(.copyright, text: "one", language: "en", country: "US")
+        let locales = profile.tags.translations(.copyright)
+        #expect(locales.contains { $0.language == "en" && $0.country == "US" })
+    }
+
+    @Test func rawBytesCarryTheTypeSignature() throws {
+        let srgb = try Profile.sRGB()
+        let raw = try #require(srgb.tags.rawData(.mediaWhitePoint))
+        #expect(raw.count >= 8)
+        #expect(String(decoding: raw.prefix(4), as: UTF8.self) == "XYZ ")
+        #expect(srgb.tags.rawData(.namedColor2) == nil)
+    }
+
+    @Test func metadataIsEmptyWithoutTheTag() throws {
+        #expect(try Profile.sRGB().tags.metadata.isEmpty)
+    }
+}
+
+@Suite struct MoreTags {
+    @Test func dateTimeRoundTrip() throws {
+        let profile = try Profile.sRGB()
+        let when = DateTime(year: 2026, month: 8, day: 25, hours: 13, minutes: 45, seconds: 5)
+        try profile.tags.set(.calibrationDateTime, dateTime: when)
+        #expect(profile.tags.dateTime(.calibrationDateTime) == when)
+
+        let reloaded = try Profile(data: profile.save())
+        #expect(reloaded.tags.dateTime(.calibrationDateTime) == when)
+    }
+
+    @Test func chromaticAdaptationIsAMatrix() throws {
+        let srgb = try Profile.sRGB()
+        guard let chad = srgb.tags.chromaticAdaptation else { return }
+        #expect(chad.count == 9)
+        // A sane adaptation is near the identity on the diagonal.
+        #expect(abs(chad[0] - 1) < 0.2 && abs(chad[4] - 1) < 0.2)
+    }
+}

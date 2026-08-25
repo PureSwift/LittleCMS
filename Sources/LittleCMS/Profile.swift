@@ -168,11 +168,7 @@ public final class Profile {
     public var isMatrixShaper: Bool { cmsIsMatrixShaper(handle) != 0 }
 
     /// The media white point tag, as measured XYZ.
-    public var mediaWhitePoint: CIEXYZ? {
-        guard let tag = cmsReadTag(handle, cmsSigMediaWhitePointTag) else { return nil }
-        let xyz = tag.assumingMemoryBound(to: cmsCIEXYZ.self).pointee
-        return CIEXYZ(x: xyz.X, y: xyz.Y, z: xyz.Z)
-    }
+    public var mediaWhitePoint: CIEXYZ? { tags.xyz(.mediaWhitePoint) }
 
     // -- named colors --------------------------------------------------
 
