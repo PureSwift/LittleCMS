@@ -1,6 +1,6 @@
 import Testing
 
-@testable import LittleCMS
+@testable import LittleCMSCore
 
 // The corrections applied between two profiles across the PCS.
 

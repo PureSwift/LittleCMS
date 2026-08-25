@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // Tone curves.
 //

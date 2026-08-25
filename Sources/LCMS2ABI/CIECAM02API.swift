@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // The CIECAM02 handle: a model set up once for its viewing conditions.
 

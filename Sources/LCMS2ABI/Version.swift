@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // The Phase-0 proof symbol: the one exported function whose value crosses
 // engine → boundary → C client, so a probe calling it through dlsym proves

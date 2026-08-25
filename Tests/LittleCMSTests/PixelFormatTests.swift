@@ -1,7 +1,7 @@
 import CLCMS2
 import Testing
 
-@testable import LittleCMS
+@testable import LittleCMSCore
 
 // The pixel-format word decoded against the header's own constants.
 //

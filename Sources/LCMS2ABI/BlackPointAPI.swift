@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // Finding a profile's black point, for black point compensation.
 //

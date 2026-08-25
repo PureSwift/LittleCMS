@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // The arithmetic primitives.  Pure functions with no context, no
 // allocation, and no failure mode, so each is a direct forward to the

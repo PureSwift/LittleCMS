@@ -1,4 +1,4 @@
-import LittleCMS
+import LittleCMSCore
 import Testing
 
 @Suite

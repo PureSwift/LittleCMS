@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // Colour space conversions, colour differences, and adaptation.
 //

@@ -109,10 +109,10 @@ function(slcms_add_swift_module name)
         $<$<CONFIG:Release>:-cross-module-optimization>)
 endfunction()
 
-slcms_add_swift_module(LittleCMS)
+slcms_add_swift_module(LittleCMSCore)
 slcms_add_swift_module(LCMS2ABI)
 
-target_link_libraries(LCMS2ABI PUBLIC LittleCMS)
+target_link_libraries(LCMS2ABI PUBLIC LittleCMSCore)
 
 # Only the boundary module sees the C API.
 target_compile_options(LCMS2ABI PRIVATE
@@ -195,7 +195,7 @@ else()
     # to them.
     target_link_options(lcms2 PRIVATE
         "LINKER:--whole-archive,$<TARGET_FILE:LCMS2ABI>,--no-whole-archive"
-        "LINKER:$<TARGET_FILE:LittleCMS>")
+        "LINKER:$<TARGET_FILE:LittleCMSCore>")
 
     # The engine defines no part of the published API — every exported
     # name comes from the boundary or the C floor — so nothing it
@@ -204,7 +204,7 @@ else()
     # demote these, and six engine functions were exported on Linux while
     # Mach-O's allowlist had been refusing them all along.
     target_link_options(lcms2 PRIVATE
-        "LINKER:--exclude-libs,libLittleCMS.a")
+        "LINKER:--exclude-libs,libLittleCMSCore.a")
 
     # Naming the archives in link options makes them arguments, not inputs:
     # add_dependencies only orders the build, so an incremental build that
@@ -212,7 +212,7 @@ else()
     # previous objects.  LINK_DEPENDS makes the archives real inputs, and
     # the version script with them.
     set_property(TARGET lcms2 APPEND PROPERTY LINK_DEPENDS
-        $<TARGET_FILE:LCMS2ABI> $<TARGET_FILE:LittleCMS> ${SLCMS_VERSION_SCRIPT})
+        $<TARGET_FILE:LCMS2ABI> $<TARGET_FILE:LittleCMSCore> ${SLCMS_VERSION_SCRIPT})
 
     # What the reference's own pkg-config declares as private
     # dependencies, named explicitly because --no-undefined means they

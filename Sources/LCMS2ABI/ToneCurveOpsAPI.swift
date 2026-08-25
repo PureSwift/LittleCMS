@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // What can be asked of a curve, and what can be made from one.
 //

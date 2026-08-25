@@ -1,6 +1,6 @@
 import Testing
 
-@testable import LittleCMS
+@testable import LittleCMSCore
 
 // The byte-width conversions the formatters are built on.
 //

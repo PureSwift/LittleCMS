@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // The multi-process-element tag type: a pipeline stored as a sequence
 // of elements, each with its own type and its own encoding — segmented

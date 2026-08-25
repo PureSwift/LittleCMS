@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // CLUT stages: a multi-dimensional table, the interpolation parameters
 // that describe its shape, and the samplers that walk it.

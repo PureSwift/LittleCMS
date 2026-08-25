@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // Gamut checking, black tone curves, and two profile measurements —
 // the parts of the library that measure a profile by running transforms

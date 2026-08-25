@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // Tag types: the serializers that turn a tag's bytes into an object and
 // back.

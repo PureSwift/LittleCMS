@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // The rest of the 16-bit formatter tables: the generic entries that
 // serve any layout of a given width by reading the layout back from the

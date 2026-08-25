@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // The multi-localized string tag, and the widest platform seam in the
 // library.

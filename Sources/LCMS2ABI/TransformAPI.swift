@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // The transform: a pipeline with a pixel layout at each end.
 //

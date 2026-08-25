@@ -70,15 +70,15 @@ mkdir -p "$output"
 
 ar=$( (command -v llvm-ar || xcrun --find llvm-ar || command -v ar) 2>/dev/null | head -1 )
 
-echo "building LittleCMS for $triple"
+echo "building LittleCMSCore for $triple"
 # shellcheck disable=SC2046
 "$swiftc" -target "$triple" -enable-experimental-feature Embedded -enable-experimental-feature Extern \
     -wmo -parse-as-library -O \
-    -module-name LittleCMS \
-    -emit-module -emit-module-path "$output/LittleCMS.swiftmodule" \
-    -c -o "$output/LittleCMS.o" \
-    $(find "$root/Sources/LittleCMS" -name '*.swift')
+    -module-name LittleCMSCore \
+    -emit-module -emit-module-path "$output/LittleCMSCore.swiftmodule" \
+    -c -o "$output/LittleCMSCore.o" \
+    $(find "$root/Sources/LittleCMSCore" -name '*.swift')
 
-"$ar" rcs "$output/libLittleCMS.a" "$output/LittleCMS.o"
+"$ar" rcs "$output/libLittleCMSCore.a" "$output/LittleCMSCore.o"
 
-echo "wrote $output/libLittleCMS.a"
+echo "wrote $output/libLittleCMSCore.a"

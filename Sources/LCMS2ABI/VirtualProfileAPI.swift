@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // Profiles the library makes up: built from parameters rather than read
 // from a file, and useful mostly as ends of a transform — a Lab profile

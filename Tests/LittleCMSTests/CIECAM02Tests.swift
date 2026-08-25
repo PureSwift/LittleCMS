@@ -1,5 +1,5 @@
 import Testing
-@testable import LittleCMS
+@testable import LittleCMSCore
 
 @Suite struct CIECAM02Tests {
     private var conditions: ViewingConditions {

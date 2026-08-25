@@ -39,6 +39,43 @@ which is empty).
 | CGATS/IT8, PostScript, gamut boundary descriptor, CIECAM02 | bit-exact vs reference |
 | Plugin registration (all twelve kinds) | bit-exact vs reference |
 
+## Using it from Swift
+
+`LittleCMS` is the Swift API; nothing in it names a C type or a `TYPE_`
+macro, and failures are thrown rather than logged.
+
+```swift
+import LittleCMS
+
+let transform = try Transform(
+    from: .sRGB(),                              format: .rgb8,
+    to:   try Profile(contentsOfFile: "press.icc"), format: .cmyk8,
+    intent: .relativeColorimetric,
+    options: [.blackPointCompensation]
+)
+
+let cmyk = try transform.convert(rgbBytes)
+```
+
+Profiles describe themselves, tone curves evaluate and invert, and a
+transform is safe to share across threads once built:
+
+```swift
+let profile = try Profile(data: iccBytes)
+profile.profileDescription       // "sRGB built-in"
+profile.colorSpace == .rgb       // true
+profile.supports(.saturation)    // true
+
+let curve = try ToneCurve(gamma: 2.2)
+curve.evaluate(Float(0.5))       // 0.2176…
+try curve.reversed().evaluate(0.2176)  // ≈ 0.5
+```
+
+Two modules sit underneath: `LittleCMSCore` is the engine (the arithmetic
+and value types, no Foundation, Embedded-clean), and `LCMS2ABI` is the C
+surface.  A Swift program needs neither — `import LittleCMS` re-exports
+the colorimetry types it uses.
+
 ## Building
 
 The Swift library and tests:
@@ -47,6 +84,10 @@ The Swift library and tests:
 swift build
 swift test
 ```
+
+The package builds three modules: `LittleCMS` (the Swift API),
+`LittleCMSCore` (the engine), and `LCMS2ABI` (the C surface, also built
+as a dynamic `lcms2` product for local iteration).
 
 The installable C library (install name, soname, and export list are not
 expressible in SwiftPM, so the shipping artifact comes from CMake):

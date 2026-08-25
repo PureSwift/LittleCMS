@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // The interpolation parameters, and the function pointers a client
 // invokes through them.

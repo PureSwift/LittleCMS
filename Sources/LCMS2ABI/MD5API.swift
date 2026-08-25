@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 /// The engine's MD5 state behind a `cmsHANDLE`.
 final class MD5Box: HandleBox {

@@ -1,6 +1,6 @@
 import Testing
 
-@testable import LittleCMS
+@testable import LittleCMSCore
 
 // The header arithmetic, pinned directly rather than only through the C
 // API — these are the pieces the Embedded build also compiles, where no

@@ -1,4 +1,4 @@
-import LittleCMS
+import LittleCMSCore
 import Testing
 
 /// The behaviour the conformance suite cannot measure, because the

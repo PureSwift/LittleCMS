@@ -47,14 +47,23 @@ let package = Package(
         // ABI cannot drift from what clients were compiled against.
         .target(
             name: "LCMS2ABI",
-            dependencies: ["CLCMS2", "LittleCMS"],
+            dependencies: ["CLCMS2", "LittleCMSCore"],
             path: "Sources/LCMS2ABI"
         ),
 
-        // The engine, and the Swift API: profiles, tags, curves, pipelines,
-        // transforms.  No Foundation, and no knowledge of the C API.
+        // The engine: the arithmetic and value types everything above is
+        // built on.  No Foundation, and no knowledge of the C API.
+        .target(
+            name: "LittleCMSCore",
+            path: "Sources/LittleCMSCore"
+        ),
+
+        // The Swift API: profiles, tone curves, transforms as Swift types
+        // with typed errors, layered over the same machinery the C surface
+        // exports.
         .target(
             name: "LittleCMS",
+            dependencies: ["LittleCMSCore", "LCMS2ABI"],
             path: "Sources/LittleCMS"
         ),
 
@@ -66,9 +75,16 @@ let package = Package(
         // variadics are C, and one of them walks a pipeline through the
         // exported accessors, which the boundary defines.  Linking the C
         // floor without the boundary leaves those undefined.
+        // Exercises the public Swift API alone, as a client would.
+        .testTarget(
+            name: "LittleCMSAPITests",
+            dependencies: ["LittleCMS"],
+            path: "Tests/LittleCMSAPITests"
+        ),
+
         .testTarget(
             name: "LittleCMSTests",
-            dependencies: ["LittleCMS", "CLCMS2", "LCMS2ABI"],
+            dependencies: ["LittleCMS", "LittleCMSCore", "CLCMS2", "LCMS2ABI"],
             path: "Tests/LittleCMSTests"
         ),
     ],

@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 import Testing
 
 /// The engine mirrors several C layouts that the plugin header publishes,

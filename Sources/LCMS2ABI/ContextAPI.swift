@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 /// The engine context behind a `cmsContext`.
 final class ContextBox: HandleBox {

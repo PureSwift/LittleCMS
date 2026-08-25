@@ -1,4 +1,4 @@
-import LittleCMS
+import LittleCMSCore
 import Testing
 
 /// The parametric evaluator, against values the reference actually

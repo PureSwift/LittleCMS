@@ -1,5 +1,5 @@
 import CLCMS2
-import LittleCMS
+import LittleCMSCore
 
 // Reading and writing the fields an ICC profile is made of.
 //
